@@ -17,6 +17,8 @@ import java.util.*;
 @Service
 @Profile({"local","commerce"})
 public class CommerceWarehouseAllocationService {
+    /** One invariant, one message: no stock movement may leave a warehouse short of the orders committed to it. */
+    public static final String ENCROACH_MESSAGE="指定仓库出库或冲销将侵占商城订单仓占用";
     private final DataSource source;
     private final JdbcTemplate jdbc;
     public CommerceWarehouseAllocationService(DataSource source) {this.source=source;this.jdbc=new JdbcTemplate(source);}
@@ -106,6 +108,54 @@ public class CommerceWarehouseAllocationService {
         require(remaining==0,"释放数量超过订单仓占用",409);
     }
 
+    /**
+     * Re-pins unshipped commitments after a stock move that only changed warehouses, so goods and order
+     * commitments travel together. Capacities are this change's post-move room per warehouse; warehouses
+     * receiving the goods are the preferred destinations. Warehouses this change does not touch keep their
+     * commitments unless they hold spare room. Fails when no warehouse can absorb what no longer fits.
+     */
+    public void followMove(long product, Map<Long,Long> capacityAfter, SortedSet<Long> incoming) {
+        transaction();
+        SortedSet<Long> candidates=new TreeSet<>(capacityAfter.keySet());
+        candidates.addAll(jdbc.queryForList("SELECT DISTINCT warehouse_id FROM commerce_warehouse_allocation WHERE product_id=?",Long.class,product));
+        Map<Long,Long> shortage=new TreeMap<>(),spare=new TreeMap<>();
+        for(Long warehouse:candidates) {
+            long room=(capacityAfter.containsKey(warehouse)?capacityAfter.get(warehouse):capacity(product,warehouse))-pending(product,warehouse);
+            if(room<0&&capacityAfter.containsKey(warehouse)) shortage.put(warehouse,-room);
+            else if(room>0) spare.put(warehouse,room);
+        }
+        if(shortage.isEmpty()) return;
+        long room=0;for(long value:spare.values())room=Math.addExact(room,value);
+        long needed=0;for(long value:shortage.values())needed=Math.addExact(needed,value);
+        require(room>=needed,ENCROACH_MESSAGE,409);
+        List<Long> targets=new ArrayList<>(spare.keySet());
+        targets.sort(Comparator.comparingLong((Long warehouse)->incoming.contains(warehouse)?0:1).thenComparingLong(Long::longValue));
+        for(Map.Entry<Long,Long> deficit:shortage.entrySet()) {
+            long need=deficit.getValue();
+            for(Long target:targets) {
+                long take=Math.min(need,spare.get(target));if(take==0)continue;
+                move(product,deficit.getKey(),target,take);
+                spare.put(target,spare.get(target)-take);need-=take;if(need==0)break;
+            }
+            require(need==0,ENCROACH_MESSAGE,409);
+        }
+    }
+
+    /** Moves unshipped commitment off one warehouse onto another, oldest order first. Caller holds the product lock. */
+    private void move(long product,long from,long to,long quantity) {
+        long remaining=quantity;
+        String event="REBALANCE:"+UUID.randomUUID().toString().replace("-","");
+        for(Map<String,Object> row:jdbc.queryForList("SELECT order_id,quantity,shipped,released FROM commerce_warehouse_allocation WHERE product_id=? AND warehouse_id=? ORDER BY order_id",product,from)) {
+            long take=Math.min(remaining,num(row.get("quantity"))-num(row.get("shipped"))-num(row.get("released")));if(take<=0)continue;
+            String order=String.valueOf(row.get("order_id"));
+            jdbc.update("UPDATE commerce_warehouse_allocation SET quantity=quantity-?,updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND product_id=? AND warehouse_id=?",take,order,product,from);
+            jdbc.update("INSERT INTO commerce_warehouse_allocation(order_id,product_id,warehouse_id,quantity,created_at,updated_at) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE quantity=quantity+VALUES(quantity),updated_at=CURRENT_TIMESTAMP",order,product,to,take);
+            jdbc.update("INSERT INTO commerce_warehouse_allocation_event(event_key,order_id,product_id,warehouse_id,event_type,quantity,created_at) VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)",event+":"+order,order,product,to,"REBALANCE",take);
+            remaining-=take;if(remaining==0)break;
+        }
+        require(remaining==0,ENCROACH_MESSAGE,409);
+    }
+
     @Transactional(readOnly=true)
     public List<Map<String,Object>> allocations(String order) {
         require(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_order WHERE order_id=? AND shop_id=?",Long.class,order,CommerceShopContext.id())==1,"订单不存在",404);
@@ -133,6 +183,7 @@ public class CommerceWarehouseAllocationService {
         return jdbc.queryForObject("SELECT COALESCE(SUM(quantity-shipped-released),0) FROM commerce_warehouse_allocation WHERE product_id=? AND warehouse_id=?",Long.class,product,warehouse);
     }
     private long unavailable(long product,long warehouse) {return jdbc.queryForObject("SELECT COALESCE(SUM(quality_hold+damaged),0) FROM commerce_warehouse_condition WHERE product_id=? AND warehouse_id=?",Long.class,product,warehouse);}
+    private long capacity(long product,long warehouse) {return jdbc.queryForObject("SELECT COALESCE(SUM(plan_quantity),0) FROM inventory_product WHERE product_id=? AND warehouse_id=?",Long.class,product,warehouse)-unavailable(product,warehouse);}
     private List<Map<String,Object>> events(String order,long product,String event,String type) {return jdbc.queryForList("SELECT warehouse_id,quantity,event_type FROM commerce_warehouse_allocation_event WHERE event_key=? AND order_id=? AND product_id=? AND event_type=? ORDER BY warehouse_id",event,order,product,type);}
     private void record(String order,long product,long warehouse,String event,String type,long quantity) {jdbc.update("INSERT INTO commerce_warehouse_allocation_event(event_key,order_id,product_id,warehouse_id,event_type,quantity,created_at) VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)",event,order,product,warehouse,type,quantity);}
     private static long num(Object value) {return value==null?0:((Number)value).longValue();}

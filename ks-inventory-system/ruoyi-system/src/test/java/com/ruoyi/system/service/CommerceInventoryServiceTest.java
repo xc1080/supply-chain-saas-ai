@@ -24,6 +24,7 @@ import static org.junit.Assert.*;
 /** SQL transactions, retained histories, cross-campaign allocations and contention. */
 public class CommerceInventoryServiceTest {
     private CommerceInventoryService service;
+    private CommerceWarehouseAllocationService allocations;
     private JdbcTemplate jdbc;
     private TransactionTemplate tx;
 
@@ -40,6 +41,7 @@ public class CommerceInventoryServiceTest {
         jdbc.update("INSERT INTO product VALUES (1,10),(2,5)");
         jdbc.update("INSERT INTO inventory_product(inventory_id,product_id,plan_quantity) VALUES (1,1,7),(2,1,3),(3,2,5)");
         service = new CommerceInventoryService(source);
+        allocations = new CommerceWarehouseAllocationService(source);
         tx = new TransactionTemplate(new DataSourceTransactionManager(source));
         tx.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
@@ -51,7 +53,8 @@ public class CommerceInventoryServiceTest {
     }
     private <T> T transaction(Supplier<T> work) { return tx.execute(status -> work.get()); }
     private void work(Runnable work) { transaction(() -> { work.run(); return null; }); }
-    private void ensure() { work(() -> service.ensureStock(1)); }
+    /** Bootstrapping is two steps in this order: the stock snapshot, then the allocation backfill migration 9 runs. */
+    private void ensure() { work(() -> { service.ensureStock(1); allocations.allocateExisting(); }); }
     private long stock(String key) { return ((Number) service.balances(1).get(key)).longValue(); }
     private long count(String table) { return jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Long.class); }
     private void physical(long delta) {
