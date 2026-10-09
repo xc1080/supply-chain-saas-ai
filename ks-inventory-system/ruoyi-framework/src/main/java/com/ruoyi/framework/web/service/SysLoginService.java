@@ -29,6 +29,7 @@ import com.ruoyi.framework.manager.factory.AsyncFactory;
 import com.ruoyi.framework.security.context.AuthenticationContextHolder;
 import com.ruoyi.system.service.ISysConfigService;
 import com.ruoyi.system.service.ISysUserService;
+import com.ruoyi.common.core.tenant.TenantContext;
 
 /**
  * 登录校验方法
@@ -86,7 +87,9 @@ public class SysLoginService {
         }
         AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success")));
         LoginUser loginUser = (LoginUser) authentication.getPrincipal();
-        recordLoginInfo(loginUser.getUserId());
+        String previousTenant=TenantContext.get();
+        try { TenantContext.set(loginUser.getTenantId());recordLoginInfo(loginUser.getUserId()); }
+        finally { TenantContext.set(previousTenant); }
         // 生成token
         return tokenService.createToken(loginUser);
     }

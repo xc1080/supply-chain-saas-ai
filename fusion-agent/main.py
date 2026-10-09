@@ -37,6 +37,7 @@ class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     message: str = Field(min_length=1, max_length=1000)
     history: list[HistoryMessage] = Field(default_factory=list, max_length=6)
+    shopId: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,32}$")
 
 
 class ChatState(TypedDict, total=False):
@@ -524,48 +525,95 @@ async def answer(state: ChatState) -> dict:
     return {"answer": fallback, "citations": [source["id"] for source in sources], "sources": sources, "trace": trace, "mode": mode}
 
 
-async def agent_identity(authorization):
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        response = await client.get(JAVA_URL + "/commerce/context", headers={"Authorization":authorization})
-        data = response.json()
-    if data.get("code") != 200: raise HTTPException(403,"当前登录无权访问租户助手")
-    return data["data"]
-
-async def workspace_catalog(state):
-    result = await fetch_data(state)
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        response = await client.get(JAVA_URL + "/commerce/inventory",headers={"Authorization":state["authorization"]})
-        data = response.json()
-    if data.get("code") != 200: raise HTTPException(502,"无法核对可售库存")
-    stock = {str(item["productId"]):item for item in data["data"]}
-    result["catalog"] = [{**p,"stock":float(stock[p["id"]]["availableStock"]),"stock_kind":"可售库存"} for p in result["catalog"] if p["id"] in stock]
-    return result
-
-async def planning_authority(state, method, path, *, body=None):
-    """Authenticated read-only calls; authority failure has no local fallback."""
-    authorization = state.get("authorization")
-    if not authorization:
+async def authority_data(authorization, method, path, *, shop=None, body=None):
+    """All workspace facts use the human user's live Commerce authority."""
+    if not authorization or not re.fullmatch(r"Bearer\s+\S+", authorization, re.I):
         raise HTTPException(401, "请先登录业务系统")
     headers = {"Authorization": authorization}
-    shop = (state.get("context") or {}).get("shopId")
-    if shop:
+    if shop is not None:
         if not isinstance(shop, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", shop):
             raise HTTPException(422, "店铺标识不合法")
         headers["X-Shop-ID"] = shop
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
             response = await client.request(method, JAVA_URL + path, headers=headers, json=body)
-            response.raise_for_status()
             data = response.json()
-        if data.get("code") in (401, 403, 404, 409, 422):
-            raise HTTPException(data["code"], "当前业务规划查询未获授权或参数不满足条件")
-        if data.get("code") != 200 or not isinstance(data.get("data"), dict):
-            raise HTTPException(502, "业务规划数据不可用")
+        code = data.get("code", response.status_code)
+        if response.status_code in (401, 403, 404, 409, 422, 429, 503):
+            code = response.status_code
+        if code in (401, 403, 404, 409, 422, 429, 503):
+            raise HTTPException(code, "当前业务查询未获授权或不满足业务条件")
+        response.raise_for_status()
+        if code != 200 or "data" not in data:
+            raise HTTPException(502, "业务数据不可用")
         return data["data"]
     except HTTPException:
         raise
-    except (httpx.HTTPError, ValueError, TypeError):
-        raise HTTPException(502, "无法读取业务规划数据；未生成虚构报价或库存") from None
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
+        raise HTTPException(502, "无法读取业务数据；未使用过期数据或跨权限回退") from None
+
+
+async def agent_identity(authorization):
+    identity = await authority_data(authorization, "GET", "/commerce/context")
+    if not isinstance(identity, dict) or not identity.get("tenantId") or identity.get("userId") is None:
+        raise HTTPException(502, "业务身份数据不可用")
+    return identity
+
+
+async def workspace_identity(authorization, shop=None):
+    identity = await agent_identity(authorization)
+    shops = await authority_data(authorization, "GET", "/commerce/shops")
+    if not isinstance(shops, list):
+        raise HTTPException(502, "店铺授权数据不可用")
+    readable = [row for row in shops if isinstance(row, dict) and row.get("status") == "ENABLED"
+                and isinstance(row.get("capabilities"), list) and "READ" in row["capabilities"]]
+    if shop is None:
+        if len(readable) != 1:
+            raise HTTPException(422 if readable else 403, "请选择当前有查询权限的店铺")
+        shop = readable[0].get("shopId")
+    if not isinstance(shop, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", shop):
+        raise HTTPException(422, "店铺标识不合法")
+    if not any(row.get("shopId") == shop for row in readable):
+        raise HTTPException(403, "当前账号没有该店铺的查询权限")
+    return {**identity, "shopId": shop}
+
+async def workspace_catalog(state):
+    shop = (state.get("context") or {}).get("shopId")
+    if not shop:
+        raise HTTPException(422, "请先选择店铺")
+    rows = await authority_data(state.get("authorization"), "GET", "/commerce/inventory", shop=shop)
+    if not isinstance(rows, list):
+        raise HTTPException(502, "可售库存数据格式不正确")
+    catalog = []
+    try:
+        for item in rows:
+            if item.get("shopId") != shop:
+                raise HTTPException(502, "库存查询返回了其他店铺的数据")
+            if str(item.get("productStatus")) != "0" or item.get("snapshotReady") is not True:
+                continue
+            catalog.append({"id": str(item["productId"]), "code": item["productCode"],
+                "name": item["productName"], "spec": str(item.get("spec") or ""),
+                "price": float(item["price"]) if item.get("price") is not None else None,
+                "category": str(item.get("categoryName") or "智能家居"),
+                "remark": str(item.get("description") or ""), "stock": float(item["availableStock"]),
+                "stock_kind": "可售库存", "profile": profile_for(item["productCode"])})
+    except (ValueError, KeyError, TypeError, AttributeError):
+        raise HTTPException(502, "商品或库存业务数据格式不正确") from None
+    return {"catalog": catalog, "trace": [{"step": "fetch_data", "status": "ok",
+            "detail": f"按当前店铺及员工查询权限读取 {len(catalog)} 个正常货品；库存来自已提交的可售快照。"}]}
+
+async def planning_authority(state, method, path, *, body=None):
+    """Authenticated read-only calls; authority failure has no local fallback."""
+    authorization = state.get("authorization")
+    if not authorization:
+        raise HTTPException(401, "请先登录业务系统")
+    shop = (state.get("context") or {}).get("shopId")
+    if (state.get("context") or {}).get("channel") == "workspace" and not shop:
+        raise HTTPException(422, "请先选择店铺")
+    result = await authority_data(authorization, method, path, shop=shop, body=body)
+    if not isinstance(result, dict):
+        raise HTTPException(502, "业务规划数据不可用")
+    return result
 
 
 async def consumer_quote(state, items, units):
@@ -602,7 +650,11 @@ graph = builder.compile()
 @app.get("/health")
 async def health():
     dependencies = await dependency_health()
-    return {"status": "ok" if dependencies['redis_ai_admission']=='ok' else "degraded", "dependencies": dependencies,
+    cleanup = {"agentRuns": agent_maintenance.snapshot(), "storeMessages": store_router.maintenance.snapshot()}
+    cleanup_failed = any(row["lastFailure"] is not None and (
+        row["lastSuccess"] is None or row["lastFailure"] > row["lastSuccess"]) for row in cleanup.values())
+    return {"status": "ok" if dependencies['redis_ai_admission']=='ok' and not cleanup_failed else "degraded", "dependencies": dependencies,
+            "maintenance": cleanup,
             "java_url": JAVA_URL, "llm_configured": bool(llm_key()), "embedding_configured": bool(embedding_key()), "flow": ["plan", "read_only_tools", "verify", "answer"], "retrieval": "hybrid" if embedding_key() else "local", "writes": False}
 
 
@@ -614,9 +666,9 @@ async def chat(request: ChatRequest, authorization: str | None = Header(None)):
     if not message:
         raise HTTPException(422, "消息不能为空")
     from planner import run_agent, AgentExecutionError
-    identity = await agent_identity(authorization)
+    identity = await workspace_identity(authorization, request.shopId)
     try:
-        result = await run_agent(sys.modules[__name__], {"message":message,"history":[item.model_dump() for item in request.history],"authorization":authorization,"trace":[],"context":{"channel":"workspace"}}, identity["tenantId"], "workspace:"+str(identity["userId"]), workspace_catalog)
+        result = await run_agent(sys.modules[__name__], {"message":message,"history":[item.model_dump() for item in request.history],"authorization":authorization,"trace":[],"context":{"channel":"workspace","shopId":identity["shopId"]}}, identity["tenantId"], "workspace:"+str(identity["userId"]), workspace_catalog)
     except AgentExecutionError as error:
         raise HTTPException(503, {"message":"任务暂未完成，可重试已保存的执行记录", "runId":error.run_id}) from None
     return agent_response(result)
@@ -628,30 +680,48 @@ import sys
 from fastapi.staticfiles import StaticFiles
 from store_api import build_store_router
 
-app.include_router(build_store_router(sys.modules[__name__]))
+store_router = build_store_router(sys.modules[__name__])
+app.include_router(store_router)
 from planner import recover
 app.router.add_event_handler("startup", recover)
+from maintenance import PeriodicMaintenance
+agent_maintenance = PeriodicMaintenance(recover, name="agent_runs")
+app.router.add_event_handler("startup", agent_maintenance.start)
+app.router.add_event_handler("shutdown", agent_maintenance.close)
 app.mount("/media/demo", StaticFiles(directory=Path(__file__).parent / "media"), name="demo-media")
 
 
 @app.get("/agent/runs/{run_id}")
-async def inspect_agent(run_id: str, authorization: str | None = Header(None)):
+async def inspect_agent(run_id: str, authorization: str | None = Header(None), x_shop_id: str | None = Header(None)):
     if not authorization: raise HTTPException(401,"请先登录")
     from planner import inspect_run, owner_key
     identity = await agent_identity(authorization)
     row = inspect_run(run_id,identity["tenantId"],owner_key("workspace:"+str(identity["userId"])))
     saved = json.loads(row["state"])
+    await authorize_saved_workspace(authorization, saved, x_shop_id)
     return {"runId":run_id,"status":row["status"],"version":row["version"],"trace":saved.get("trace",[])}
 
 @app.post("/agent/runs/{run_id}/resume")
-async def resume_agent(run_id: str, authorization: str | None = Header(None)):
+async def resume_agent(run_id: str, authorization: str | None = Header(None), x_shop_id: str | None = Header(None)):
     if not authorization: raise HTTPException(401,"请先登录")
     from planner import run_agent, inspect_run, owner_key, AgentExecutionError
     identity = await agent_identity(authorization)
     owner = "workspace:"+str(identity["userId"])
     row = inspect_run(run_id,identity["tenantId"],owner_key(owner))
     saved = json.loads(row["state"])
+    await authorize_saved_workspace(authorization, saved, x_shop_id)
     try:
         result = await run_agent(sys.modules[__name__],{**saved,"authorization":authorization},identity["tenantId"],owner,workspace_catalog,run_id=run_id)
     except AgentExecutionError as error: raise HTTPException(503,{"message":"任务恢复未完成","runId":error.run_id}) from None
     return agent_response(result)
+
+
+async def authorize_saved_workspace(authorization, saved, requested_shop):
+    context = saved.get("context") or {}
+    shop = context.get("shopId")
+    # Old unscoped records cannot silently adopt whichever shop is selected now.
+    if context.get("channel") != "workspace" or not shop:
+        raise HTTPException(409, "旧任务没有店铺归属，请在当前店铺发起新任务")
+    if requested_shop is not None and requested_shop != shop:
+        raise HTTPException(409, "该任务属于其他店铺，请切回原店铺后恢复")
+    return await workspace_identity(authorization, shop)

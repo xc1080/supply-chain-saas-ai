@@ -4,9 +4,9 @@
       <div>
         <h1>智能选品助手</h1>
       </div>
-      <div class="query-scope" aria-label="支持查询商品、库存和知识库">
-        <span>商品</span><span>库存</span><span>知识库</span>
-      </div>
+      <el-select v-model="shopId" aria-label="助手当前店铺" placeholder="选择店铺" :loading="shopsLoading" :disabled="loading || shopsLoading" @change="changeShop">
+        <el-option v-for="shop in shops" :key="shop.shopId" :label="shop.shopName" :value="shop.shopId" />
+      </el-select>
     </header>
 
     <div class="assistant-workspace">
@@ -105,7 +105,7 @@
             resize="none"
             maxlength="1000"
             show-word-limit
-            :disabled="loading"
+            :disabled="loading || !shopId"
             placeholder="例如：卧室用，预算 300 元以内，已有 Zigbee 网关…"
             aria-label="输入选品或库存问题"
             :aria-invalid="Boolean(errorMessage)"
@@ -115,7 +115,7 @@
           />
           <div class="composer-footer">
             <span>Ctrl / ⌘ + Enter 发送</span>
-            <el-button type="primary" native-type="submit" :loading="loading" :disabled="!draft.trim() || loading">{{ loading ? '查询中…' : '发送问题' }}</el-button>
+            <el-button type="primary" native-type="submit" :loading="loading" :disabled="!draft.trim() || loading || !shopId">{{ loading ? '查询中…' : '发送问题' }}</el-button>
           </div>
         </form>
       </section>
@@ -124,7 +124,7 @@
         <section class="selection-guide">
           <h2 id="selection-heading">快捷提问</h2>
           <div class="suggested-prompts">
-            <button v-for="(question, index) in questions" :key="question" type="button" :disabled="loading" @click="sendMessage(question)">
+            <button v-for="(question, index) in questions" :key="question" type="button" :disabled="loading || !shopId" @click="sendMessage(question)">
               <span class="prompt-topic">{{ questionTopics[index] }}</span><span class="prompt-question">{{ question }}</span>
             </button>
           </div>
@@ -140,8 +140,9 @@
 </template>
 
 <script setup>
-import { nextTick, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import { chatWithAssistant } from '@/api/ai/assistant'
+import { getCommerceShop, listCommerceShops, setCommerceShop } from '@/api/commerce/orders'
 import { getProductImage, handleProductImageError } from '@/utils/productMedia'
 
 const questions = ['卧室 300 元以内的智能灯怎么选？', '我有 Zigbee 网关，适合选哪些传感器？', '缺货能直接出库吗？']
@@ -153,7 +154,27 @@ const loading = ref(false)
 const errorMessage = ref('')
 const messages = ref([])
 const conversationEl = ref(null)
+const shops = ref([])
+const shopId = ref('')
+const shopsLoading = ref(false)
 let messageId = 0
+
+onMounted(async () => {
+  shopsLoading.value = true
+  try {
+    const response = await listCommerceShops()
+    shops.value = (Array.isArray(response.data) ? response.data : []).filter(shop =>
+      shop.status === 'ENABLED' && Array.isArray(shop.capabilities) && shop.capabilities.includes('READ'))
+    const currentShop = getCommerceShop()
+    shopId.value = shops.value.find(shop => shop.shopId === currentShop)?.shopId || shops.value[0]?.shopId || ''
+    if (shopId.value) setCommerceShop(shopId.value)
+    if (!shopId.value) errorMessage.value = '当前账号没有可查询的店铺，请联系店铺负责人。'
+  } catch (error) {
+    errorMessage.value = error?.message || '店铺权限读取失败，请刷新重试。'
+  } finally {
+    shopsLoading.value = false
+  }
+})
 
 function isLlmEnabled(value) {
   return value === true || ['enabled', 'online', 'configured', 'llm', 'openai'].includes(String(value).toLowerCase())
@@ -230,9 +251,15 @@ function clearConversation() {
   draft.value = ''
 }
 
+function changeShop() {
+  setCommerceShop(shopId.value)
+  clearConversation()
+}
+
 async function sendMessage(suggestedQuestion) {
   const content = typeof suggestedQuestion === 'string' ? suggestedQuestion.trim() : draft.value.trim()
-  if (!content || loading.value) return
+  if (!content || loading.value || !shopId.value) return
+  const requestShop = shopId.value
   const history = messages.value.slice(-6).map(message => ({ role: message.role, content: message.content.slice(0, 1000) }))
   loading.value = true
   errorMessage.value = ''
@@ -241,7 +268,8 @@ async function sendMessage(suggestedQuestion) {
   scrollToLatest()
 
   try {
-    const result = await chatWithAssistant(content, history)
+    const result = await chatWithAssistant(content, history, requestShop)
+    if (requestShop !== shopId.value) return
     messages.value.push({
       id: ++messageId,
       role: 'assistant',
@@ -253,6 +281,7 @@ async function sendMessage(suggestedQuestion) {
       mode: result.mode || null
     })
   } catch (error) {
+    if (requestShop !== shopId.value) return
     messages.value.pop()
     draft.value = content
     const status = error.response?.status

@@ -9,6 +9,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.ip.AddressUtils;
 import com.ruoyi.common.utils.ip.IpUtils;
 import com.ruoyi.common.utils.uuid.IdUtils;
+import com.ruoyi.common.exception.ServiceException;
 import eu.bitwalker.useragentutils.UserAgent;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -47,6 +48,9 @@ public class TokenService {
     @Autowired
     private RedisCache redisCache;
 
+    @Autowired
+    private AccountSessionGuard accountSessions;
+
     /**
      * 获取用户身份信息
      *
@@ -61,8 +65,9 @@ public class TokenService {
                 // 解析对应的权限以及用户信息
                 String uuid = (String) claims.get(Constants.LOGIN_USER_KEY);
                 String userKey = getTokenKey(uuid);
-                LoginUser user = redisCache.getCacheObject(userKey);
-                return user;
+                return currentUser(userKey);
+            } catch (ServiceException e) {
+                throw e;
             } catch (Exception e) {
                 log.error("获取用户信息异常'{}'", e.getMessage());
             }
@@ -85,12 +90,22 @@ public class TokenService {
                 // 解析对应的权限以及用户信息
                 String uuid = (String) claims.get(Constants.LOGIN_USER_KEY);
                 String userKey = getTokenKey(uuid);
-                LoginUser user = redisCache.getCacheObject(userKey);
-                return user;
+                return currentUser(userKey);
+            } catch (ServiceException e) {
+                throw e;
             } catch (Exception e) {
             }
         }
         return null;
+    }
+
+    private LoginUser currentUser(String userKey) {
+        LoginUser user = redisCache.getCacheObject(userKey);
+        if(user!=null&&!accountSessions.current(user)) {
+            redisCache.deleteObject(userKey);
+            return null;
+        }
+        return user;
     }
 
     /**

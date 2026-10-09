@@ -49,6 +49,10 @@ public class CommercePlanningService {
                 jdbc.update("INSERT INTO commerce_supply_line(draft_id,product_id,shop_id,quantity,state) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE draft_id=VALUES(draft_id)",draft.get("draft_id"),n(line.get("productId")),draft.get("shop_id"),n(line.get("quantity")),draft.get("status"));
             }
     }
+    public void initializeSupplyExceptionsSchema() {
+        ResourceDatabasePopulator script=new ResourceDatabasePopulator(new ClassPathResource("db/commerce-supply-exceptions.sql"));
+        script.setSqlScriptEncoding("UTF-8");script.execute(source);
+    }
 
     /** A public listed catalog quote: no supplier, cost, contacts or warehouse secrets. Never ensureStock here. */
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
@@ -93,20 +97,24 @@ public class CommercePlanningService {
             long available=Math.max(0,onHand-reserved-activity-unavailable),lower=n(p.get("lower_limit")),target=Math.max(lower,n(p.get("upper_limit")));
             Object leadValue=p.get("supplier_lead_days");boolean leadKnown=leadValue!=null;
             int lead=leadKnown?(int)n(leadValue):0;
-            long incoming=jdbc.queryForObject("SELECT COALESCE(SUM(quantity-received_quantity),0) FROM commerce_incoming WHERE shop_id=? AND product_id=? AND status='CONFIRMED'",Long.class,shop(),id);
-            long due=leadKnown?jdbc.queryForObject("SELECT COALESCE(SUM(quantity-received_quantity),0) FROM commerce_incoming WHERE shop_id=? AND product_id=? AND status='CONFIRMED' AND expected_at>=CURRENT_TIMESTAMP AND expected_at<=?",Long.class,shop(),id,Timestamp.valueOf(LocalDateTime.now().plusDays(lead))):0;
-            long overdue=jdbc.queryForObject("SELECT COALESCE(SUM(quantity-received_quantity),0) FROM commerce_incoming WHERE shop_id=? AND product_id=? AND status='CONFIRMED' AND expected_at<CURRENT_TIMESTAMP",Long.class,shop(),id);
+            long incoming=jdbc.queryForObject("SELECT COALESCE(SUM(i.quantity-i.received_quantity-COALESCE(r.cancelled_quantity,0)),0) FROM commerce_incoming i LEFT JOIN commerce_incoming_resolution r ON r.incoming_id=i.incoming_id WHERE i.shop_id=? AND i.product_id=? AND i.status='CONFIRMED'",Long.class,shop(),id);
+            long due=leadKnown?jdbc.queryForObject("SELECT COALESCE(SUM(i.quantity-i.received_quantity-COALESCE(r.cancelled_quantity,0)),0) FROM commerce_incoming i LEFT JOIN commerce_incoming_resolution r ON r.incoming_id=i.incoming_id WHERE i.shop_id=? AND i.product_id=? AND i.status='CONFIRMED' AND i.expected_at>=CURRENT_TIMESTAMP AND i.expected_at<=?",Long.class,shop(),id,Timestamp.valueOf(LocalDateTime.now().plusDays(lead))):0;
+            long overdue=jdbc.queryForObject("SELECT COALESCE(SUM(i.quantity-i.received_quantity-COALESCE(r.cancelled_quantity,0)),0) FROM commerce_incoming i LEFT JOIN commerce_incoming_resolution r ON r.incoming_id=i.incoming_id WHERE i.shop_id=? AND i.product_id=? AND i.status='CONFIRMED' AND i.expected_at<CURRENT_TIMESTAMP",Long.class,shop(),id);
             long sales=Math.max(0,jdbc.queryForObject("SELECT COALESCE(SUM(CASE WHEN event_type='DISPATCH' THEN event_quantity WHEN event_type='RETURN_ACCEPT' THEN -event_quantity ELSE 0 END),0) FROM commerce_stock_ledger WHERE product_id=? AND created_at>=?",Long.class,id,Timestamp.valueOf(LocalDateTime.now().minusDays(7))));
-            long linkedDue=leadKnown?jdbc.queryForObject("SELECT COALESCE(SUM(i.quantity-i.received_quantity),0) FROM commerce_incoming i JOIN commerce_supply_line l ON l.incoming_id=i.incoming_id WHERE i.shop_id=? AND i.product_id=? AND i.status='CONFIRMED' AND i.expected_at>=CURRENT_TIMESTAMP AND i.expected_at<=?",Long.class,shop(),id,Timestamp.valueOf(LocalDateTime.now().plusDays(lead))):0;
-            long committed=jdbc.queryForObject("SELECT COALESCE(SUM(CASE WHEN l.state IN('PENDING_APPROVAL','APPROVED') THEN l.quantity WHEN l.state='EXECUTED' THEN GREATEST(0,l.quantity-COALESCE(i.received_quantity,0)) ELSE 0 END),0) FROM commerce_supply_line l LEFT JOIN commerce_incoming i ON i.incoming_id=l.incoming_id WHERE l.shop_id=? AND l.product_id=? AND (? IS NULL OR l.draft_id<>?)",Long.class,shop(),id,excludeDraft,excludeDraft);
-            long demand=leadKnown?(long)Math.ceil(sales*lead/7.0):0,projected=available+due-linkedDue-demand;
+            long committed=jdbc.queryForObject("SELECT COALESCE(SUM(CASE WHEN l.state IN('PENDING_APPROVAL','APPROVED') THEN l.quantity WHEN l.state='EXECUTED' THEN GREATEST(0,l.quantity-COALESCE(i.received_quantity,0)-COALESCE(r.cancelled_quantity,0)) ELSE 0 END),0) FROM commerce_supply_line l LEFT JOIN commerce_incoming i ON i.incoming_id=l.incoming_id LEFT JOIN commerce_incoming_resolution r ON r.incoming_id=l.incoming_id WHERE l.shop_id=? AND l.product_id=? AND (? IS NULL OR l.draft_id<>?)",Long.class,shop(),id,excludeDraft,excludeDraft);
+            long unlinkedCommitment=jdbc.queryForObject("SELECT COALESCE(SUM(i.quantity-i.received_quantity-COALESCE(r.cancelled_quantity,0)),0) FROM commerce_incoming i LEFT JOIN commerce_supply_line l ON l.incoming_id=i.incoming_id LEFT JOIN commerce_incoming_resolution r ON r.incoming_id=i.incoming_id WHERE i.shop_id=? AND i.product_id=? AND i.status='CONFIRMED' AND l.incoming_id IS NULL",Long.class,shop(),id);
+            committed+=unlinkedCommitment;
+            // A registered batch is already a procurement commitment, whether or
+            // not created from a draft. Count it once, including overdue batches.
+            long demand=leadKnown?(long)Math.ceil(sales*lead/7.0):0,projected=available-demand;
             long rawSuggestion=projected<lower?Math.max(0,target-projected):0,suggestion=Math.max(0,rawSuggestion-committed);
             result.add(map("productId",id,"productCode",p.get("product_code"),"productName",p.get("product_name"),
                 "onHandStock",onHand,"reservedStock",reserved,"activityStock",activity,"unavailableStock",unavailable,"availableStock",available,
                 "incomingStock",incoming,"incomingDueWithinLead",due,"overdueIncoming",overdue,"incomingKnown",false,"incomingCoverage","REGISTERED_ONLY",
                 "salesUnits",sales,"salesWindowDays",7,"salesBasis","NET_DISPATCHED","reorderPoint",lower,"targetStock",target,
-                "supplierLeadDays",leadKnown?lead:null,"leadTimeKnown",leadKnown,"forecastDemand",demand,"projectedStock",projected,"rawSuggestedQuantity",rawSuggestion,"committedSupplyQuantity",committed,"suggestedQuantity",suggestion,
-                "reason",leadKnown?"可售+交期内确认在途-交期预测需求；低于下限时补至目标":"交期未核实，仅按现有可售与补货下限提示缺口；审批前需补查交期"));
+                "supplierLeadDays",leadKnown?lead:null,"leadTimeKnown",leadKnown,"forecastDemand",demand,"projectedStock",projected,"projectedWithDueStock",available+due-demand,"rawSuggestedQuantity",rawSuggestion,"committedSupplyQuantity",committed,"registeredIncomingCommitment",unlinkedCommitment,"suggestedQuantity",suggestion,
+                "supplyRisk",overdue>0?"OVERDUE_COMMITMENT":"NONE", "resolutionRequired",overdue>0,
+                "reason",overdue>0?"存在逾期供货；延期保留采购承诺，独立审批取消剩余后才释放缺口，避免重复采购":leadKnown?"可售减交期预测需求，低于下限时补至目标；再抵扣已有采购承诺，登记在途不重复抵扣":"交期未核实，仅按现有可售与补货下限提示缺口，并抵扣已有采购承诺；审批前需补查交期"));
         }
         List<Map<String,Object>> dispatchPolicies=jdbc.queryForList("SELECT daily_item_capacity AS dailyItemCapacity,dispatch_days AS dispatchDays,actor_id AS actorId,updated_at AS updatedAt FROM commerce_delivery_policy WHERE shop_id=?",shop());
         return map("status","DRAFT","items",result,"dispatchPolicy",dispatchPolicies.isEmpty()?null:dispatchPolicies.get(0),"assumptions",Arrays.asList("销量采用近7日净出库，不能替代完整需求预测", "在途只统计商家登记的确认批次，逾期批次不计入可承诺供给", "备货建议与批准草稿不产生采购付款或库存入账"));
@@ -172,7 +180,7 @@ public class CommercePlanningService {
         LocalDateTime expected;try{expected=LocalDateTime.parse(String.valueOf(body.get("expectedAt")));}catch(Exception ex){throw new ServiceException("预计到货时间格式错误",400);}
         String hash=hash(Arrays.asList(product,warehouse,quantity,reference,expected.toString()));lockShop();merchants.requireProducts(Collections.singleton(product));
         List<Map<String,Object>> old=jdbc.queryForList("SELECT * FROM commerce_incoming WHERE shop_id=? AND request_key=?",shop(),key);
-        if(!old.isEmpty()){require(hash.equals(old.get(0).get("request_hash")),"同一在途请求不能改变批次",409);return incomingView(old.get(0));}
+        if(!old.isEmpty()){require(hash.equals(old.get(0).get("request_hash")),"同一在途请求不能改变批次",409);return incomingView(incomingOwned(String.valueOf(old.get(0).get("incoming_id")),false));}
         require(jdbc.queryForObject("SELECT COUNT(*) FROM warehouse WHERE warehouse_id=?",Long.class,warehouse)>0,"仓库不存在",404);
         String incoming=id("IN");jdbc.update("INSERT INTO commerce_incoming VALUES (?,?,?,?,?,?,?,?,0,?,'CONFIRMED',?,CURRENT_TIMESTAMP)",incoming,shop(),key,hash,product,warehouse,reference,quantity,Timestamp.valueOf(expected),actor);
         return incomingView(jdbc.queryForMap("SELECT * FROM commerce_incoming WHERE incoming_id=?",incoming));
@@ -188,24 +196,96 @@ public class CommercePlanningService {
         jdbc.queryForList("SELECT receipt_id FROM commerce_receipt_lock WHERE receipt_id=? FOR UPDATE",receipt);
         List<Map<String,Object>> linked=jdbc.queryForList("SELECT * FROM commerce_incoming_receipt WHERE receipt_id=? AND product_id=? AND warehouse_id=?",receipt,product,warehouse);
         if(!linked.isEmpty()){require(incoming.equals(linked.get(0).get("incoming_id")),"入库凭证已关联其他批次",409);return incomingView(row);}
+        require("CONFIRMED".equals(row.get("status")),"批次已收完或关闭，不能再关联新的入库凭证",409);
         long quantity=jdbc.queryForObject("SELECT COALESCE(SUM(d.plan_quantity),0) FROM detail_receipt d JOIN head_receipt h ON h.systematic_receipt=d.systematic_receipt WHERE h.systematic_receipt=? AND h.receipt_status='2' AND h.receipt_category='1' AND h.receipt_type='1' AND d.product_id=? AND COALESCE(d.warehousing_id,h.warehousing_ids)=?",Long.class,receipt,product,warehouse);
         require(quantity>0,"找不到该商品、仓库已审核的采购入库凭证",409);
-        require(quantity<=n(row.get("quantity"))-n(row.get("received_quantity")),"入库数量超过该在途批次剩余数量",409);
+        require(quantity<=outstanding(row),"入库数量超过该在途批次剩余数量",409);
         jdbc.update("INSERT INTO commerce_incoming_receipt VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)",receipt,product,warehouse,incoming,quantity,actor);
         long received=n(row.get("received_quantity"))+quantity;
-        jdbc.update("UPDATE commerce_incoming SET received_quantity=?,status=? WHERE incoming_id=?",received,received==n(row.get("quantity"))?"RECEIVED":"CONFIRMED",incoming);
+        jdbc.update("UPDATE commerce_incoming SET received_quantity=?,status=? WHERE incoming_id=?",received,received+n(row.get("cancelled_quantity"))==n(row.get("quantity"))?"RECEIVED":"CONFIRMED",incoming);
         List<Map<String,Object>> supply=jdbc.queryForList("SELECT * FROM commerce_supply_line WHERE incoming_id=?",incoming);
         if(!supply.isEmpty()) {
             String draft=String.valueOf(supply.get(0).get("draft_id"));
-            if(received==n(row.get("quantity")))jdbc.update("UPDATE commerce_supply_line SET state='RECEIVED' WHERE incoming_id=?",incoming);
+            if(received+n(row.get("cancelled_quantity"))==n(row.get("quantity")))jdbc.update("UPDATE commerce_supply_line SET state='RECEIVED' WHERE incoming_id=?",incoming);
             supplyEvent(draft,product,"ERP_RECEIVED",receipt,actor);
-            if(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_supply_line WHERE draft_id=? AND state<>'RECEIVED'",Long.class,draft)==0L)jdbc.update("UPDATE commerce_replenishment_draft SET status='RECEIVED' WHERE draft_id=?",draft);
+            syncDraftClosure(draft);
         }
         return incomingView(incomingOwned(incoming,false));
     }
     public List<Map<String,Object>> incoming(long actor) {
         merchant(actor,CommerceCapability.READ);List<Map<String,Object>> result=new ArrayList<>();
-        for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_incoming WHERE shop_id=? ORDER BY created_at DESC,incoming_id DESC LIMIT 100",shop()))result.add(incomingView(row));return result;
+        for(Map<String,Object> row:jdbc.queryForList("SELECT i.*,COALESCE(r.cancelled_quantity,0) AS cancelled_quantity FROM commerce_incoming i LEFT JOIN commerce_incoming_resolution r ON r.incoming_id=i.incoming_id WHERE i.shop_id=? ORDER BY i.created_at DESC,i.incoming_id DESC LIMIT 100",shop()))result.add(incomingView(row));return result;
+    }
+
+    /** Supplier exceptions are proposals, not automatic replacement purchases. */
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public Map<String,Object> proposeIncomingChange(String incoming,Map<String,Object> body,long actor) {
+        merchant(actor,CommerceCapability.SUPPLY_DRAFT);String request=key(body),action=String.valueOf(body.get("action"));
+        require(Arrays.asList("DELAY","CANCEL_REMAINDER").contains(action),"供货变更类型无效",400);
+        String reason=text(body.get("reason"),160,"变更原因"),reference=text(body.get("sourceReference"),80,"供应商变更依据");
+        LocalDateTime expected=null;
+        if("DELAY".equals(action))expected=parseExpected(body.get("expectedAt"));
+        else require(!body.containsKey("expectedAt"),"取消剩余供货不能改变到货时间",400);
+        String fingerprint=hash(Arrays.asList(incoming,action,expected==null?null:expected.toString(),reason,reference));lockShop();
+        Map<String,Object> row=incomingOwned(incoming,true);
+        List<Map<String,Object>> replay=jdbc.queryForList("SELECT * FROM commerce_incoming_change WHERE shop_id=? AND request_key=?",shop(),request);
+        if(!replay.isEmpty()){
+            require(fingerprint.equals(replay.get(0).get("request_hash"))&&actor==n(replay.get(0).get("actor_id")),"同一供货变更请求不能改变批次、依据或申请人",409);
+            return changeView(replay.get(0));
+        }
+        require("CONFIRMED".equals(row.get("status"))&&outstanding(row)>0,"只有未收完的确认批次可以申请供货变更",409);
+        require(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_incoming_change WHERE shop_id=? AND incoming_id=? AND status='PENDING_APPROVAL'",Long.class,shop(),incoming)==0,"批次已有待审批变更，请先审批或拒绝原申请",409);
+        Map<String,Object> before=incomingFacts(row),after=new LinkedHashMap<>(before);
+        if(expected!=null){
+            require(expected.isAfter(LocalDateTime.now())&&expected.isAfter(timestamp(row.get("expected_at"))),"延期到货时间必须晚于当前承诺且在未来",400);
+            after.put("expectedAt",expected.toString());
+        }else{
+            after.put("cancelledQuantity",n(row.get("cancelled_quantity"))+outstanding(row));after.put("outstandingQuantity",0L);
+            after.put("status",n(row.get("received_quantity"))>0?"PARTIAL_CLOSED":"CANCELLED");
+        }
+        String change=id("SC");
+        jdbc.update("INSERT INTO commerce_incoming_change(change_id,shop_id,incoming_id,action,request_key,request_hash,status,before_hash,before_json,after_json,reason,source_reference,actor_id,created_at) VALUES (?,?,?,?,?,?,'PENDING_APPROVAL',?,?,?,?,?,?,CURRENT_TIMESTAMP)",change,shop(),incoming,action,request,fingerprint,hash(before),JSON.toJSONString(before),JSON.toJSONString(after),reason,reference,actor);
+        return changeView(changeOwned(change,false));
+    }
+
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public Map<String,Object> reviewIncomingChange(String change,Map<String,Object> body,long actor) {
+        merchant(actor,CommerceCapability.SUPPLY_REVIEW);String request=key(body),decision=String.valueOf(body.get("decision")),note=text(body.get("note"),160,"审批意见");
+        require(Arrays.asList("APPROVE","REJECT").contains(decision),"审批决策无效",400);String fingerprint=hash(Arrays.asList(decision,note));lockShop();
+        Map<String,Object> proposal=changeOwned(change,true);
+        require(actor!=n(proposal.get("actor_id")),"申请人不能审批自己的供货变更",403);
+        if(!"PENDING_APPROVAL".equals(proposal.get("status"))){
+            require(request.equals(proposal.get("review_key"))&&fingerprint.equals(proposal.get("review_hash"))&&actor==n(proposal.get("reviewed_by")),"该供货变更已审批，不能改变结论或审批人",409);
+            return changeView(proposal);
+        }
+        String incoming=String.valueOf(proposal.get("incoming_id"));Map<String,Object> row=incomingOwned(incoming,true);
+        if("APPROVE".equals(decision)){
+            require(hash(incomingFacts(row)).equals(proposal.get("before_hash")),"批次收货或承诺已变化，请拒绝原申请后重新提交",409);
+            require("CONFIRMED".equals(row.get("status"))&&outstanding(row)>0,"批次已经收完或关闭",409);
+            Map<String,Object> after=JSON.parseObject(String.valueOf(proposal.get("after_json")));
+            if("DELAY".equals(proposal.get("action"))){
+                LocalDateTime expected=parseExpected(after.get("expectedAt"));
+                require(expected.isAfter(LocalDateTime.now())&&expected.isAfter(timestamp(row.get("expected_at"))),"新的到货时间已过期，请重新申请",409);
+                jdbc.update("UPDATE commerce_incoming SET expected_at=? WHERE incoming_id=?",Timestamp.valueOf(expected),incoming);
+            }else{
+                long cancelled=n(after.get("cancelledQuantity"));
+                require(cancelled==n(row.get("quantity"))-n(row.get("received_quantity")),"不能取消已收货的实物数量",409);
+                jdbc.update("INSERT INTO commerce_incoming_resolution VALUES (?,?,?,?,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE cancelled_quantity=VALUES(cancelled_quantity),actor_id=VALUES(actor_id),updated_at=CURRENT_TIMESTAMP",incoming,shop(),cancelled,actor);
+                jdbc.update("UPDATE commerce_incoming SET status=? WHERE incoming_id=?",after.get("status"),incoming);
+                jdbc.update("UPDATE commerce_supply_line SET state=? WHERE incoming_id=?",after.get("status"),incoming);
+            }
+            for(Map<String,Object> line:jdbc.queryForList("SELECT draft_id,product_id FROM commerce_supply_line WHERE incoming_id=?",incoming)){
+                String draft=String.valueOf(line.get("draft_id"));
+                supplyEvent(draft,n(line.get("product_id")),"DELAY".equals(proposal.get("action"))?"INCOMING_DELAYED":"REMAINDER_CANCELLED",change,actor);syncDraftClosure(draft);
+            }
+        }
+        jdbc.update("UPDATE commerce_incoming_change SET status=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,review_key=?,review_hash=?,review_note=? WHERE change_id=?","APPROVE".equals(decision)?"APPLIED":"REJECTED",actor,request,fingerprint,note,change);
+        return changeView(changeOwned(change,false));
+    }
+
+    public List<Map<String,Object>> incomingChanges(long actor){
+        merchant(actor,CommerceCapability.READ);List<Map<String,Object>> result=new ArrayList<>();
+        for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_incoming_change WHERE shop_id=? ORDER BY created_at DESC,change_id DESC LIMIT 100",shop()))result.add(changeView(row));return result;
     }
 
     @Transactional(isolation=Isolation.READ_COMMITTED)
@@ -271,9 +351,19 @@ public class CommercePlanningService {
         require(jdbc.queryForObject("SELECT COUNT(*) FROM warehouse WHERE warehouse_id=?",Long.class,warehouse)>0,"仓库不存在",404);
         List<Map<String,Object>> lines=jdbc.queryForList("SELECT * FROM commerce_supply_line WHERE draft_id=? ORDER BY product_id FOR UPDATE",draft);
         require(!lines.isEmpty(),"草稿没有可执行的商品行",409);
+        // Approval reserves a procurement gap, but a separately registered
+        // supplier batch or posted receipt can fill that gap before execution.
+        // Validate the entire draft before writing any confirmed batch. Exact
+        // executed-command retries returned above and remain valid after receipt.
+        Map<Long,Long> current=new HashMap<>();
+        for(Object raw:(List<?>)replenishment(actor,draft).get("items")){Map<String,Object> fact=(Map<String,Object>)raw;current.put(n(fact.get("productId")),n(fact.get("suggestedQuantity")));}
         for(Map<String,Object> line:lines){
             long product=n(line.get("product_id")),quantity=n(line.get("quantity"));merchants.requireProducts(Collections.singleton(product));
             require("APPROVED".equals(line.get("state"))&&line.get("incoming_id")==null,"备货商品行已被执行或取消",409);
+            require(current.getOrDefault(product,0L)>=quantity,"当前补货缺口已变化，请撤销原草稿后重新申请",409);
+        }
+        for(Map<String,Object> line:lines){
+            long product=n(line.get("product_id")),quantity=n(line.get("quantity"));
             String incoming=id("IN"),incomingKey="DRAFT:"+draft+":"+product;
             String incomingHash=hash(Arrays.asList(product,warehouse,quantity,reference,expected.toString()));
             jdbc.update("INSERT INTO commerce_incoming VALUES (?,?,?,?,?,?,?,?,0,?,'CONFIRMED',?,CURRENT_TIMESTAMP)",incoming,shop(),incomingKey,incomingHash,product,warehouse,reference,quantity,Timestamp.valueOf(expected),actor);
@@ -294,11 +384,27 @@ public class CommercePlanningService {
         List<Map<String,Object>> rows=jdbc.queryForList("SELECT p.product_id,p.product_name,p.product_code,p.univalence,s.product_id AS stock_id,GREATEST(0,COALESCE(s.on_hand-s.reserved-s.activity_reserved-s.unavailable,0)) AS available_stock FROM product p JOIN commerce_product_shop ps ON ps.product_id=p.product_id JOIN commerce_shop sh ON sh.shop_id=ps.shop_id LEFT JOIN commerce_stock s ON s.product_id=p.product_id WHERE p.product_id=? AND ps.shop_id=? AND ps.listed=1 AND sh.status='ENABLED' AND p.status='0'",id,shop());
         require(!rows.isEmpty(),"商品未在当前店铺上架",404);return rows.get(0);
     }
-    private Map<String,Object> incomingOwned(String id,boolean lock){List<Map<String,Object>> rows=jdbc.queryForList("SELECT * FROM commerce_incoming WHERE incoming_id=? AND shop_id=?"+(lock?" FOR UPDATE":""),id,shop());require(!rows.isEmpty(),"在途批次不存在",404);return rows.get(0);}
+    private Map<String,Object> incomingOwned(String id,boolean lock){List<Map<String,Object>> rows=jdbc.queryForList("SELECT i.*,COALESCE(r.cancelled_quantity,0) AS cancelled_quantity FROM commerce_incoming i LEFT JOIN commerce_incoming_resolution r ON r.incoming_id=i.incoming_id WHERE i.incoming_id=? AND i.shop_id=?"+(lock?" FOR UPDATE":""),id,shop());require(!rows.isEmpty(),"在途批次不存在",404);return rows.get(0);}
     private Map<String,Object> draftOwned(String id,boolean lock){List<Map<String,Object>> rows=jdbc.queryForList("SELECT * FROM commerce_replenishment_draft WHERE draft_id=? AND shop_id=?"+(lock?" FOR UPDATE":""),id,shop());require(!rows.isEmpty(),"备货草稿不存在",404);return rows.get(0);}
-    private Map<String,Object> incomingView(Map<String,Object> r){return map("incomingId",r.get("incoming_id"),"productId",r.get("product_id"),"warehouseId",r.get("warehouse_id"),"sourceReference",r.get("source_reference"),"quantity",r.get("quantity"),"receivedQuantity",r.get("received_quantity"),"expectedAt",r.get("expected_at"),"status",r.get("status"),"actorId",r.get("actor_id"));}
+    private Map<String,Object> changeOwned(String id,boolean lock){List<Map<String,Object>> rows=jdbc.queryForList("SELECT * FROM commerce_incoming_change WHERE change_id=? AND shop_id=?"+(lock?" FOR UPDATE":""),id,shop());require(!rows.isEmpty(),"供货变更申请不存在",404);return rows.get(0);}
+    private Map<String,Object> incomingView(Map<String,Object> r){Map<String,Object> result=incomingFacts(r);result.put("actorId",r.get("actor_id"));result.put("overdue","CONFIRMED".equals(r.get("status"))&&outstanding(r)>0&&timestamp(r.get("expected_at")).isBefore(LocalDateTime.now()));return result;}
+    private Map<String,Object> incomingFacts(Map<String,Object> r){return map("incomingId",r.get("incoming_id"),"productId",r.get("product_id"),"warehouseId",r.get("warehouse_id"),"sourceReference",r.get("source_reference"),"quantity",n(r.get("quantity")),"receivedQuantity",n(r.get("received_quantity")),"cancelledQuantity",n(r.get("cancelled_quantity")),"outstandingQuantity",outstanding(r),"expectedAt",timestamp(r.get("expected_at")).toString(),"status",r.get("status"));}
+    private Map<String,Object> changeView(Map<String,Object> r){return map("changeId",r.get("change_id"),"incomingId",r.get("incoming_id"),"action",r.get("action"),"status",r.get("status"),"before",JSON.parseObject(String.valueOf(r.get("before_json"))),"after",JSON.parseObject(String.valueOf(r.get("after_json"))),"reason",r.get("reason"),"sourceReference",r.get("source_reference"),"createdBy",r.get("actor_id"),"createdAt",r.get("created_at"),"reviewedBy",r.get("reviewed_by"),"reviewedAt",r.get("reviewed_at"),"reviewNote",r.get("review_note"),"stockPosted",false);}
+    private static long outstanding(Map<String,Object> r){return Math.max(0,n(r.get("quantity"))-n(r.get("received_quantity"))-n(r.get("cancelled_quantity")));}
+    private static LocalDateTime timestamp(Object value){return value instanceof Timestamp?((Timestamp)value).toLocalDateTime():LocalDateTime.parse(String.valueOf(value).replace(' ','T'));}
+    private static LocalDateTime parseExpected(Object value){try{return LocalDateTime.parse(String.valueOf(value)).withNano(0);}catch(Exception ex){throw new ServiceException("预计到货时间格式错误",400);}}
+    private void syncDraftClosure(String draft){
+        List<Map<String,Object>> lines=jdbc.queryForList("SELECT state FROM commerce_supply_line WHERE draft_id=?",draft);
+        if(lines.isEmpty()||lines.stream().anyMatch(line->!Arrays.asList("RECEIVED","CANCELLED","PARTIAL_CLOSED").contains(line.get("state"))))return;
+        boolean cancelled=lines.stream().anyMatch(line->!"RECEIVED".equals(line.get("state"))),received=lines.stream().anyMatch(line->!"CANCELLED".equals(line.get("state")));
+        jdbc.update("UPDATE commerce_replenishment_draft SET status=? WHERE draft_id=?",cancelled?(received?"CLOSED_PARTIAL":"CANCELLED"):"RECEIVED",draft);
+    }
     private Map<String,Object> conditionView(Map<String,Object> r){return map("eventId",r.get("event_id"),"productId",r.get("product_id"),"warehouseId",r.get("warehouse_id"),"fromState",r.get("from_state"),"toState",r.get("to_state"),"quantity",r.get("quantity"),"qualityHold",r.get("after_quality"),"damaged",r.get("after_damaged"),"reason",r.get("reason"),"actorId",r.get("actor_id"));}
-    private Map<String,Object> draftView(Map<String,Object> r){String status=String.valueOf(r.get("status"));return map("draftId",r.get("draft_id"),"status",status,"items",JSON.parseArray(String.valueOf(r.get("snapshot_json"))),"createdBy",r.get("actor_id"),"createdAt",r.get("created_at"),"reviewedBy",r.get("reviewed_by"),"reviewedAt",r.get("reviewed_at"),"reviewNote",r.get("review_note"),"executionStatus","EXECUTED".equals(status)?"SUPPLIER_CONFIRMED":"RECEIVED".equals(status)?"ERP_RECEIVED":"NOT_EXECUTED","supplyLines",jdbc.queryForList("SELECT product_id AS productId,quantity,state,incoming_id AS incomingId,executed_by AS executedBy FROM commerce_supply_line WHERE draft_id=? ORDER BY product_id",r.get("draft_id")),"stockPosted",false);}
+    private Map<String,Object> draftView(Map<String,Object> r){
+        String status=String.valueOf(r.get("status"));List<Map<String,Object>> lines=jdbc.queryForList("SELECT product_id AS productId,quantity,state,incoming_id AS incomingId,executed_by AS executedBy FROM commerce_supply_line WHERE draft_id=? ORDER BY product_id",r.get("draft_id"));
+        String execution="EXECUTED".equals(status)?"SUPPLIER_CONFIRMED":"RECEIVED".equals(status)?"ERP_RECEIVED":"CLOSED_PARTIAL".equals(status)?"PARTIAL_RECEIVED_CLOSED":"CANCELLED".equals(status)&&lines.stream().anyMatch(line->line.get("incomingId")!=null)?"SUPPLIER_CANCELLED":"NOT_EXECUTED";
+        return map("draftId",r.get("draft_id"),"status",status,"items",JSON.parseArray(String.valueOf(r.get("snapshot_json"))),"createdBy",r.get("actor_id"),"createdAt",r.get("created_at"),"reviewedBy",r.get("reviewed_by"),"reviewedAt",r.get("reviewed_at"),"reviewNote",r.get("review_note"),"executionStatus",execution,"supplyLines",lines,"stockPosted",false);
+    }
     private void merchant(long actor,CommerceCapability capability){merchants.requireCapability(shop(),actor,capability);}
     private void lockShop(){jdbc.queryForList("SELECT shop_id FROM commerce_shop WHERE shop_id=? FOR UPDATE",shop());}
     private static String shop(){return CommerceShopContext.id();}

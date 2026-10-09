@@ -3,7 +3,7 @@ export const SUPPLY_WORKSPACE_URL = 'http://127.0.0.1:5173/index';
 
 const enabledRoutes = [
   '/', '/seckill', '/activities', '/recommend', '/search', '/search-portal', '/search-result', '/category/', '/product/',
-  '/cart', '/checkout', '/address', '/after-sale', '/orders', '/order/', '/ai-assistant', '/login'
+  '/cart', '/checkout', '/address', '/after-sale', '/orders', '/order/', '/ai-assistant', '/login', '/register', '/customer-account'
 ];
 
 export function isDemoRouteSupported(path: string): boolean {

@@ -12,7 +12,7 @@
       <el-table-column label="下限 / 目标" align="right" width="115"><template #default="scope">{{ scope.row.reorderPoint }} / {{ scope.row.targetStock }}</template></el-table-column>
       <el-table-column label="供货交期" width="105"><template #default="scope"><span v-if="scope.row.leadTimeKnown">{{ scope.row.supplierLeadDays }} 天</span><el-tag v-else size="small" type="warning">未确认</el-tag></template></el-table-column>
       <el-table-column label="建议采购" align="right" width="110"><template #default="scope"><el-tooltip :content="scope.row.reason || '根据经营数据计算的建议'" placement="top"><strong>{{ scope.row.suggestedQuantity }}</strong></el-tooltip></template></el-table-column>
-      <el-table-column v-if="canDraft" label="本次草稿数量" width="170"><template #default="scope"><el-input-number v-if="Number(scope.row.suggestedQuantity) > 0" v-model="quantities[scope.row.productId]" :min="0" :max="Math.min(999, Number(scope.row.suggestedQuantity))" :precision="0" size="small" controls-position="right" :disabled="acting" :aria-label="`${scope.row.productName}备货草稿数量`" /><span v-else class="planning-muted">无需补货</span></template></el-table-column>
+      <el-table-column v-if="canDraft" label="本次草稿数量" width="170"><template #default="scope"><el-input-number v-if="Number(scope.row.suggestedQuantity) > 0" v-model="quantities[scope.row.productId]" :min="0" :max="Math.min(999, Number(scope.row.suggestedQuantity))" :precision="0" size="small" controls-position="right" :disabled="acting" :aria-label="`${scope.row.productName}备货草稿数量`" /><span v-else class="planning-muted">{{ scope.row.resolutionRequired ? '先处理供货异常' : '无需补货' }}</span></template></el-table-column>
     </el-table>
     <div v-if="canDraft" class="planning-actions"><span>{{ selectedItems.length ? `已选 ${selectedItems.length} 项 · ${selectedQuantity} 件` : '选择有缺口的商品生成备货草稿' }}</span><el-button type="primary" :disabled="!selectedItems.length || acting" :loading="acting" @click="createDraft">保存待审批草稿</el-button></div>
     <div class="draft-heading"><h3>备货与采购记录</h3><small>独立审批后登记供应商确认批次，实际入库以 ERP 单据为准。</small></div>
@@ -25,6 +25,23 @@
       <el-table-column label="采购执行" width="145"><template #default="scope"><span class="planning-muted">{{ executionLabel(scope.row) }}</span></template></el-table-column>
       <el-table-column label="操作" width="210" fixed="right"><template #default="scope"><template v-if="canReview(scope.row)"><el-button link type="primary" :disabled="acting" @click="openReview(scope.row, 'APPROVE')">批准计划</el-button><el-button link type="danger" :disabled="acting" @click="openReview(scope.row, 'REJECT')">拒绝</el-button></template><el-button v-if="canExecute(scope.row)" link type="primary" :disabled="acting" @click="openSupply(scope.row, 'EXECUTE')">登记采购确认</el-button><el-button v-if="canCancel(scope.row)" link type="danger" :disabled="acting" @click="openSupply(scope.row, 'CANCEL')">取消草稿</el-button><span v-if="scope.row.status === 'PENDING_APPROVAL' && !canReview(scope.row)" class="planning-muted">{{ isCreator(scope.row) ? '待其他成员审批' : '待审批' }}</span></template></el-table-column>
     </el-table>
+    <div class="draft-heading"><h3>在途与供货异常</h3></div>
+    <el-table :data="incomingRows" row-key="incomingId" empty-text="暂无登记在途">
+      <el-table-column label="商品 / 批次" min-width="260"><template #default="scope"><div class="planning-product"><img :src="getProductImage(productRow(scope.row.productId))" :alt="productName(scope.row.productId)" loading="lazy" @error="handleProductImageError($event, productRow(scope.row.productId))" /><div><strong>{{ productName(scope.row.productId) }}</strong><small>{{ scope.row.incomingId }}</small></div></div></template></el-table-column>
+      <el-table-column label="确认 / 已收 / 取消" width="155" align="right"><template #default="scope">{{ scope.row.quantity }} / {{ scope.row.receivedQuantity }} / {{ scope.row.cancelledQuantity }}</template></el-table-column>
+      <el-table-column label="待到货" prop="outstandingQuantity" width="90" align="right" />
+      <el-table-column label="预计到货" min-width="170"><template #default="scope">{{ scope.row.expectedAt?.replace('T', ' ') }}<small v-if="scope.row.overdue" class="planning-overdue">逾期 · 原承诺待处理</small></template></el-table-column>
+      <el-table-column label="状态" width="120"><template #default="scope"><el-tag :type="scope.row.overdue ? 'warning' : 'info'">{{ lineLabels[scope.row.status] || scope.row.status }}</el-tag></template></el-table-column>
+      <el-table-column label="操作" width="190" fixed="right"><template #default="scope"><template v-if="canChangeIncoming(scope.row)"><el-button link type="primary" :disabled="acting" @click="openIncomingChange(scope.row, 'DELAY')">申请延期</el-button><el-button link type="danger" :disabled="acting" @click="openIncomingChange(scope.row, 'CANCEL_REMAINDER')">取消剩余</el-button></template><span v-else-if="pendingIncomingChange(scope.row)" class="planning-muted">变更待审批</span></template></el-table-column>
+    </el-table>
+    <div v-if="incomingChanges.length" class="draft-heading"><h3>供货变更审批</h3></div>
+    <el-table v-if="incomingChanges.length" :data="incomingChanges" row-key="changeId">
+      <el-table-column label="变更" min-width="230"><template #default="scope">{{ productName(scope.row.before?.productId) }} · {{ scope.row.action === 'DELAY' ? '延期' : '取消剩余' }}<small class="planning-muted">{{ scope.row.incomingId }}</small></template></el-table-column>
+      <el-table-column label="变更内容" min-width="220"><template #default="scope"><span v-if="scope.row.action === 'DELAY'">{{ scope.row.before?.expectedAt?.replace('T', ' ') }} → {{ scope.row.after?.expectedAt?.replace('T', ' ') }}</span><span v-else>取消 {{ Number(scope.row.after?.cancelledQuantity || 0) - Number(scope.row.before?.cancelledQuantity || 0) }} 件，已收 {{ scope.row.before?.receivedQuantity }} 件保留</span></template></el-table-column>
+      <el-table-column label="原因 / 依据" min-width="180"><template #default="scope">{{ scope.row.reason }}<small class="planning-muted">{{ scope.row.sourceReference }}</small><small v-if="scope.row.reviewNote" class="planning-muted">审批：{{ scope.row.reviewNote }}</small></template></el-table-column>
+      <el-table-column label="状态" width="110"><template #default="scope"><el-tag :type="scope.row.status === 'PENDING_APPROVAL' ? 'warning' : scope.row.status === 'APPLIED' ? 'success' : 'info'">{{ changeLabels[scope.row.status] || scope.row.status }}</el-tag></template></el-table-column>
+      <el-table-column label="操作" width="175" fixed="right"><template #default="scope"><template v-if="canReviewChange(scope.row)"><el-button link type="primary" :disabled="acting" @click="openChangeReview(scope.row, 'APPROVE')">批准变更</el-button><el-button link type="danger" :disabled="acting" @click="openChangeReview(scope.row, 'REJECT')">拒绝</el-button></template><span v-else-if="scope.row.status === 'PENDING_APPROVAL'" class="planning-muted">待其他成员审批</span></template></el-table-column>
+    </el-table>
     <el-dialog v-model="policyVisible" title="发货设置" width="min(440px, 95vw)" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
       <el-form label-position="top" @submit.prevent="submitDispatchPolicy">
         <el-form-item label="每日发货额度（件）" required><el-input-number v-model="policyForm.dailyItemCapacity" :min="1" :max="1000000" :precision="0" placeholder="必填" :disabled="acting" controls-position="right" aria-label="每日发货额度（必填）" /></el-form-item>
@@ -32,6 +49,22 @@
       </el-form>
       <el-alert v-if="policyError" :title="policyError" type="error" :closable="false" />
       <template #footer><el-button :disabled="acting" @click="policyVisible = false">返回</el-button><el-button type="primary" :disabled="!canPolicy" :loading="acting" @click="submitDispatchPolicy">保存设置</el-button></template>
+    </el-dialog>
+    <el-dialog v-model="changeVisible" :title="changeAction === 'DELAY' ? '申请供应商延期' : '申请取消剩余供货'" width="min(500px, 95vw)" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
+      <p>{{ productName(changeTarget?.productId) }} · 待到货 {{ changeTarget?.outstandingQuantity }} 件</p>
+      <el-form label-position="top" @submit.prevent="submitIncomingChange">
+        <el-form-item v-if="changeAction === 'DELAY'" label="新的预计到货时间"><el-date-picker v-model="changeForm.expectedAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" :disabled="acting" style="width:100%" /></el-form-item>
+        <el-form-item label="供应商变更依据"><el-input v-model="changeForm.sourceReference" maxlength="80" :disabled="acting" placeholder="供应商通知或取消确认记录" /></el-form-item>
+        <el-form-item label="变更原因"><el-input v-model="changeForm.reason" type="textarea" :rows="3" maxlength="160" :disabled="acting" /></el-form-item>
+      </el-form>
+      <el-alert v-if="changeError" :title="changeError" type="error" :closable="false" />
+      <template #footer><el-button :disabled="acting" @click="changeVisible = false">返回</el-button><el-button type="primary" :disabled="!canChangeIncoming(changeTarget)" :loading="acting" @click="submitIncomingChange">提交独立审批</el-button></template>
+    </el-dialog>
+    <el-dialog v-model="changeReviewVisible" :title="changeReviewDecision === 'APPROVE' ? '批准供货变更' : '拒绝供货变更'" width="min(480px, 95vw)" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
+      <p>{{ changeReviewTarget?.reason }}</p><p class="planning-muted">{{ changeReviewTarget?.sourceReference }}</p>
+      <el-input v-model="changeReviewNote" type="textarea" :rows="3" maxlength="160" placeholder="填写审批意见" :disabled="acting" aria-label="供货变更审批意见" />
+      <el-alert v-if="changeError" :title="changeError" type="error" :closable="false" />
+      <template #footer><el-button :disabled="acting" @click="changeReviewVisible = false">返回</el-button><el-button :type="changeReviewDecision === 'APPROVE' ? 'primary' : 'danger'" :disabled="!canReviewChange(changeReviewTarget)" :loading="acting" @click="submitChangeReview">确认{{ changeReviewDecision === 'APPROVE' ? '批准' : '拒绝' }}</el-button></template>
     </el-dialog>
     <el-dialog v-model="reviewVisible" :title="reviewDecision === 'APPROVE' ? '批准备货计划' : '拒绝备货草稿'" width="min(480px, 95vw)" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
       <el-alert v-if="error" :title="error" type="error" :closable="false" />
@@ -55,7 +88,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getCommerceReplenishment, saveCommercePlanningPolicy, listReplenishmentDrafts, createReplenishmentDraft, reviewReplenishmentDraft, executeReplenishmentDraft, cancelReplenishmentDraft } from '@/api/commerce/orders'
+import { getCommerceReplenishment, saveCommercePlanningPolicy, listReplenishmentDrafts, createReplenishmentDraft, reviewReplenishmentDraft, executeReplenishmentDraft, cancelReplenishmentDraft, listCommerceIncoming, listIncomingChanges, proposeIncomingChange, reviewIncomingChange } from '@/api/commerce/orders'
 import { getProductImage, handleProductImageError } from '@/utils/productMedia'
 const props = defineProps({shopId: {type: String, required: true}, capabilities: {type: Array, default: () => []}, userId: {type: [String, Number], default: null}, memberRole: {type: String, default: ''}})
 const emit = defineEmits(['updated'])
@@ -67,8 +100,12 @@ const visibleRows = computed(() => showAll.value ? rows.value : rows.value.filte
 const quantities = reactive({}), reviewVisible = ref(false), reviewTarget = ref(null), reviewDecision = ref('APPROVE'), note = ref('')
 const supplyVisible = ref(false), supplyTarget = ref(null), supplyAction = ref('EXECUTE')
 const supplyForm = reactive({warehouseId: undefined, sourceReference: '', expectedAt: '', reason: ''})
-const labels = {PENDING_APPROVAL:'待审批',APPROVED:'计划已批准',REJECTED:'已拒绝',CANCELLED:'已取消',EXECUTED:'采购已确认',RECEIVED:'已入库'}
-const lineLabels = {EXECUTED:'待收货',RECEIVED:'已入库'}
+const incomingRows = ref([]), incomingChanges = ref([]), changeVisible = ref(false), changeTarget = ref(null), changeAction = ref('DELAY'), changeError = ref('')
+const changeForm = reactive({expectedAt:'', reason:'', sourceReference:''})
+const changeReviewVisible = ref(false), changeReviewTarget = ref(null), changeReviewDecision = ref('APPROVE'), changeReviewNote = ref('')
+const labels = {PENDING_APPROVAL:'待审批',APPROVED:'计划已批准',REJECTED:'已拒绝',CANCELLED:'已取消',EXECUTED:'采购已确认',RECEIVED:'已入库',CLOSED_PARTIAL:'部分入库已关闭'}
+const lineLabels = {CONFIRMED:'待收货',EXECUTED:'待收货',RECEIVED:'已入库',CANCELLED:'已取消',PARTIAL_CLOSED:'部分收货已关闭'}
+const changeLabels = {PENDING_APPROVAL:'待审批',APPLIED:'已生效',REJECTED:'已拒绝'}
 const canDraft = computed(() => props.capabilities.includes('SUPPLY_DRAFT'))
 const canPolicy = computed(() => props.capabilities.includes('SUPPLY_POLICY'))
 const knownUser = value => value != null && String(value) !== ''
@@ -78,7 +115,12 @@ const canReview = draft => {const row = currentDraft(draft); return props.capabi
 const canExecute = draft => {const row = currentDraft(draft); return canDraft.value && row?.status === 'APPROVED' && knownUser(row.createdBy) && knownUser(row.reviewedBy) && String(row.reviewedBy) !== String(row.createdBy)}
 const canCancel = draft => {const row = currentDraft(draft); return canDraft.value && ['PENDING_APPROVAL','APPROVED'].includes(row?.status) && (isCreator(row) || props.memberRole === 'OWNER')}
 const supplyLine = (draft, item) => (draft.supplyLines || []).find(line => String(line.productId) === String(item.productId))
-const executionLabel = draft => ({SUPPLIER_CONFIRMED:'供应商已确认',ERP_RECEIVED:'ERP 已入库'})[draft.executionStatus] || ({EXECUTED:'供应商已确认',RECEIVED:'ERP 已入库',APPROVED:'待采购确认'})[draft.status] || '未执行'
+const executionLabel = draft => ({SUPPLIER_CONFIRMED:'供应商已确认',ERP_RECEIVED:'ERP 已入库',PARTIAL_RECEIVED_CLOSED:'部分入库，余量已取消',SUPPLIER_CANCELLED:'剩余供货已取消'})[draft.executionStatus] || ({EXECUTED:'供应商已确认',RECEIVED:'ERP 已入库',APPROVED:'待采购确认'})[draft.status] || '未执行'
+const productRow = id => rows.value.find(row => String(row.productId) === String(id)) || {productId:id}
+const productName = id => rows.value.find(row => String(row.productId) === String(id))?.productName || (id ? `商品 ${id}` : '')
+const pendingIncomingChange = row => incomingChanges.value.find(change => change.incomingId === row?.incomingId && change.status === 'PENDING_APPROVAL')
+const canChangeIncoming = row => canDraft.value && row?.status === 'CONFIRMED' && Number(row.outstandingQuantity) > 0 && !pendingIncomingChange(row)
+const canReviewChange = row => props.capabilities.includes('SUPPLY_REVIEW') && row?.status === 'PENDING_APPROVAL' && knownUser(props.userId) && knownUser(row.createdBy) && String(props.userId) !== String(row.createdBy)
 const selectedItems = computed(() => rows.value.filter(row => Number(quantities[row.productId]) > 0).map(row => ({productId: String(row.productId), quantity: Number(quantities[row.productId])})))
 const selectedQuantity = computed(() => selectedItems.value.reduce((sum, row) => sum + row.quantity, 0))
 let draftFingerprint = '', draftKey = '', reviewFingerprint = '', reviewKey = ''
@@ -87,9 +129,10 @@ async function refresh() {
   if (loading.value) return
   loading.value = true; error.value = ''; const shop = props.shopId
   try {
-    const [suggestion, history] = await Promise.all([getCommerceReplenishment(), listReplenishmentDrafts()])
+    const [suggestion, history, incoming, changes] = await Promise.all([getCommerceReplenishment(), listReplenishmentDrafts(), listCommerceIncoming(), listIncomingChanges()])
     if (shop !== props.shopId) return
     rows.value = suggestion.data.items || []; drafts.value = history.data || []; dispatchPolicy.value = suggestion.data.dispatchPolicy || null
+    incomingRows.value = incoming.data || []; incomingChanges.value = changes.data || []
     for (const row of rows.value) quantities[row.productId] = Math.min(Number(quantities[row.productId]) || 0, Number(row.suggestedQuantity) || 0, 999)
   } catch (failure) { if (shop === props.shopId) error.value = failure?.message || '备货数据读取失败，请刷新重试' }
   finally { loading.value = false; if (shop !== props.shopId) void refresh() }
@@ -152,7 +195,38 @@ async function submitSupply() {
   } catch (failure) {if (shop === props.shopId) error.value = failure?.message || '处理结果暂未确认，请重试原操作'}
   finally {acting.value = false}
 }
-watch(() => props.shopId, () => {rows.value = [];drafts.value = [];dispatchPolicy.value = null;policyVisible.value = false;policyError.value = '';Object.assign(policyForm, {dailyItemCapacity: null, dispatchDays: null});reviewVisible.value = false;reviewTarget.value = null;supplyVisible.value = false;supplyTarget.value = null;Object.keys(quantities).forEach(key => delete quantities[key]);void refresh()})
+function openIncomingChange(row, action) {
+  if (acting.value || !canChangeIncoming(row)) return
+  changeTarget.value = row; changeAction.value = action; changeError.value = ''
+  Object.assign(changeForm, {expectedAt:'', reason:'', sourceReference:''}); changeVisible.value = true
+}
+async function submitIncomingChange() {
+  if (acting.value || !canChangeIncoming(changeTarget.value)) return
+  const shop = props.shopId, id = changeTarget.value.incomingId, body = {action:changeAction.value, reason:changeForm.reason.trim(), sourceReference:changeForm.sourceReference.trim()}
+  if (body.action === 'DELAY') body.expectedAt = changeForm.expectedAt
+  if (!body.reason || !body.sourceReference) {changeError.value = '请填写变更原因和供应商依据';return}
+  if (body.action === 'DELAY' && !(new Date(body.expectedAt).getTime() > Math.max(Date.now(), new Date(changeTarget.value.expectedAt).getTime()))) {changeError.value = '新到货时间须晚于原承诺且在未来';return}
+  const fingerprint = JSON.stringify([shop,id,'INCOMING_CHANGE',body]); if (!supplyKeys.has(fingerprint)) supplyKeys.set(fingerprint,crypto.randomUUID())
+  acting.value = true; changeError.value = ''
+  try {await proposeIncomingChange(id,{requestKey:supplyKeys.get(fingerprint),...body});if (shop !== props.shopId) return;changeVisible.value = false;ElMessage.success('供货变更已提交独立审批');await refresh()}
+  catch (failure) {if (shop === props.shopId) changeError.value = failure?.message || '提交结果暂未确认，请重试原操作'}
+  finally {acting.value = false}
+}
+function openChangeReview(row, decision) {
+  if (acting.value || !canReviewChange(row)) return
+  changeReviewTarget.value = row;changeReviewDecision.value = decision;changeReviewNote.value = '';changeError.value = '';changeReviewVisible.value = true
+}
+async function submitChangeReview() {
+  if (acting.value || !canReviewChange(changeReviewTarget.value)) return
+  const shop = props.shopId, id = changeReviewTarget.value.changeId, body = {decision:changeReviewDecision.value,note:changeReviewNote.value.trim()}
+  if (!body.note) {changeError.value = '请填写审批意见';return}
+  const fingerprint = JSON.stringify([shop,id,'INCOMING_REVIEW',body]);if (!supplyKeys.has(fingerprint)) supplyKeys.set(fingerprint,crypto.randomUUID())
+  acting.value = true;changeError.value = ''
+  try {await reviewIncomingChange(id,{requestKey:supplyKeys.get(fingerprint),...body});if (shop !== props.shopId) return;changeReviewVisible.value = false;ElMessage.success(body.decision === 'APPROVE' ? '供货变更已生效' : '供货变更已拒绝');await refresh();emit('updated')}
+  catch (failure) {if (shop === props.shopId) changeError.value = failure?.message || '审批结果暂未确认，请重试原操作'}
+  finally {acting.value = false}
+}
+watch(() => props.shopId, () => {rows.value = [];drafts.value = [];incomingRows.value = [];incomingChanges.value = [];changeVisible.value = false;changeTarget.value = null;changeReviewVisible.value = false;changeReviewTarget.value = null;changeError.value = '';dispatchPolicy.value = null;policyVisible.value = false;policyError.value = '';Object.assign(policyForm, {dailyItemCapacity: null, dispatchDays: null});reviewVisible.value = false;reviewTarget.value = null;supplyVisible.value = false;supplyTarget.value = null;Object.keys(quantities).forEach(key => delete quantities[key]);void refresh()})
 onMounted(refresh)
 defineExpose({refresh})
 </script>

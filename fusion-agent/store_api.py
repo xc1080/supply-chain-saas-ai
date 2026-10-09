@@ -22,6 +22,8 @@ from langgraph.graph import END, START, StateGraph
 from commerce_api import CommerceAPI
 from shared_store import RedisSharedStore, SESSION_TTL, ALIVE
 from public_read_cache import PublicReadCache
+from customer_identity import CustomerIdentityStore, initialize_identity
+from maintenance import PeriodicMaintenance
 from business_catalog import profile_for, evidence_snapshot, registry_version
 from product_media import IMAGES, product_cover
 from execution_runtime import (initialize_messages, expire_messages, retain_messages, create_message,
@@ -88,6 +90,7 @@ def db():
         CREATE TABLE IF NOT EXISTS proposals(token TEXT PRIMARY KEY, session_id TEXT NOT NULL, order_id TEXT NOT NULL, status INTEGER NOT NULL DEFAULT 0, expires REAL NOT NULL);
             """)
             initialize_messages(connection)
+            initialize_identity(connection)
             connection.commit()
             _DB_INITIALIZED.add(DB_PATH)
     try:
@@ -150,7 +153,7 @@ def address_input(params, address_id):
 
 
 def user_shape(session):
-    return {"userId": session[:16], "nickName": ("Studio · " if os.getenv("FUSION_TENANT") == "studio" else "") + "演示访客", "userName": "演示访客", "tenantId": os.getenv("FUSION_TENANT", "demo"), "avatar": "/demo-media/fallback.svg", "demo": True}
+    return {"userId": session[:16], "nickName": ("Studio · " if os.getenv("FUSION_TENANT") == "studio" else "") + "访客", "userName": "访客", "tenantId": os.getenv("FUSION_TENANT", "demo"), "avatar": "/demo-media/fallback.svg", "demo": True, "identityType": "GUEST", "persistentIdentity": False}
 
 
 def active_order_workflow(order):
@@ -196,12 +199,38 @@ def build_store_router(service):
     router.add_event_handler("startup", shared_store.start)
     router.add_event_handler("shutdown", shared_store.close)
     valid_session = shared_store.valid_session
+    identities = CustomerIdentityStore(db, tenant_scope, shop_scope)
+
+    async def session_identity(cookie):
+        session = await valid_session(cookie)
+        if not session:
+            raise HTTPException(401, "请登录账户，或以访客身份继续")
+        reference = await shared_store.account_reference(session)
+        if reference:
+            account = await asyncio.to_thread(identities.account, *reference)
+            await shared_store.ensure_identity(account['owner_seed'])
+            return account['owner_seed'], identities.user(account)
+        return session, user_shape(session)
 
     async def current_session(request):
-        session = await valid_session(request.cookies.get(COOKIE))
-        if not session:
-            raise HTTPException(401, "请重新进入演示商城")
-        return session
+        principal, user = await session_identity(request.cookies.get(COOKIE))
+        request.state.customer_user = user
+        return principal
+
+    def session_response(cookie, user):
+        result = JSONResponse(ok(user), headers=PRIVATE_HEADERS)
+        result.set_cookie(COOKIE, cookie, httponly=True, samesite='lax', max_age=SESSION_TTL,
+                          secure=os.getenv('FUSION_SECURE_COOKIES') == 'true', path='/')
+        return result
+
+    async def account_response(account, old_cookie):
+        # Rotate bearer credentials, retaining the durable business owner namespace.
+        await shared_store.ensure_identity(account['owner_seed'])
+        cookie = await shared_store.create_session()
+        await shared_store.bind_account(cookie, account['id'], account['auth_version'])
+        if old_cookie and old_cookie != account['owner_seed']:
+            await shared_store.logout(old_cookie)
+        return session_response(cookie, identities.user(account))
 
     sockets: dict[str, set[WebSocket]] = {}
     token_cache = {"value": "", "until": 0.0}
@@ -210,10 +239,14 @@ def build_store_router(service):
     tasks: dict[int, asyncio.Task] = {}
     def recover_interrupted_messages():
         with db() as connection:
-            expire_messages(connection, tenant_scope, shop_scope)
-            retain_messages(connection)
+            connection.execute('BEGIN IMMEDIATE')
+            interrupted = expire_messages(connection, tenant_scope, shop_scope)
+            return {**retain_messages(connection), 'interrupted': interrupted}
 
-    router.add_event_handler("startup", recover_interrupted_messages)
+    maintenance = PeriodicMaintenance(recover_interrupted_messages, name='store-messages')
+    router.maintenance = maintenance
+    router.add_event_handler("startup", maintenance.start)
+    router.add_event_handler("shutdown", maintenance.close)
 
     async def stop_tasks():
         active = list(tasks.values())
@@ -221,12 +254,13 @@ def build_store_router(service):
         if active: await asyncio.gather(*active, return_exceptions=True)
     router.add_event_handler("shutdown", stop_tasks)
 
-    async def reader_token():
-        if token_cache["until"] > time.time():
+    async def reader_token(rejected_token=None):
+        if token_cache["until"] > time.time() and token_cache['value'] != rejected_token:
             return token_cache["value"]
         async with token_lock:
-            if token_cache["until"] > time.time():
+            if token_cache["until"] > time.time() and token_cache['value'] != rejected_token:
                 return token_cache["value"]
+            token_cache['until'] = 0
             client = await commerce.get_client()
             user = os.getenv("FUSION_COMMERCE_USER", "").strip()
             password = os.getenv("FUSION_COMMERCE_PASSWORD", "").strip()
@@ -241,7 +275,7 @@ def build_store_router(service):
             token_cache.update(value="Bearer " + body["token"], until=time.time()+900)
             return token_cache["value"]
 
-    commerce = CommerceAPI(service, reader_token)
+    commerce = CommerceAPI(service, reader_token, token_refresher=reader_token)
     router.add_event_handler("startup", commerce.start)
     router.add_event_handler("shutdown", commerce.close)
     # Each router has one trusted tenant/shop identity. No owner-specific data enters these caches.
@@ -477,9 +511,9 @@ def build_store_router(service):
     async def websocket_endpoint(socket: WebSocket):
         origin = socket.headers.get("origin")
         try:
-            session = await valid_session(socket.cookies.get(COOKIE))
-        except HTTPException:
-            await socket.close(code=1013)
+            session = await current_session(socket)
+        except HTTPException as error:
+            await socket.close(code=1008 if error.status_code == 401 else 1013)
             return
         if not session or (origin and origin not in ORIGINS):
             await socket.close(code=1008)
@@ -497,6 +531,11 @@ def build_store_router(service):
         async def deliver_events():
             nonlocal sequence
             while True:
+                try:
+                    await session_identity(socket.cookies.get(COOKIE))
+                except HTTPException:
+                    await socket.close(code=1008)
+                    return
                 with db() as connection:
                     rows = connection.execute("SELECT sequence,payload FROM message_events WHERE tenant_id=? AND shop_id=? AND session_id=? AND sequence>? ORDER BY sequence LIMIT 100",(tenant_scope,shop_scope,session,sequence)).fetchall()
                 for row in rows:
@@ -528,24 +567,48 @@ def build_store_router(service):
                     params.update(await request.json())
                 else:
                     params.update(dict(await request.form()))
-            if path in ("account/autoLogin", "account/login"):
-                session = await valid_session(request.cookies.get(COOKIE)) or await shared_store.create_session()
-                response = JSONResponse(ok(user_shape(session)), headers=PRIVATE_HEADERS)
-                response.set_cookie(COOKIE, session, httponly=True, samesite="lax", max_age=SESSION_TTL, path="/")
-                return response
+            if path == 'account/autoLogin':
+                cookie = await valid_session(request.cookies.get(COOKIE))
+                if cookie:
+                    _, user = await session_identity(cookie)
+                else:
+                    cookie = await shared_store.create_session()
+                    user = user_shape(cookie)
+                return session_response(cookie, user)
+            if path in ('account/login', 'account/register'):
+                if request.method != 'POST':
+                    raise HTTPException(405, '请使用POST登录或注册')
+                name = str(params.get('userName') or params.get('username') or '')
+                remote = request.client.host if request.client else 'unknown'
+                await shared_store.login_attempt(name.strip().lower(), remote)
+                old_cookie = await valid_session(request.cookies.get(COOKIE))
+                if path == 'account/register':
+                    if old_cookie and await shared_store.account_reference(old_cookie):
+                        raise HTTPException(409, '请退出当前账户后再注册')
+                    if not old_cookie:
+                        raise HTTPException(401, '访客会话已失效，请重新进入商城后注册')
+                    guest = old_cookie
+                    account = await asyncio.to_thread(identities.register, name, params.get('password'), params.get('nickName'), guest)
+                else:
+                    account = await asyncio.to_thread(identities.login, name, params.get('password'))
+                return await account_response(account, old_cookie)
             if path == "seckill/listActivities":
                 # Anonymous and identical for every visitor. Personal participation has its own endpoint.
                 response = JSONResponse(ok(await public_campaigns()))
                 response.headers["Cache-Control"] = "public, max-age=2" if request.method == "GET" else "private, no-store"
                 return response
-            session = await current_session(request)
             if path == "account/logout":
-                await shared_store.logout(session)
+                if request.method != 'POST': raise HTTPException(405, '请使用POST退出登录')
+                # Disabled, expired or revoked identities must still be able to
+                # clear the browser credential. STATE seeds can never be revoked as cookies.
+                cookie = await valid_session(request.cookies.get(COOKIE))
+                if cookie: await shared_store.logout(cookie)
                 response = JSONResponse(ok(), headers=PRIVATE_HEADERS)
                 response.delete_cookie(COOKIE, path="/")
                 return response
+            session = await current_session(request)
             if path == "account/getUserInfo":
-                return ok(user_shape(session))
+                return ok(request.state.customer_user)
             if path == "product/loadCategory":
                 catalog = await public_catalog()
                 categories = list(dict.fromkeys(product_shape(p)["categoryId"] for p in catalog))

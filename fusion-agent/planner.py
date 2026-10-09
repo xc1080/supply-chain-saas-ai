@@ -73,10 +73,13 @@ def inspect_run(run_id, tenant, owner):
 
 def recover():
     with database() as c:
-        c.execute("""UPDATE agent_runs SET status='INTERRUPTED',version=version+1,updated=?
+        interrupted = c.execute("""UPDATE agent_runs SET status='INTERRUPTED',version=version+1,updated=?
           WHERE status='RUNNING' AND ((executor_id<>'' AND lease_until<?) OR (executor_id='' AND updated<?))""",
-          (time.time(),time.time(),time.time()-100))
-        c.execute("DELETE FROM agent_runs WHERE status<>'RUNNING' AND updated<?", (time.time()-max(1,int(os.getenv('FUSION_AGENT_RETENTION_DAYS','30')))*86400,))
+          (time.time(),time.time(),time.time()-100)).rowcount
+        deleted = c.execute("""DELETE FROM agent_runs WHERE run_id IN (
+            SELECT run_id FROM agent_runs WHERE status<>'RUNNING' AND updated<? ORDER BY updated LIMIT 1000)""",
+            (time.time()-max(1,int(os.getenv('FUSION_AGENT_RETENTION_DAYS','30')))*86400,)).rowcount
+    return {"interrupted": interrupted, "deleted": deleted}
 
 async def choose_tool(service, state, remaining, completed):
     if not service.llm_key():
@@ -124,8 +127,15 @@ async def _run_agent(service, state, tenant, owner, fetch_catalog, *, run_id=Non
     lease = Lease(executor_id(), 0)
     if run_id:
         saved = inspect_run(run_id,tenant,owner)
+        saved_state = json.loads(saved["state"])
+        original_scope = saved_state.get("context") or {}
+        current_scope = state.get("context") or {}
+        if original_scope.get("channel") == "workspace" or current_scope.get("channel") == "workspace":
+            if (original_scope.get("channel") != current_scope.get("channel") or
+                    not original_scope.get("shopId") or original_scope.get("shopId") != current_scope.get("shopId")):
+                raise HTTPException(409, "恢复任务不能变更店铺或渠道，请发起新任务")
         if saved["status"] == "COMPLETED":
-            return json.loads(saved["state"])["result"]
+            return saved_state["result"]
         with database() as c:
             claimed = c.execute("""UPDATE agent_runs SET status='RUNNING',updated=?,executor_id=?,lease_until=?,version=version+1
               WHERE run_id=? AND tenant_id=? AND owner_id=? AND version=?
@@ -134,7 +144,6 @@ async def _run_agent(service, state, tenant, owner, fetch_catalog, *, run_id=Non
         if not claimed: raise HTTPException(409,"任务仍在执行")
         lease.version = saved['version']+1
         # Re-read all live business facts on resume; old stock/order snapshots cannot authorize actions.
-        saved_state = json.loads(saved["state"])
         state = {**saved_state,"context":state.get("context",{}),"history":state.get("history",saved_state.get("history",[])),"authorization":state.get("authorization")}
         state.update(trace=[],observations=[],completed=[])
     else:
@@ -266,6 +275,14 @@ async def _run_agent(service, state, tenant, owner, fetch_catalog, *, run_id=Non
         try: checkpoint(run_id,tenant,owner,state,"CANCELLED",lease)
         except LostLease: pass
         raise
+    except HTTPException as error:
+        try: checkpoint(run_id,tenant,owner,state,"FAILED",lease)
+        except LostLease: pass
+        # A revoked shop role/token is an authority decision, not a provider
+        # outage. The caller must stop and reauthenticate instead of retrying AI.
+        if error.status_code in (401, 403):
+            raise
+        raise AgentExecutionError(run_id) from None
     except Exception:
         try: checkpoint(run_id,tenant,owner,state,"FAILED",lease)
         except LostLease: pass

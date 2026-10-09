@@ -1,6 +1,7 @@
 import baseRequest from '@/utils/request'
 let activeShop = 'default'
 export const setCommerceShop = id => { activeShop = id || 'default' }
+export const getCommerceShop = () => activeShop
 const request = config => baseRequest({ ...config, headers: { ...config.headers, 'X-Shop-ID': activeShop } })
 
 export function listCommerceOrders(query) {
@@ -47,3 +48,7 @@ export const queryCommercePayment = id => request({ url: `/commerce/payments/ope
 export const replayCommercePaymentEvent = id => request({ url: `/commerce/payments/provider-events/${encodeURIComponent(id)}/replay`, method: 'post' })
 export const executeReplenishmentDraft = (id, data) => request({ url: `/commerce/planning/drafts/${encodeURIComponent(id)}/execute`, method: 'post', data })
 export const cancelReplenishmentDraft = (id, data) => request({ url: `/commerce/planning/drafts/${encodeURIComponent(id)}/cancel`, method: 'post', data })
+export const listCommerceIncoming = () => request({ url: '/commerce/planning/incoming', method: 'get' })
+export const listIncomingChanges = () => request({ url: '/commerce/planning/incoming/changes', method: 'get' })
+export const proposeIncomingChange = (id, data) => request({ url: `/commerce/planning/incoming/${encodeURIComponent(id)}/changes`, method: 'post', data })
+export const reviewIncomingChange = (id, data) => request({ url: `/commerce/planning/incoming/changes/${encodeURIComponent(id)}/review`, method: 'post', data })

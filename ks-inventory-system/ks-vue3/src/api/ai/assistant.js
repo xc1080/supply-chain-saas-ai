@@ -13,7 +13,8 @@ assistantClient.interceptors.request.use(config => {
   return config
 })
 
-export async function chatWithAssistant(message, history) {
-  const response = await assistantClient.post('/chat', { message, history })
+export async function chatWithAssistant(message, history, shopId) {
+  if (!shopId) throw new Error('请先选择当前店铺')
+  const response = await assistantClient.post('/chat', { message, history, shopId })
   return response.data
 }

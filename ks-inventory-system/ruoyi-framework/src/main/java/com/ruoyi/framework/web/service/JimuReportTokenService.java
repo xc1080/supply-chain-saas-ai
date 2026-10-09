@@ -22,7 +22,7 @@ public class JimuReportTokenService implements JmReportTokenServiceI {
     @Override
     public String getUsername(String token) {
         LoginUser loginUser = tokenService.getLoginUserFromToken(token);
-        return loginUser.getUsername();
+        return loginUser == null ? null : loginUser.getUsername();
     }
 
     @Override

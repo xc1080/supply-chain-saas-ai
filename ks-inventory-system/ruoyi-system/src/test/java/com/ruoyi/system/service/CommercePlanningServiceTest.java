@@ -28,6 +28,7 @@ public class CommercePlanningServiceTest {
         jdbc.execute("CREATE TABLE warehouse(warehouse_id BIGINT PRIMARY KEY)");jdbc.update("INSERT INTO warehouse VALUES (1)");
         stock=new CommerceInventoryService(jdbc.getDataSource());planning=new CommercePlanningService(jdbc.getDataSource(),stock,f.merchants);
         planning.initializeSupplySchema();
+        planning.initializeSupplyExceptionsSchema();
         jdbc.update("INSERT INTO commerce_shop_member VALUES ('default',3,'SUPPLY_REVIEWER')");
     }
     @After public void clear(){CommerceShopContext.clear();}

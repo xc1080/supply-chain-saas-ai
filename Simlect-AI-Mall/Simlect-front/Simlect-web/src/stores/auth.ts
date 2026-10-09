@@ -165,6 +165,7 @@ export const useAuthStore = defineStore('auth', () => {
       ...payload,
       password: String(payload.password ?? '')
     });
+    clearAuth();
     userInfo.value = data;
     sessionReady = true;
     try {
@@ -178,6 +179,15 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {
 
     }
+  };
+
+  const register = async (payload: Record<string, unknown>) => {
+    // Bootstrap the actual guest cookie before binding records; no owner ID comes from UI.
+    await ensureSession();
+    const data = await accountApi.register(payload);
+    clearAuth();
+    userInfo.value = data;
+    sessionReady = true;
   };
 
   const prepareLogoutNavigation = () => {
@@ -260,6 +270,7 @@ export const useAuthStore = defineStore('auth', () => {
     loadMemberLevel,
     loadMemberCenter,
     login,
+    register,
     logout,
     prepareLogoutNavigation,
     finishLogoutNavigation,

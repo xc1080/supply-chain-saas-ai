@@ -115,7 +115,8 @@ const tabs = computed(() => [
     label: DEMO_MODE ? '订单' : '我的',
     icon: User,
     match: (p: string) => DEMO_MODE ? p === '/orders' : p === '/account' || (!authStore.isLoggedIn && p === '/login')
-  }
+  },
+  ...(DEMO_MODE ? [{ path: '/customer-account', label: '账户', icon: User, match: (p: string) => ['/customer-account', '/login', '/register'].includes(p) }] : [])
 ]);
 
 const isActive = (item: (typeof tabs.value)[0]) => item.match(route.path);

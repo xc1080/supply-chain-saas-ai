@@ -53,15 +53,8 @@ http.interceptors.response.use(
           return Promise.reject(data);
         }
         const authStore = useAuthStore();
-        const ok = await authStore.ensureSession().catch(() => false);
-        if (ok) {
-          if (config._retried) {
-            return Promise.reject(data);
-          }
-          config._retried = true;
-          return http(config);
-        }
-        authStore.logout(false);
+        // Never replay a failed customer mutation under a newly-created guest identity.
+        await authStore.logout(true);
         router.replace('/login');
         toast.error(data.info || '登录超时，请重新登录');
         return Promise.reject(data);

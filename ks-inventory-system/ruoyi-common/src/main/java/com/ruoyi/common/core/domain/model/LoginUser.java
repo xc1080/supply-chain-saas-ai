@@ -21,6 +21,12 @@ public class LoginUser implements UserDetails {
      */
     private Long userId;
 
+    /** Server-resolved tenant at login; never supplied by the client. */
+    private String tenantId;
+
+    public String getTenantId() { return tenantId; }
+    public void setTenantId(String tenantId) { this.tenantId = tenantId; }
+
     /**
      * 部门ID
      */

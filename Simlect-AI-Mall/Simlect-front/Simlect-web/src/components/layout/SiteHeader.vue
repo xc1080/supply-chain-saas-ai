@@ -13,6 +13,7 @@
           <template v-if="authStore.isLoggedIn">
             <!-- [zh] 开始标签 `<span>` -->
             <span class="topbar-text">欢迎您，{{ authStore.userInfo?.nickName || '用户' }}</span>
+            <RouterLink v-if="DEMO_MODE" class="topbar-link" :to="authStore.userInfo?.identityType === 'ACCOUNT' ? '/customer-account' : '/login'">{{ authStore.userInfo?.identityType === 'ACCOUNT' ? '我的账户' : '登录 / 注册' }}</RouterLink>
           </template>
           <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
           <template v-else>
@@ -139,7 +140,8 @@
                 <!-- [zh] 开始标签 `<el-dropdown-item>` -->
                 <el-dropdown-item v-if="!DEMO_MODE" @click="router.push('/sign')">签到中心</el-dropdown-item>
                 <!-- [zh] 开始标签 `<el-dropdown-item>` -->
-                <el-dropdown-item v-if="!DEMO_MODE" divided @click="logout">退出登录</el-dropdown-item>
+                <el-dropdown-item v-if="DEMO_MODE" @click="router.push('/customer-account')">{{ authStore.userInfo?.identityType === 'ACCOUNT' ? '我的账户' : '登录 / 注册' }}</el-dropdown-item>
+                <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
               <!-- [zh] 闭合标签 `</el-dropdown-menu>` -->
               </el-dropdown-menu>
             </template>
@@ -287,7 +289,8 @@ const logout = async () => {
   authStore.prepareLogoutNavigation();
   await authStore.logout();
   toast.success('已退出登录');
-  await router.replace({ path: '/login', query: {} });
+  if (DEMO_MODE) window.location.replace('/login');
+  else await router.replace({ path: '/login', query: {} });
 };
 
 onMounted(async () => {

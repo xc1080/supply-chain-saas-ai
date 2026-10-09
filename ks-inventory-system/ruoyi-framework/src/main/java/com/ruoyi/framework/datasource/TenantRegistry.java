@@ -56,7 +56,7 @@ public class TenantRegistry {
     }
     public Set<String> tenants() { return Collections.unmodifiableSet(sources.keySet()); }
     public String tenantFor(long userId) {
-        List<String> result = control.queryForList("SELECT b.tenant_id FROM commerce_tenant_binding b JOIN commerce_tenant_registry t ON t.tenant_id=b.tenant_id WHERE b.user_id=? AND b.enabled=1 AND t.status='ENABLED'", String.class, userId);
+        List<String> result = control.queryForList("SELECT b.tenant_id FROM commerce_tenant_binding b JOIN commerce_tenant_registry t ON t.tenant_id=b.tenant_id JOIN sys_user u ON u.user_id=b.user_id WHERE b.user_id=? AND b.enabled=1 AND t.status='ENABLED' AND u.status='0' AND u.del_flag='0'", String.class, userId);
         if (result.size() != 1 || !sources.containsKey(result.get(0))) throw new ServiceException("账号未绑定有效租户", 403);
         return result.get(0);
     }

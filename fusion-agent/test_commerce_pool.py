@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 from fastapi import HTTPException
@@ -17,6 +17,11 @@ import test_store_api as fixtures
 
 
 class CommercePoolTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        patcher = patch.dict('os.environ', {'FUSION_CUSTOMER_ASSERTION_SECRET':'isolated-proof-secret-32-characters'})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     async def token(self):
         return "Bearer isolated-test"
 
@@ -112,6 +117,67 @@ class CommercePoolTests(unittest.IsolatedAsyncioTestCase):
                 receipt = await api.request("POST", "/commerce/activities/rush/checkout", body=body)
                 self.assertEqual(receipt["state"], "PENDING")
                 self.assertEqual(calls[0], calls[1])
+            finally: await api.close()
+
+    async def test_explicit_authentication_rejection_refreshes_once_with_new_customer_nonce(self):
+        service = SimpleNamespace(JAVA_URL='http://localhost:8035', TIMEOUT=httpx.Timeout(2))
+        for status, body in [(401, {'code':401}), (200, {'code':401})]:
+            seen = []
+            def transport(request):
+                seen.append(request)
+                if len(seen)==1: return httpx.Response(status, json=body)
+                return httpx.Response(200, json={'code':200,'data':{'orderId':'accepted'}})
+            refresh = AsyncMock(return_value='Bearer refreshed')
+            api = commerce_api.CommerceAPI(service, self.token, token_refresher=refresh)
+            api._client = httpx.AsyncClient(transport=httpx.MockTransport(transport))
+            with patch.dict('os.environ', {'FUSION_CUSTOMER_ASSERTION_SECRET':'isolated-proof-secret-32-characters'}):
+                try:
+                    result = await api.request('POST','/commerce/orders', body={'ownerId':'a'*64,'requestKey':'fixed'})
+                    self.assertEqual(result['orderId'],'accepted')
+                    refresh.assert_awaited_once_with('Bearer isolated-test')
+                    self.assertEqual(len(seen),2)
+                    self.assertEqual(seen[1].headers['authorization'],'Bearer refreshed')
+                    self.assertNotEqual(seen[0].headers['x-customer-nonce'],seen[1].headers['x-customer-nonce'])
+                    self.assertNotEqual(seen[0].headers['x-customer-signature'],seen[1].headers['x-customer-signature'])
+                    self.assertEqual(seen[0].content,seen[1].content)
+                finally: await api.close()
+
+    async def test_business_rejection_and_uncertain_commit_never_refresh_or_resend(self):
+        service = SimpleNamespace(JAVA_URL='http://localhost:8035', TIMEOUT=httpx.Timeout(2))
+        for failure, expected in [(403,403), ('timeout',502)]:
+            seen = []
+            def transport(request):
+                seen.append(request)
+                if failure == 'timeout': raise httpx.ReadTimeout('Possible commit; missing acknowledgement',request=request)
+                return httpx.Response(200,json={'code':403,'msg':'Scope denied'})
+            refresh = AsyncMock(return_value='Bearer refreshed')
+            api = commerce_api.CommerceAPI(service,self.token,token_refresher=refresh)
+            api._client = httpx.AsyncClient(transport=httpx.MockTransport(transport))
+            with patch.dict('os.environ', {'FUSION_CUSTOMER_ASSERTION_SECRET':'isolated-proof-secret-32-characters'}):
+                try:
+                    with self.assertRaises(HTTPException) as raised:
+                        await api.request('POST','/commerce/orders',body={'ownerId':'a'*64,'requestKey':'fixed'})
+                    self.assertEqual(raised.exception.status_code,expected)
+                    refresh.assert_not_awaited()
+                    self.assertEqual(len(seen),1)
+                finally: await api.close()
+
+    async def test_second_authentication_rejection_stops_without_refresh_loop(self):
+        service = SimpleNamespace(JAVA_URL='http://localhost:8035', TIMEOUT=httpx.Timeout(2))
+        seen=[]
+        def transport(request):
+            seen.append(request)
+            return httpx.Response(401,json={'code':401})
+        refresh=AsyncMock(return_value='Bearer refreshed')
+        api=commerce_api.CommerceAPI(service,self.token,token_refresher=refresh)
+        api._client=httpx.AsyncClient(transport=httpx.MockTransport(transport))
+        with patch.dict('os.environ', {'FUSION_CUSTOMER_ASSERTION_SECRET':'isolated-proof-secret-32-characters'}):
+            try:
+                with self.assertRaises(HTTPException) as raised:
+                    await api.request('GET','/commerce/catalog')
+                self.assertEqual(raised.exception.status_code,503)
+                refresh.assert_awaited_once()
+                self.assertEqual(len(seen),2)
             finally: await api.close()
 
 

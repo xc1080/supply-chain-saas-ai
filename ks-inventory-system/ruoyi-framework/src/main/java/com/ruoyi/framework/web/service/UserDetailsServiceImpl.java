@@ -14,6 +14,9 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.MessageUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.service.ISysUserService;
+import com.ruoyi.common.core.tenant.TenantContext;
+import com.ruoyi.framework.datasource.TenantRegistry;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * 用户验证处理
@@ -33,9 +36,23 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Autowired
     private SysPermissionService permissionService;
 
+    @Autowired private ObjectProvider<TenantRegistry> tenantRegistry;
+
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        String previous=TenantContext.get();
+        try {
+        // Resolve the global account directory first, then authenticate the account
+        // maintained by its own tenant. Headers cannot choose the credential store.
+        TenantContext.clear();
         SysUser user = userService.selectUserByUserName(username);
+        TenantRegistry registry=tenantRegistry.getIfAvailable();
+        if(user!=null&&registry!=null) {
+            Long directoryId=user.getUserId();
+            TenantContext.set(registry.tenantFor(directoryId));
+            user=userService.selectUserById(directoryId);
+            if(user!=null&&!username.equals(user.getUserName()))user=null;
+        }
         if (StringUtils.isNull(user)) {
             log.info("登录用户：{} 不存在.", username);
             throw new ServiceException(MessageUtils.message("user.not.exists"));
@@ -50,9 +67,13 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         passwordService.validate(user);
 
         return createLoginUser(user);
+        } finally { TenantContext.set(previous); }
     }
 
     public UserDetails createLoginUser(SysUser user) {
-        return new LoginUser(user.getUserId(), user.getDeptId(), user, permissionService.getMenuPermission(user));
+        if(user.getRoles()!=null)user.getRoles().removeIf(role->!"0".equals(role.getStatus()));
+        LoginUser result=new LoginUser(user.getUserId(), user.getDeptId(), user, permissionService.getMenuPermission(user));
+        result.setTenantId(TenantContext.get());
+        return result;
     }
 }

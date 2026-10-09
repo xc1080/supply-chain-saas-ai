@@ -52,9 +52,10 @@ def store_order(order: dict) -> dict:
 
 
 class CommerceAPI:
-    def __init__(self, service, token_reader):
+    def __init__(self, service, token_reader, *, token_refresher=None):
         self.service = service
         self.token_reader = token_reader
+        self.token_refresher = token_refresher
         self.shop_id = os.getenv("FUSION_SHOP_ID", "default")
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", self.shop_id):
             raise ValueError("FUSION_SHOP_ID must be a valid configured shop identifier")
@@ -84,17 +85,30 @@ class CommerceAPI:
             if len(secret) < 32:
                 raise HTTPException(503, "客户身份委托未配置")
             customer = (body or {}).get("ownerId", (params or {}).get("ownerId", ""))
-            stamp, nonce = str(int(time.time())), uuid.uuid4().hex
-            payload = "\n".join((tenant, self.shop_id, method.upper(), path, str(customer), stamp, nonce))
-            proof = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
             client = await self.get_client()
-            response = await client.request(method, self.service.JAVA_URL + path,
-                                            headers={"Authorization": await self.token_reader(), "X-Shop-ID": self.shop_id,
+            token = await self.token_reader()
+            for attempt in range(2):
+                # Only an explicit authentication rejection is safe to resend.
+                # Timeouts, connection failures and business 403s never retry here.
+                stamp, nonce = str(int(time.time())), uuid.uuid4().hex
+                payload = "\n".join((tenant, self.shop_id, method.upper(), path, str(customer), stamp, nonce))
+                proof = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+                response = await client.request(method, self.service.JAVA_URL + path,
+                                            headers={"Authorization": token, "X-Shop-ID": self.shop_id,
                                                      "X-Customer-Owner": str(customer), "X-Customer-Timestamp": stamp,
                                                      "X-Customer-Nonce": nonce, "X-Customer-Signature": proof},
                                             params=params, json=body)
-            data = response.json()
-            code = int(data.get("code", response.status_code))
+                if response.status_code == 401:
+                    data, code = {}, 401
+                else:
+                    data = response.json()
+                    code = int(data.get("code", response.status_code))
+                if code == 401 and attempt == 0 and self.token_refresher is not None:
+                    token = await self.token_refresher(token)
+                    continue
+                break
+            if code == 401:
+                raise HTTPException(503, '商城业务账号认证失效，请联系商家')
             if code != 200:
                 if code in (400, 403, 404, 409, 422, 429, 503):
                     raise HTTPException(code, str(data.get("msg") or "订单操作未完成"))

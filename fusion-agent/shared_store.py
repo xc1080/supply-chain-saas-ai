@@ -58,7 +58,25 @@ return 1
 """
 
 LOOKUP = """
-return {redis.call('HGET',KEYS[1],'expires') or '',redis.call('EXISTS',KEYS[2])}
+return {redis.call('HGET',KEYS[1],'expires') or '',redis.call('EXISTS',KEYS[2]),redis.call('HGET',KEYS[1],'kind') or 'GUEST'}
+"""
+
+ACCOUNT_REFERENCE = """
+return {redis.call('HGET',KEYS[1],'expires') or '',redis.call('HGET',KEYS[1],'kind') or 'GUEST',redis.call('HGET',KEYS[1],'account_id') or '',redis.call('HGET',KEYS[1],'auth_version') or ''}
+"""
+
+IDENTITY_STATE = """
+redis.call('HSET',KEYS[1],'expires',ARGV[1],'kind','STATE')
+redis.call('HDEL',KEYS[1],'account_id','auth_version')
+redis.call('SET',KEYS[2],'done','EX',ARGV[2])
+for _,key in ipairs(KEYS) do if redis.call('EXISTS',key)==1 then redis.call('EXPIRE',key,ARGV[2]) end end
+return 1
+"""
+
+LOGIN_ATTEMPT = """
+local count=redis.call('INCR',KEYS[1])
+if count==1 then redis.call('EXPIRE',KEYS[1],ARGV[1]) end
+return count
 """
 
 REVOKE = """
@@ -199,6 +217,25 @@ class RedisSharedStore:
         base = f"{self.prefix}:{{{self.tenant}:{self.shop}:{session}}}"
         return [base + suffix for suffix in (":session", ":migrated", ":cart", ":cart-checkouts", ":addresses", ":addresses-initialized")]
 
+    def _bound_owner_seed(self, session):
+        # Registration commits the durable account before Redis bearer rotation.
+        # If rotation fails, an existing GUEST hash must not keep authorizing
+        # the account's owner seed (or permit logout to delete its saved cart).
+        if not self.legacy_path.exists():
+            return False
+        connection = None
+        try:
+            connection = sqlite3.connect(self.legacy_path.resolve().as_uri() + "?mode=ro", uri=True, timeout=2)
+            if not connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='customer_accounts'").fetchone():
+                return False
+            return connection.execute("SELECT 1 FROM customer_accounts WHERE tenant_id=? AND shop_id=? AND owner_seed=?",
+                                      (self.tenant, self.shop, session)).fetchone() is not None
+        except sqlite3.Error as error:
+            raise HTTPException(503, "账户身份暂时无法校验，请稍后重试") from error
+        finally:
+            if connection is not None:
+                connection.close()
+
     def _legacy_snapshot(self, session):
         # Pre-shop sessions belonged to the default shop only. A cookie must not
         # become a valid identity in another shop through legacy import.
@@ -207,6 +244,10 @@ class RedisSharedStore:
         connection = sqlite3.connect(self.legacy_path.resolve().as_uri() + "?mode=ro", uri=True, timeout=2)
         connection.row_factory = sqlite3.Row
         try:
+            if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='customer_accounts'").fetchone():
+                if connection.execute("SELECT 1 FROM customer_accounts WHERE tenant_id=? AND shop_id=? AND owner_seed=?",
+                                      (self.tenant, self.shop, session)).fetchone():
+                    return None
             row = connection.execute("SELECT * FROM sessions WHERE id=? AND expires>?", (session, time.time())).fetchone()
             if not row:
                 return None
@@ -225,9 +266,16 @@ class RedisSharedStore:
             return None
         client = await self.get_client()
         keys = self.keys(value)
-        expires, migrated = await client.eval(LOOKUP, 2, keys[0], keys[1])
+        expires, migrated, kind = await client.eval(LOOKUP, 2, keys[0], keys[1])
+        if kind == 'STATE':
+            # A durable owner seed is data identity, never a bearer credential.
+            return None
         if expires:
-            return value if float(expires) > time.time() else None
+            if float(expires) <= time.time():
+                return None
+            if kind == 'GUEST' and await asyncio.to_thread(self._bound_owner_seed, value):
+                return None
+            return value
         if migrated:
             return None
         # Slow import happens once per old cookie, never on the normal read path.
@@ -241,8 +289,12 @@ class RedisSharedStore:
                           session.get("context_product") or "", session.get("keywords") or "[]",
                           json.dumps(carts, ensure_ascii=False))
         # Another instance may have logged out while SQLite was being read.
-        current = await client.hget(keys[0], "expires")
-        return value if current is not None and float(current) > time.time() else None
+        current, _, kind = await client.eval(LOOKUP, 2, keys[0], keys[1])
+        if not current or float(current) <= time.time() or kind == 'STATE':
+            return None
+        if kind == 'GUEST' and await asyncio.to_thread(self._bound_owner_seed, value):
+            return None
+        return value
 
     @redis_required
     async def create_session(self):
@@ -257,6 +309,41 @@ class RedisSharedStore:
     @redis_required
     async def logout(self, session):
         return await (await self.get_client()).eval(REVOKE, 6, *self.keys(session), SESSION_TTL)
+
+    @redis_required
+    async def account_reference(self, cookie):
+        expires, kind, account_id, version = await (await self.get_client()).eval(
+            ACCOUNT_REFERENCE, 1, self.keys(cookie)[0])
+        if not expires or float(expires) <= time.time():
+            raise HTTPException(401, "账户会话已失效，请重新登录")
+        if kind == 'ACCOUNT':
+            if not re.fullmatch(r'[a-f0-9]{32}', account_id) or not re.fullmatch(r'[1-9][0-9]{0,15}', version):
+                raise HTTPException(401, "账户会话已失效，请重新登录")
+            return account_id, version
+        if kind != 'GUEST' or account_id or version or await asyncio.to_thread(self._bound_owner_seed, cookie):
+            raise HTTPException(401, "账户会话已失效，请重新登录")
+        return None
+
+    @redis_required
+    async def bind_account(self, cookie, account_id, version):
+        if not await self.valid_session(cookie):
+            raise HTTPException(401, "账户会话已失效")
+        await (await self.get_client()).hset(self.keys(cookie)[0], mapping={
+            'kind': 'ACCOUNT', 'account_id': account_id, 'auth_version': str(version)})
+
+    @redis_required
+    async def ensure_identity(self, seed):
+        await (await self.get_client()).eval(IDENTITY_STATE, 6, *self.keys(seed), time.time()+SESSION_TTL, SESSION_TTL)
+
+    @redis_required
+    async def login_attempt(self, identity, remote):
+        # Two server-derived scopes protect one account and one source across replicas.
+        client = await self.get_client()
+        for scope, value, limit in (('account', identity, 12), ('source', remote, 80)):
+            digest = hashlib.sha256(str(value).encode()).hexdigest()
+            key = f'{self.prefix}:auth:{{{self.tenant}:{self.shop}}}:{scope}:{digest}'
+            if await client.eval(LOGIN_ATTEMPT, 1, key, 900) > limit:
+                raise HTTPException(429, '登录尝试过于频繁，请15分钟后重试')
 
     @redis_required
     async def _eval(self, script, session, *args):

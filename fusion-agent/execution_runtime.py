@@ -145,6 +145,18 @@ def cancel_message(connection, tenant, shop, session, identity):
 
 def retain_messages(connection):
     cutoff = time.time()-max(1, int(os.getenv("FUSION_CHAT_RETENTION_DAYS", "30")))*86400
-    connection.execute("DELETE FROM message_events WHERE created<?", (cutoff,))
-    connection.execute("DELETE FROM messages WHERE status<>1 AND julianday(sent_at)<julianday(?,'unixepoch','localtime')", (cutoff,))
-    connection.execute("DELETE FROM proposals WHERE expires<?", (time.time(),))
+    # Bounded work keeps cleanup from monopolizing the same-host database.
+    # Live messages and their delivery events remain until execution terminates.
+    expired = [row[0] for row in connection.execute("""SELECT id FROM messages
+        WHERE status<>1 AND julianday(sent_at)<julianday(?,'unixepoch','localtime') ORDER BY id LIMIT 1000""", (cutoff,))]
+    events = 0
+    if expired:
+        placeholders = ",".join("?" for _ in expired)
+        events = connection.execute(f"DELETE FROM message_events WHERE message_id IN ({placeholders})", expired).rowcount
+        connection.execute(f"DELETE FROM messages WHERE id IN ({placeholders})", expired)
+    events += connection.execute("""DELETE FROM message_events WHERE sequence IN (
+        SELECT e.sequence FROM message_events e LEFT JOIN messages m ON m.id=e.message_id
+        WHERE e.created<? AND (m.id IS NULL OR m.status<>1) ORDER BY e.sequence LIMIT 1000)""", (cutoff,)).rowcount
+    proposals = connection.execute("""DELETE FROM proposals WHERE token IN (
+        SELECT token FROM proposals WHERE expires<? ORDER BY expires LIMIT 1000)""", (time.time(),)).rowcount
+    return {"messages": len(expired), "events": events, "proposals": proposals}

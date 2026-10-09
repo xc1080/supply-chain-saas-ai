@@ -87,9 +87,8 @@ public class SysProfileController extends BaseController {
         }
         newPassword = SecurityUtils.encryptPassword(newPassword);
         if (userService.resetUserPwd(userName, newPassword) > 0) {
-            // 更新缓存用户密码
-            loginUser.getUser().setPassword(newPassword);
-            tokenService.setLoginUser(loginUser);
+            // The next request must authenticate again, including this browser.
+            tokenService.delLoginUser(loginUser.getToken());
             return success();
         }
         return error("修改密码异常，请联系管理员");

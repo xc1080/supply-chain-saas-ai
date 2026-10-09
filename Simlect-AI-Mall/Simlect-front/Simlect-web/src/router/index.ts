@@ -116,12 +116,13 @@ const router = createRouter({
     subPage('/notifications', () => import('@/views/NotificationView.vue'), { title: '消息中心', requiresAuth: true }),
     subPage('/after-sale', () => DEMO_MODE ? import('@/views/DemoAfterSaleView.vue') : import('@/views/AfterSaleView.vue'), { title: '售后管理' }),
     subPage('/recommend', () => import('@/views/RecommendView.vue'), { title: '编辑精选' }),
-    subPage('/login', () => import('@/views/LoginView.vue'), {
+    subPage('/login', () => DEMO_MODE ? import('@/views/CustomerAccountView.vue') : import('@/views/LoginView.vue'), {
       title: '登录',
       requiresAuth: false,
       hideTabBar: true
     }),
-    subPage('/register', () => import('@/views/RegisterView.vue'), { title: '注册', hideTabBar: true }),
+    subPage('/register', () => DEMO_MODE ? import('@/views/CustomerAccountView.vue') : import('@/views/RegisterView.vue'), { title: '注册', requiresAuth: false, hideTabBar: true }),
+    subPage('/customer-account', () => import('@/views/CustomerAccountView.vue'), { title: '我的账户', requiresAuth: false, hideTabBar: true }),
     subPage('/forgot-password', () => import('@/views/ForgotPasswordView.vue'), { title: '找回密码', hideTabBar: true }),
     subPage('/checkout', () => import('@/views/CheckoutView.vue'), {
       title: '确认订单',
@@ -220,7 +221,7 @@ router.beforeEach(async (to, from) => {
     };
   }
 
-  if ((to.path === '/login' || to.path === '/register') && authStore.isLoggedIn) {
+  if ((to.path === '/login' || to.path === '/register') && authStore.isLoggedIn && (!DEMO_MODE || authStore.userInfo?.identityType === 'ACCOUNT')) {
     return { path: resolveSafeRedirect(to.query.redirect), replace: true };
   }
 

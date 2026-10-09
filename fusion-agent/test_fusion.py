@@ -112,9 +112,9 @@ class ApiTests(unittest.TestCase):
                 return [{"productId": "x", "productCode": "X", "productName": "智能灯", "productSpecifications": "Zigbee", "univalence": "129", "status": "0"}]
             return [{"productId": "x", "planQuantity": "36"}]
         no_keys = {key: "" for key in ("FUSION_LLM_KEY", "DEEPSEEK_API_KEY", "AI_BAILIAN_API_KEY", "FUSION_EMBEDDING_KEY")}
-        async def identity(authorization): return {"tenantId":"demo","userId":1}
+        async def identity(authorization, shop=None): return {"tenantId":"demo","userId":1,"shopId":"default"}
         async def catalog(state): return await main.fetch_data(state)
-        with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ,{**no_keys,"FUSION_AGENT_DB":temporary+"/runs.sqlite3"}), patch.object(main,"agent_identity",identity), patch.object(main,"workspace_catalog",catalog), patch.object(main, "java_rows", fake_rows), TestClient(main.app) as client:
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ,{**no_keys,"FUSION_AGENT_DB":temporary+"/runs.sqlite3"}), patch.object(main,"workspace_identity",identity), patch.object(main,"workspace_catalog",catalog), patch.object(main, "java_rows", fake_rows), TestClient(main.app) as client:
             response = client.post("/chat", headers={"Authorization": "Bearer fake"}, json={"message": "推荐200以内的Zigbee灯"})
             self.assertEqual(response.status_code, 200)
             body = response.json()

@@ -35,6 +35,7 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        try {
         LoginUser loginUser = tokenService.getLoginUser(request);
         if (StringUtils.isNotNull(loginUser) && StringUtils.isNull(SecurityUtils.getAuthentication())) {
             tokenService.verifyToken(loginUser);
@@ -42,7 +43,6 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
         }
-        try {
             TenantRegistry registry = tenantRegistry.getIfAvailable();
             if (registry != null && loginUser != null) {
                 String tenant = registry.tenantFor(loginUser.getUserId());
@@ -56,8 +56,10 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             }
             chain.doFilter(request, response);
         } catch (ServiceException ex) {
-            response.setStatus(403); response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":403,\"msg\":\"租户访问被拒绝\"}");
+            SecurityContextHolder.clearContext();
+            int code=ex.getCode()!=null&&ex.getCode()==503?503:403;
+            response.setStatus(code); response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write(code==503?"{\"code\":503,\"msg\":\"账号校验暂时不可用\"}":"{\"code\":403,\"msg\":\"租户访问被拒绝\"}");
         } finally { TenantContext.clear(); }
     }
 }

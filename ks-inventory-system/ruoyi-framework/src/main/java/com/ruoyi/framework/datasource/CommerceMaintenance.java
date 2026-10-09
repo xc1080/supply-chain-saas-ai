@@ -58,7 +58,8 @@ public class CommerceMaintenance {
                 CommerceSchemaMigrator.Migration.resources(4,"payment-channel-state",payments::initializeSchema,"db/commerce-payment.sql"),
                 CommerceSchemaMigrator.Migration.resources(5,"dated-delivery-capacity",()->{delivery.initializeSchema();delivery.migrateLegacy();},"db/commerce-delivery.sql"),
                 CommerceSchemaMigrator.Migration.resources(6,"supply-commitments",planning::initializeSupplySchema,"db/commerce-supply-flow.sql"),
-                CommerceSchemaMigrator.Migration.resources(7,"shop-collation-compatibility",()->applySql("db/commerce-collation.sql"),"db/commerce-collation.sql")
+                CommerceSchemaMigrator.Migration.resources(7,"shop-collation-compatibility",()->applySql("db/commerce-collation.sql"),"db/commerce-collation.sql"),
+                CommerceSchemaMigrator.Migration.resources(8,"supply-exceptions",planning::initializeSupplyExceptionsSchema,"db/commerce-supply-exceptions.sql")
             ),migrationsEnabled,retryFailed);
         } ready = true; }
         finally { TenantContext.clear(); }
