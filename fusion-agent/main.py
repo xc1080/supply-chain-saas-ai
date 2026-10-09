@@ -17,6 +17,7 @@ from langgraph.graph import END, START, StateGraph
 
 from retrieval import KNOWLEDGE, cosine, normalize_products, number, product_text, rank_products, resolve_query, retrieve_knowledge
 from business_catalog import profile_for, manufacturer_source, compatibility_assessment, mentioned_gateways
+from business_planning import public_restock_intent
 
 
 JAVA_URL = os.getenv("FUSION_JAVA_URL", "http://127.0.0.1:8035").rstrip("/")
@@ -282,13 +283,15 @@ def deterministic_answer(state: ChatState) -> str:
     """A short, honest fallback, never a second answer appended to model prose."""
     query = state["message"].lower()
     products = state.get("products", [])
+    if public_restock_intent(query):
+        return "目前没有可向顾客确认的补货或到货日期。商品卡可查看本次查询的可售库存；具体到货时间需要商家核实，不能仅凭库存推算。"
     if any(word in query for word in ("退款", "退换", "质保", "售后")):
         orders = server_orders(state)
         if orders:
             order = orders[0]
             if order["after_sales_status"]:
                 return f"本次查询的订单 {order['order_no']}：{order_status_text(order)}。可在订单详情查看售后进度；支付和退款均为本地沙箱。"
-        return "可以在我的订单详情申请整单售后，由商家审核。已发货商品需要商家验收为完好可售后返库，再执行沙箱退款。助手只查询和解释，不能代办；具体退换条件仍需商家核对。"
+        return "可以在订单详情选择商品和数量申请售后，由商家审核。未发货部分退款后释放预留；已发货部分先退货验收，再执行沙箱退款。完好商品恢复可售，待质检或损坏商品仍不可售。助手只查询和解释，不能代办；具体退换条件仍需商家核对。"
     if any(word in query for word in ("下单", "采购", "入库", "出库", "扣库存", "删除", "修改", "审批")) or ("支付" in query and not server_orders(state)):
         return "不能凭推荐结果直接办理。先核对商品与账面库存，再在页面或业务系统中创建相应单据并按权限处理；缺货时需要先补货。助手只查询和推荐，不会更改业务数据。"
     if server_orders(state) or "订单" in query:
@@ -471,6 +474,10 @@ async def answer(state: ChatState) -> dict:
     mode = dict(state.get("mode") or {"llm": "local", "retrieval": "local", "model": None})
     sources = answer_sources(state)
     fallback = deterministic_answer(state)
+    if public_restock_intent(state["message"]) and (state.get("context") or {}).get("channel") != "workspace":
+        return {"answer": fallback, "citations": [], "sources": sources,
+                "mode": {**mode, "llm": "local", "model": None},
+                "trace": trace + [{"step": "answer_validation", "status": "ok", "detail": "未提供已核实的公开到货日期，不读取商家供货资料"}]}
     if llm_key():
         try:
             prompt = (Path(__file__).parent / "prompts" / "assistant.txt").read_text(encoding="utf-8")

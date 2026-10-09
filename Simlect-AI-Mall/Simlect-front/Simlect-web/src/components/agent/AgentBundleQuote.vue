@@ -8,11 +8,12 @@
     </div>
     <div class="bundle-total"><span>设备合计 <strong>{{ money(plan.budget?.total) }}</strong></span><span v-if="plan.budget?.limit != null" :class="{ 'over-budget': plan.budget.withinBudget === false }">总预算 {{ money(plan.budget.limit) }}</span></div>
     <small class="bundle-cost-scope">安装与配送费用待确认。</small>
-    <div class="bundle-facts"><span>{{ compatibilityText }}</span><span>库存支持 {{ plan.inventory?.promisableUnits ?? '待核对' }} 套</span><span>{{ plan.delivery?.date ? `到货参考 ${plan.delivery.date}` : '到货时间未确认' }}</span></div>
-    <ul v-if="plan.missing?.length || plan.inventory?.shortages?.length || plan.budget?.withinBudget === false" class="bundle-gaps">
+    <div class="bundle-facts"><span>{{ compatibilityText }}</span><span>库存支持 {{ plan.inventory?.inventoryPromisableUnits ?? plan.inventory?.promisableUnits ?? '待核对' }} 套</span><span v-if="plan.delivery?.capacity != null">发货余量 {{ plan.delivery.capacity }} 套</span><span>{{ plan.delivery?.date ? `到货参考 ${plan.delivery.date}` : '到货时间未确认' }}</span></div>
+    <ul v-if="plan.missing?.length || plan.inventory?.shortages?.length || plan.budget?.withinBudget === false || capacityShortage" class="bundle-gaps">
       <li v-for="gap in plan.missing || []" :key="gap.field">{{ gap.question }}</li>
       <li v-for="shortage in plan.inventory?.shortages || []" :key="shortage.productId">{{ shortage.name }} 缺 {{ shortage.quantity }} 件</li>
       <li v-if="plan.budget?.withinBudget === false">整套金额超过预算，请调整设备或数量。</li>
+      <li v-if="capacityShortage">发货处理余量不足，请减少套数或与商家确认发货安排。</li>
     </ul>
     <details v-if="plan.alternatives?.length" class="bundle-alternatives"><summary>替代候选（{{ plan.alternatives.length }}）</summary><div v-for="candidate in plan.alternatives" :key="candidate.productId"><strong>{{ candidate.name }}</strong><p>{{ candidate.reason }}</p><ul><li v-for="difference in candidate.differences || []" :key="String(difference)">{{ difference }}</li></ul><small>确认替代后需重新生成报价。</small></div></details>
     <p v-if="plan.confirmationStatus === 'REPRICE_REQUIRED'" class="bundle-notice" role="status">价格已更新，请核对新合计后再次确认。</p>
@@ -40,6 +41,7 @@ const busy = ref(false);
 const error = ref('');
 const money = (value: unknown) => value == null ? '待核价' : new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(Number(value));
 const totalQuantity = computed(() => (plan.value.items || []).reduce((sum: number, item: any) => sum + Number(item.quantity || 0) * Number(plan.value.units || 1), 0));
+const capacityShortage = computed(() => plan.value.delivery?.capacity != null && Number(plan.value.delivery.capacity) < Number(plan.value.units || 1));
 const canConfirm = computed(() => plan.value.status === 'READY_FOR_REVIEW' && !!plan.value.quoteToken && !['ADDED', 'EXPIRED'].includes(plan.value.confirmationStatus));
 const statusText = computed(() => plan.value.confirmationStatus === 'ADDED' ? '已加购' : plan.value.confirmationStatus === 'EXPIRED' ? '报价已过期' : plan.value.status === 'READY_FOR_REVIEW' ? '待你确认' : plan.value.status === 'NEEDS_INPUT' ? '待补充条件' : '需要调整');
 const tone = computed(() => plan.value.confirmationStatus === 'ADDED' ? 'success' : canConfirm.value ? 'primary' : 'warning');

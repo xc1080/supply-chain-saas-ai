@@ -111,7 +111,7 @@ def run():
         assert api(shop, "POST", base + "/review", review)["status"] == "AWAITING_RETURN"
         refund = {"requestKey": "refund_" + identity, "scenario": "success"}
         api(shop, "POST", base + "/sandbox-refund", refund, expected=409)
-        api(shop, "POST", base + "/accept-return", {"requestKey": "accept_" + identity, "condition": "DAMAGED"}, expected=409)
+        api(shop, "POST", base + "/accept-return", {"requestKey": "accept_" + identity, "condition": "UNKNOWN"}, expected=409)
         assert stock()["bookStock"] == target["bookStock"] - 2
         acceptance = {"requestKey": "accept_" + identity, "condition": "SELLABLE"}
         accepted = api(shop, "POST", base + "/accept-return", acceptance)

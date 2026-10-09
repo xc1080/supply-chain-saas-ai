@@ -42,8 +42,14 @@ def clarification_intent(message: str) -> bool:
                 or any(platform.casefold() in message.casefold() for platform in PLATFORMS))
 
 
+def public_restock_intent(message: str) -> bool:
+    if re.search(r"采购|备货(?:计划|草稿|建议)|补货(?:计划|草稿|建议)|缺货风险|活动配额|读取销量|审批", message):
+        return False
+    return bool(re.search(r"(?:什么时候|何时|多久|几天|预计|有没有|会不会).*(?:补货|到货)|(?:补货|到货).*(?:时间|日期|通知|多久|了吗)", message))
+
+
 def replenishment_intent(message: str) -> bool:
-    return bool(re.search(r"补货|备货|缺货风险|采购建议|采购草稿|活动配额(?:建议|调整)", message))
+    return not public_restock_intent(message) and bool(re.search(r"补货|备货|缺货风险|采购建议|采购草稿|活动配额(?:建议|调整)", message))
 
 
 def _count(text: str) -> int | None:

@@ -14,7 +14,7 @@
       <div v-if="messageStatus === 0 && !hasRenderableContent" class="cancel-tip">已取消回复</div>
       <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
       <template v-else>
-      <p v-if="resultMode && resultMode.llm !== 'online' && !isStreaming" class="answer-mode" role="status">
+      <p v-if="!businessPlan && resultMode && resultMode.llm !== 'online' && !isStreaming" class="answer-mode" role="status">
         {{ resultMode.llm === 'online' ? '大模型回答' : '本地检索回答' }}
         <span v-if="resultMode.retrieval === 'hybrid'"> · 关键词 + 向量检索</span>
       </p>
