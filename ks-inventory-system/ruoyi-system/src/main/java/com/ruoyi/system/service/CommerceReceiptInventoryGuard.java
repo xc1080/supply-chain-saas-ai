@@ -255,13 +255,25 @@ public class CommerceReceiptInventoryGuard {
     private void validateChanges(Map<Key,Long> changes, Map<Long,List<Map<String,Object>>> warehouses) {
         Map<Long,Long> productDeltas = new TreeMap<>();
         for (Map.Entry<Key,Long> entry : changes.entrySet()) {
+            if (entry.getValue() == 0) continue;
+            productDeltas.put(entry.getKey().product, Math.addExact(productDeltas.getOrDefault(entry.getKey().product,0L),entry.getValue()));
+        }
+        Map<Long,Map<Long,Long>> relocations = new TreeMap<>();
+        Map<Long,SortedSet<Long>> incoming = new TreeMap<>();
+        for (Map.Entry<Key,Long> entry : changes.entrySet()) {
             Key key = entry.getKey(); long delta = entry.getValue();
             if (delta == 0) continue;
-            long before = warehouseQuantity(warehouses.get(key.product),key.warehouse);
+            long after = Math.addExact(warehouseQuantity(warehouses.get(key.product),key.warehouse),delta);
             long unavailable=jdbc.queryForObject("SELECT COALESCE(SUM(quality_hold+damaged),0) FROM commerce_warehouse_condition WHERE product_id=? AND warehouse_id=?",Long.class,key.product,key.warehouse);
-            require(Math.addExact(before,delta) >= unavailable, "指定仓库可用库存不足，不能侵占待检或损坏库存", 409);
-            require(Math.addExact(before,delta)>=unavailable+allocations.pending(key.product,key.warehouse),"指定仓库出库或冲销将侵占商城订单仓占用",409);
-            productDeltas.put(key.product, Math.addExact(productDeltas.getOrDefault(key.product,0L),delta));
+            require(after >= unavailable, "指定仓库可用库存不足，不能侵占待检或损坏库存", 409);
+            // A change that only moves a product's goods between warehouses carries its commitments along instead;
+            // any net outflow or reversal keeps the original per-warehouse rule and its original failure order.
+            if (productDeltas.get(key.product) != 0L)
+                require(after-unavailable >= allocations.pending(key.product,key.warehouse), CommerceWarehouseAllocationService.ENCROACH_MESSAGE, 409);
+            else {
+                relocations.computeIfAbsent(key.product,product -> new TreeMap<>()).put(key.warehouse, after-unavailable);
+                if (delta > 0) incoming.computeIfAbsent(key.product,product -> new TreeSet<>()).add(key.warehouse);
+            }
         }
         for (Map.Entry<Long,Long> entry : productDeltas.entrySet()) {
             long product = entry.getKey(), delta = entry.getValue();
@@ -275,6 +287,8 @@ public class CommerceReceiptInventoryGuard {
                 require(delta >= 0 || available >= -delta, "出库或冲销将侵占商城订单预留及活动配额，单据未审核", 409);
             }
         }
+        for (Map.Entry<Long,Map<Long,Long>> entry : relocations.entrySet())
+            allocations.followMove(entry.getKey(),entry.getValue(),incoming.getOrDefault(entry.getKey(),new TreeSet<>()));
     }
 
     private void validateCounting(ReceiptFrom receipt, Map<Key,Long> before, Map<Long,List<Map<String,Object>>> warehouses) {
