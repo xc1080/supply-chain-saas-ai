@@ -16,10 +16,10 @@ import static org.junit.Assert.*;
 import static com.ruoyi.system.service.CommerceServiceTest.map;
 
 public class CommercePlanningServiceTest {
-    private CommerceServiceTest f;
-    private CommercePlanningService planning;
-    private CommerceInventoryService stock;
-    private JdbcTemplate jdbc;
+    protected CommerceServiceTest f;
+    protected CommercePlanningService planning;
+    protected CommerceInventoryService stock;
+    protected JdbcTemplate jdbc;
     @Before public void setup() throws Exception {
         f=new CommerceServiceTest();f.setup();jdbc=f.jdbc;
         String sql=StreamUtils.copyToString(new ClassPathResource("db/commerce-planning.sql").getInputStream(),StandardCharsets.UTF_8).replace("ENGINE=InnoDB DEFAULT CHARSET=utf8mb4","");
@@ -27,6 +27,8 @@ public class CommercePlanningServiceTest {
         jdbc.execute("ALTER TABLE product ADD COLUMN lower_limit BIGINT DEFAULT 0");jdbc.execute("ALTER TABLE product ADD COLUMN upper_limit BIGINT DEFAULT 0");
         jdbc.execute("CREATE TABLE warehouse(warehouse_id BIGINT PRIMARY KEY)");jdbc.update("INSERT INTO warehouse VALUES (1)");
         stock=new CommerceInventoryService(jdbc.getDataSource());planning=new CommercePlanningService(jdbc.getDataSource(),stock,f.merchants);
+        planning.initializeSupplySchema();
+        jdbc.update("INSERT INTO commerce_shop_member VALUES ('default',3,'SUPPLY_REVIEWER')");
     }
     @After public void clear(){CommerceShopContext.clear();}
     private void publish(){f.transaction(()->{f.merchants.listing(1,true);return null;});}
@@ -35,6 +37,7 @@ public class CommercePlanningServiceTest {
     private void fails(int code,Runnable run){try{run.run();fail("Expected rejection");}catch(ServiceException e){assertEquals(Integer.valueOf(code),e.getCode());}}
 
     @Test public void quoteNeverBootstrapsAndAccessoryIsWholeBundleBottleneck(){
+        jdbc.update("DELETE FROM commerce_delivery_policy WHERE shop_id='default'");
         long events=jdbc.queryForObject("SELECT COUNT(*) FROM commerce_stock_ledger",Long.class);
         assertEquals(0L,quote(1,1).get("promisableUnits"));assertEquals(events,(long)jdbc.queryForObject("SELECT COUNT(*) FROM commerce_stock_ledger",Long.class));
         publish();jdbc.update("INSERT INTO product(product_id,product_code,product_name,status,univalence,inventory_qty) VALUES (2,'HUB','Hub','0',50,2)");
@@ -63,16 +66,17 @@ public class CommercePlanningServiceTest {
         assertEquals(2,planning.conditions(1).size());change("repair-1","DAMAGED","SELLABLE",2);assertEquals(9L,quote(1,1).get("promisableUnits"));
         fails(409,()->change("bad-1","QUALITY_HOLD","SELLABLE",2));
     }
-    @Test public void previousDayOrdersDispatchedTodayDoNotRestoreConsumedCapacity(){
+    @Test public void actualDispatchConsumesTodayAndReleasesFuturePromiseBucket(){
         publish();f.transaction(()->planning.savePolicy(map("dailyItemCapacity",8,"dispatchDays",1),1));
         String order=f.id(f.create("yesterday",4));
         f.transaction(()->f.service.pay(order,map("ownerId",CommerceServiceTest.OWNER,"paymentRequestId","pay","scenario","success")));
         jdbc.update("UPDATE commerce_order SET paid_time=TIMESTAMPADD(DAY,-1,CURRENT_TIMESTAMP) WHERE order_id=?",order);
         assertEquals(4L,quote(1,1).get("deliveryCapacity"));
         f.transaction(()->f.service.ship(order,map("requestKey","first","items",Arrays.asList(map("productId",1,"quantity",2))),1));
-        assertEquals(4L,quote(1,1).get("deliveryCapacity"));
+        assertEquals(6L,quote(1,1).get("deliveryCapacity"));
         f.transaction(()->f.service.ship(order,map("requestKey","second","items",Arrays.asList(map("productId",1,"quantity",2))),1));
-        assertEquals(4L,quote(1,1).get("deliveryCapacity"));
+        assertEquals(8L,quote(1,1).get("deliveryCapacity"));
+        assertEquals(4L,(long)jdbc.queryForObject("SELECT consumed_quantity FROM commerce_delivery_bucket WHERE shop_id='default' AND dispatch_date=CURRENT_DATE",Long.class));
     }
     @Test public void unavailableCannotInvadeExistingOrderOrActivityHolds(){
         publish();f.create("test-hold",4);
@@ -88,9 +92,10 @@ public class CommercePlanningServiceTest {
         Map<String,Object> draft=f.transaction(()->planning.createDraft(body,1));assertEquals("PENDING_APPROVAL",draft.get("status"));
         assertEquals(draft,f.transaction(()->planning.createDraft(body,1)));fails(403,()->f.transaction(()->planning.createDraft(map("requestKey","viewer","items",body.get("items")),2)));
         String id=(String)draft.get("draftId");Map<String,Object> review=map("requestKey","review-1","decision","APPROVE","note","人工核对供货交期后执行采购");
-        Map<String,Object> approved=f.transaction(()->planning.reviewDraft(id,review,1));assertEquals("APPROVED",approved.get("status"));assertEquals("NOT_EXECUTED",approved.get("executionStatus"));
-        assertEquals(approved,f.transaction(()->planning.reviewDraft(id,review,1)));assertEquals(10L,stock.balances(1).get("availableStock"));
-        fails(409,()->f.transaction(()->planning.reviewDraft(id,map("requestKey","review-2","decision","REJECT","note","changed"),1)));
+        fails(403,()->f.transaction(()->planning.reviewDraft(id,review,1)));
+        Map<String,Object> approved=f.transaction(()->planning.reviewDraft(id,review,3));assertEquals("APPROVED",approved.get("status"));assertEquals("NOT_EXECUTED",approved.get("executionStatus"));
+        assertEquals(approved,f.transaction(()->planning.reviewDraft(id,review,3)));assertEquals(10L,stock.balances(1).get("availableStock"));
+        fails(409,()->f.transaction(()->planning.reviewDraft(id,map("requestKey","review-2","decision","REJECT","note","changed"),3)));
     }
     @Test public void incomingNeedsPostedReceiptAndNeverAddsPhysicalStockTwice(){
         publish();Map<String,Object> body=map("requestKey","incoming-1","productId",1,"warehouseId",1,"quantity",4,"sourceReference","supplier confirmation SAMPLE-001","expectedAt","2026-12-01T12:00:00");
@@ -108,7 +113,7 @@ public class CommercePlanningServiceTest {
         publish();jdbc.update("UPDATE product SET lower_limit=12,upper_limit=20 WHERE product_id=1");
         Map<String,Object> draft=f.transaction(()->planning.createDraft(map("requestKey","stale","items",Arrays.asList(map("productId",1,"quantity",10))),1));
         jdbc.update("UPDATE product SET lower_limit=5,upper_limit=10 WHERE product_id=1");
-        fails(409,()->f.transaction(()->planning.reviewDraft((String)draft.get("draftId"),map("requestKey","stale-review","decision","APPROVE","note","approve"),1)));
+        fails(409,()->f.transaction(()->planning.reviewDraft((String)draft.get("draftId"),map("requestKey","stale-review","decision","APPROVE","note","approve"),3)));
         assertEquals("PENDING_APPROVAL",planning.drafts(1).get(0).get("status"));
     }
 }

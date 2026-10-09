@@ -41,3 +41,8 @@ export const listReplenishmentDrafts = () => request({ url: '/commerce/planning/
 export const createReplenishmentDraft = data => request({ url: '/commerce/planning/drafts', method: 'post', data })
 export const reviewReplenishmentDraft = (id, data) => request({ url: `/commerce/planning/drafts/${encodeURIComponent(id)}/review`, method: 'post', data })
 export const listCommerceStockConditions = () => request({ url: '/commerce/planning/conditions', method: 'get' })
+export const getPaymentReconciliation = () => request({ url: '/commerce/payments/reconciliation', method: 'get' })
+export const queryCommercePayment = id => request({ url: `/commerce/payments/operations/${encodeURIComponent(id)}/query`, method: 'post' })
+export const replayCommercePaymentEvent = id => request({ url: `/commerce/payments/provider-events/${encodeURIComponent(id)}/replay`, method: 'post' })
+export const executeReplenishmentDraft = (id, data) => request({ url: `/commerce/planning/drafts/${encodeURIComponent(id)}/execute`, method: 'post', data })
+export const cancelReplenishmentDraft = (id, data) => request({ url: `/commerce/planning/drafts/${encodeURIComponent(id)}/cancel`, method: 'post', data })

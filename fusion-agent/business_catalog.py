@@ -8,20 +8,28 @@ from __future__ import annotations
 from copy import deepcopy
 from functools import lru_cache
 import json
+import hashlib
 from pathlib import Path
 import re
 from urllib.parse import urlparse
 
 DATA_PATH = Path(__file__).parent / "data" / "scenario_catalog.json"
 PUBLIC_FIELDS = ("code", "brand", "model", "region", "spec", "protocols", "gatewayRequired",
-                 "compatibleGatewayCodes", "compatibilityStatus", "sources", "facts", "imageKind")
+                 "compatibleGatewayCodes", "compatibilityStatus", "sources", "facts", "imageKind", "platforms",
+                 "publicationStatus", "hardwareRevisions", "firmwareVersions")
 
 
-@lru_cache(maxsize=1)
 def load_scenario() -> dict:
     if not DATA_PATH.exists():
         return {"schemaVersion": 1, "products": [], "suppliers": []}
-    data = json.loads(DATA_PATH.read_text(encoding="utf-8"))
+    # Re-read a small registry at the boundary. Content changes/revocations take
+    # effect without a process restart, even if a file's timestamp is preserved.
+    return _parse_scenario(DATA_PATH.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=4)
+def _parse_scenario(content: str) -> dict:
+    data = json.loads(content)
     if data.get("schemaVersion") != 1 or not isinstance(data.get("products"), list):
         raise ValueError("Unsupported scenario catalog schema")
     products = data["products"]
@@ -38,6 +46,10 @@ def load_scenario() -> dict:
         for source in product["sources"]:
             if urlparse(source["url"]).scheme != "https" or not source.get("title"):
                 raise ValueError("A labelled HTTPS manufacturer source is required")
+            if source.get('publicationStatus','PUBLISHED') not in {'PUBLISHED','REVOKED','DRAFT'}:
+                raise ValueError('Invalid manufacturer source publication status')
+        if product.get('publicationStatus','PUBLISHED') not in {'PUBLISHED','REVOKED','DRAFT'}:
+            raise ValueError('Invalid manufacturer product publication status')
         if any(code not in codes for code in product.get("compatibleGatewayCodes", [])):
             raise ValueError("Unknown gateway product reference")
         simulation = product.get("simulation", {})
@@ -48,23 +60,54 @@ def load_scenario() -> dict:
     return data
 
 
+load_scenario.cache_clear = _parse_scenario.cache_clear
+
+
+def registry_version() -> str:
+    # Trade simulation/cost/supplier changes are not knowledge revisions.
+    rows=[{key:deepcopy(row[key]) for key in PUBLIC_FIELDS if key in row} for row in load_scenario()['products']]
+    return hashlib.sha256(json.dumps(rows,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+
+
+def evidence_snapshot(codes=(), gateway_models=()) -> dict:
+    rows=load_scenario()['products']
+    selected=set(codes)
+    selected.update(row['code'] for row in rows if row.get('model') in gateway_models and row.get('imageKind')=='gateway')
+    entries=[]
+    for code in sorted(selected):
+        profile=profile_for(code)
+        entries.append({'code':code,'version':profile['evidenceVersion'] if profile else None,
+                        'status':profile['evidenceStatus'] if profile else 'UNKNOWN'})
+    return {'registryVersion':registry_version(),'products':entries,'firmwareStatus':'UNVERIFIED','hardwareStatus':'UNVERIFIED'}
+
+
 def profile_for(code: str) -> dict | None:
     product = next((row for row in load_scenario()["products"] if row["code"] == code), None)
     if product is None:
         return None
     profile = {key: deepcopy(product[key]) for key in PUBLIC_FIELDS if key in product}
+    profile['evidenceVersion']=hashlib.sha256(json.dumps(profile,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+    active=[source for source in profile.get('sources',[]) if source.get('publicationStatus','PUBLISHED')=='PUBLISHED']
+    published=profile.get('publicationStatus','PUBLISHED')=='PUBLISHED' and bool(active)
+    profile['evidenceStatus']='PUBLISHED' if published else 'WITHDRAWN'
+    profile['sources']=active if published else []
+    if not published:
+        profile.update(facts=[],compatibilityStatus='unknown',compatibleGatewayCodes=[])
+    profile['validationScope']={'region':profile.get('region'),'hardware':'UNVERIFIED','firmware':'UNVERIFIED',
+                                'installation':'UNVERIFIED','scope':'manufacturer_model_reference'}
     profile["dataKind"] = "manufacturer_reference_with_simulated_trade"
     by_code = {row["code"]: row for row in load_scenario()["products"]}
-    profile["compatibleGatewayModels"] = [by_code[key]["model"] for key in product.get("compatibleGatewayCodes", [])]
+    profile["compatibleGatewayModels"] = [by_code[key]["model"] for key in profile.get("compatibleGatewayCodes", [])]
     return profile
 
 
 def manufacturer_source(product: dict) -> dict | None:
     profile = profile_for(str(product.get("code", "")))
-    if profile is None:
+    if profile is None or profile['evidenceStatus']!='PUBLISHED':
         return None
     return {"id": "M-" + profile["code"], "title": product["name"] + "（厂商型号资料）",
-            "content": json.dumps(profile, ensure_ascii=False), "urls": [source["url"] for source in profile["sources"]]}
+            "content": json.dumps(profile, ensure_ascii=False), "version":profile['evidenceVersion'],
+            "urls": [source["url"] for source in profile["sources"]]}
 
 
 def _mentioned(model: str, query: str) -> bool:
@@ -98,15 +141,20 @@ def compatibility_assessment(product: dict, query: str) -> dict:
     if not profile:
         return {"status": "unknown", "reason": "尚无该型号的厂商兼容依据"}
     base = {"sourceId": "M-" + profile["code"], "region": profile.get("region"),
+            "evidenceVersion":profile['evidenceVersion'], "evidenceStatus":profile['evidenceStatus'],
+            "validationScope":profile['validationScope'],
             "gatewayRequired": profile.get("gatewayRequired"),
             "compatibleGatewayModels": profile["compatibleGatewayModels"]}
+    if profile['evidenceStatus']!='PUBLISHED':
+        return {**base,'status':'evidence_withdrawn','reason':'该型号依据已撤销或未发布，不能据此确认兼容性'}
     if profile.get("gatewayRequired") is False and profile.get("compatibilityStatus") == "not_required":
         return {**base, "status": "gateway_not_required", "reason": "厂商资料列明无需配套网关；平台与安装条件仍按型号资料核对"}
     mentioned = requested_gateways(query)
     if not mentioned:
         return {**base, "status": "needs_gateway_model" if profile.get("gatewayRequired") else "unknown",
                 "reason": "需要具体网关型号才能核对；不能仅凭协议名称确认"}
-    matches = [row["model"] for row in mentioned if row["code"] in profile.get("compatibleGatewayCodes", [])]
+    matches = [row["model"] for row in mentioned if row["code"] in profile.get("compatibleGatewayCodes", [])
+               and (profile_for(row['code']) or {}).get('evidenceStatus')=='PUBLISHED']
     requested = [row["model"] for row in mentioned]
     unknown = [model for model in requested if model not in matches]
     if matches and not unknown and profile.get("compatibilityStatus") == "verified":

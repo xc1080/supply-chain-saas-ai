@@ -51,13 +51,14 @@ public class CommerceServiceTest {
         jdbc.update("INSERT INTO inventory_product(inventory_id,product_id,warehouse_id,plan_quantity) VALUES (1,1,1,10)");
         service = new CommerceService(source);
         merchants=new CommerceMerchantService(source);
-        for(String resource:Arrays.asList("db/commerce-merchant.sql","db/commerce-inventory.sql","db/commerce-after-sales.sql","db/commerce-planning.sql")) {
+        for(String resource:Arrays.asList("db/commerce-merchant.sql","db/commerce-inventory.sql","db/commerce-after-sales.sql","db/commerce-planning.sql","db/commerce-payment.sql","db/commerce-delivery.sql")) {
             String schema=StreamUtils.copyToString(new ClassPathResource(resource).getInputStream(),StandardCharsets.UTF_8).replace("ENGINE=InnoDB DEFAULT CHARSET=utf8mb4","");
             new ResourceDatabasePopulator(new ByteArrayResource(schema.getBytes(StandardCharsets.UTF_8))).execute(source);
         }
         jdbc.execute("ALTER TABLE commerce_order ADD COLUMN shop_id VARCHAR(32) DEFAULT 'default'");
         jdbc.execute("ALTER TABLE commerce_activity ADD COLUMN shop_id VARCHAR(32) DEFAULT 'default'");
         jdbc.update("INSERT INTO commerce_shop(shop_id,shop_name) VALUES ('default','Test shop')");
+        jdbc.update("INSERT INTO commerce_delivery_policy VALUES ('default',1000000,0,1,CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO commerce_shop_member VALUES ('default',1,'OWNER'),('default',2,'VIEWER')");
         jdbc.update("INSERT INTO commerce_product_shop VALUES (1,'default',1)");
         afterSales=new CommerceAfterSalesService(source);
@@ -160,6 +161,7 @@ public class CommerceServiceTest {
         rejected(403,()->merchants.requireShop("default",2,true));
         assertNotNull(merchants.requireShop("default",2,false));
         String other=String.valueOf(transaction(()->merchants.create("Second shop",3)).get("shopId"));
+        jdbc.update("INSERT INTO commerce_delivery_policy VALUES (?,1000000,0,3,CURRENT_TIMESTAMP)",other);
         CommerceShopContext.set(other);
         assertEquals(0L,service.list(null,null,1,20).get("total"));
         rejected(404,()->service.detail(defaultOrder,OWNER));

@@ -57,6 +57,7 @@
           <template v-if="DEMO_MODE && !order.legacy">
             <div class="info-row"><dt>付款渠道</dt><dd>本地支付沙箱（不扣真钱）</dd></div>
             <div v-if="order.orderStatus === 0 && order.expiresAt" class="info-row"><dt>付款剩余</dt><dd role="timer">{{ paymentCountdown }}</dd></div>
+            <div v-if="order.dispatchPromise?.dispatchDate" class="info-row"><dt>计划发货日期</dt><dd>{{ order.dispatchPromise.dispatchDate }}<el-tag v-if="order.dispatchPromise.status === 'OVERDUE'" type="warning" size="small">已逾期</el-tag></dd></div>
             <div v-if="order.paidTime" class="info-row"><dt>付款时间</dt><dd>{{ formatTime(order.paidTime) }}</dd></div>
             <div v-if="order.shippedTime" class="info-row"><dt>发货时间</dt><dd>{{ formatTime(order.shippedTime) }}</dd></div>
             <div v-if="order.trackingNo" class="info-row"><dt>测试运单</dt><dd>{{ order.carrier || '模拟物流' }} · {{ order.trackingNo }}</dd></div>
@@ -183,9 +184,10 @@
       <OrderAfterSales v-if="DEMO_MODE" :order="order" @updated="load" />
 
       <!-- [zh] 开始标签 `<div>` -->
-      <div v-if="showPayBtn || showLogisticsBtn || showSandboxPayBtn || showReceiveBtn || (DEMO_MODE && order.orderStatus === 0)" class="detail-actions">
+      <div v-if="showPayBtn || showLogisticsBtn || showSandboxPayBtn || showReceiveBtn || queryablePayment || (DEMO_MODE && order.orderStatus === 0)" class="detail-actions">
         <el-button v-if="DEMO_MODE && order.orderStatus === 0" round :disabled="actionLoading" @click="cancelDemoOrder">取消订单</el-button>
         <el-button v-if="showSandboxPayBtn" type="primary" round :loading="actionLoading" @click="sandboxPay">沙箱支付 ¥{{ formatMoney(order.amount) }}</el-button>
+        <el-button v-if="queryablePayment" type="primary" round :loading="actionLoading" @click="queryPayment">查询支付结果</el-button>
         <el-button v-if="showReceiveBtn" type="primary" round :loading="actionLoading" @click="confirmReceive">确认收货</el-button>
         <!-- [zh] 开始标签 `<el-button>` -->
         <el-button v-if="showPayBtn" type="primary" round @click="goPay">去支付</el-button>
@@ -213,7 +215,7 @@ import { usePageRefresh } from '@/composables/pullRefresh';
 import { confirmAction } from '@/utils/confirm';
 import { toast } from '@/utils/toast';
 import { hasOrderCouponDiscount, orderCouponSummaryText } from '@/utils/orderAmount';
-import { demoOrderNote } from '@/utils/demoOrder';
+import { demoOrderNote, paymentNeedsQuery, paymentState, paymentStatusLabel } from '@/utils/demoOrder';
 import OrderAfterSales from '@/components/business/OrderAfterSales.vue';
 
 const route = useRoute();
@@ -243,11 +245,13 @@ const itemList = computed(() => {
 const isCouponOrder = computed(() => String(order.value?.payScene) === '2');
 
 const showPayBtn = computed(() => !DEMO_MODE && order.value?.orderStatus === 0 && order.value?.payOrderId);
-const showSandboxPayBtn = computed(() => DEMO_MODE && order.value?.orderStatus === 0 && !order.value?.legacy && (paymentSeconds.value === null || paymentSeconds.value > 0));
+const queryablePayment = computed(() => DEMO_MODE && !!order.value && paymentNeedsQuery(order.value));
+const showSandboxPayBtn = computed(() => DEMO_MODE && order.value?.orderStatus === 0 && !order.value?.legacy && !queryablePayment.value && (paymentSeconds.value === null || paymentSeconds.value > 0));
 const showReceiveBtn = computed(() => DEMO_MODE && order.value?.orderStatus === 2 && !order.value?.legacy && (Array.isArray(order.value?.availableActions) ? order.value.availableActions.includes('RECEIVE') : !order.value?.afterSalesId || order.value?.afterSalesStatus === 'REJECTED'));
 
 const displayStatus = computed(() => {
   if (!order.value) return '';
+  if (DEMO_MODE && paymentStatusLabel(order.value)) return paymentStatusLabel(order.value);
   if (isCouponOrder.value && order.value.orderStatus === 3) return '已完成';
   return displayOrderStatusText(order.value);
 });
@@ -329,10 +333,24 @@ const sandboxPay = async () => {
   })) return;
   actionLoading.value = true;
   try {
-    await orderApi.sandboxPay(String(order.value.orderId));
+    const attempt = paymentState(order.value) === 'FAILED' ? `retry-${order.value.paymentOperation?.operationId}` : undefined;
+    await orderApi.sandboxPay(String(order.value.orderId), attempt);
     await load(true);
     if (order.value?.orderStatus === 1) toast.success('沙箱付款成功，等待后台发货');
     else if (order.value?.closeReason === 'PAYMENT_TIMEOUT') toast.warning('付款超时，订单已关闭');
+  } finally { actionLoading.value = false; }
+};
+
+const queryPayment = async () => {
+  if (!order.value || !queryablePayment.value || actionLoading.value) return;
+  actionLoading.value = true;
+  try {
+    await orderApi.querySandboxPayment(String(order.value.orderId), String(order.value.paymentOperation.operationId));
+    await load(true);
+    if (order.value && paymentNeedsQuery(order.value)) toast.info('支付渠道仍在处理');
+    else if (paymentState(order.value || {}) === 'COMPENSATED') toast.success('付款已退回');
+    else if (order.value?.orderStatus === 1) toast.success('付款成功，等待发货');
+    else toast.info('支付结果已更新');
   } finally { actionLoading.value = false; }
 };
 

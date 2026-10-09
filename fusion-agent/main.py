@@ -18,6 +18,7 @@ from langgraph.graph import END, START, StateGraph
 from retrieval import KNOWLEDGE, cosine, normalize_products, number, product_text, rank_products, resolve_query, retrieve_knowledge
 from business_catalog import profile_for, manufacturer_source, compatibility_assessment, mentioned_gateways
 from business_planning import public_restock_intent
+from ai_resources import provider_post, ResourceUnavailable, dependency_health
 
 
 JAVA_URL = os.getenv("FUSION_JAVA_URL", "http://127.0.0.1:8035").rstrip("/")
@@ -125,7 +126,11 @@ def redact_query(query: str) -> str:
 
 
 async def embed_documents(texts: list[str]) -> list[list[float]]:
-    keys = [hashlib.sha256(text.encode()).hexdigest() for text in texts]
+    # Changing provider/model/dimensions must invalidate the process cache.
+    embedding_namespace = json.dumps([os.getenv('FUSION_EMBEDDING_BASE_URL','https://dashscope.aliyuncs.com/compatible-mode/v1'),
+                                      os.getenv('FUSION_EMBEDDING_MODEL','text-embedding-v4'),
+                                      os.getenv('FUSION_EMBEDDING_DIMENSIONS','256')])
+    keys = [hashlib.sha256((embedding_namespace+'\n'+text).encode()).hexdigest() for text in texts]
     missing_keys = list(dict.fromkeys(key for key in keys if key not in VECTOR_CACHE))
     if missing_keys:
         key_to_text = dict(zip(keys, texts))
@@ -134,7 +139,7 @@ async def embed_documents(texts: list[str]) -> list[list[float]]:
         for index in range(0, len(missing_keys), 10):
             batch_keys = missing_keys[index:index + 10]
             async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                response = await client.post(endpoint, headers={"Authorization": f"Bearer {embedding_key()}"}, json={"model": os.getenv("FUSION_EMBEDDING_MODEL", "text-embedding-v4"), "input": [key_to_text[key] for key in batch_keys], "dimensions": int(os.getenv("FUSION_EMBEDDING_DIMENSIONS", "256")), "encoding_format": "float"})
+                response = await provider_post(client, endpoint, headers={"Authorization": f"Bearer {embedding_key()}"}, json={"model": os.getenv("FUSION_EMBEDDING_MODEL", "text-embedding-v4"), "input": [key_to_text[key] for key in batch_keys], "dimensions": int(os.getenv("FUSION_EMBEDDING_DIMENSIONS", "256")), "encoding_format": "float"}, operation="embedding")
                 response.raise_for_status()
                 data = response.json().get("data", [])
             if len(data) != len(batch_keys):
@@ -170,7 +175,7 @@ async def retrieve(state: ChatState) -> dict:
             knowledge_vectors = {source["id"]: cosine(embeddings[0], embeddings[offset + index]) for index, source in enumerate(KNOWLEDGE)}
             mode = "hybrid"
             trace.append({"step": "embedding", "status": "ok", "detail": "商品和本地知识库使用真实 embedding；文档向量缓存在当前进程内。"})
-        except (httpx.HTTPError, ValueError, KeyError, TypeError) as error:
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, ResourceUnavailable) as error:
             trace.append({"step": "embedding", "status": "fallback", "detail": f"Embedding 不可用（{safe_status(error)}），使用本地字符向量。"})
     else:
         trace.append({"step": "embedding", "status": "fallback", "detail": "未配置 embedding，使用本地字符向量；这不是语义 embedding。"})
@@ -497,7 +502,7 @@ async def answer(state: ChatState) -> dict:
             endpoint = os.getenv("FUSION_LLM_BASE_URL", llm_defaults()[0]).rstrip("/") + "/chat/completions"
             async with httpx.AsyncClient(timeout=TIMEOUT) as client:
                 for attempt in range(2):
-                    response = await client.post(endpoint, headers={"Authorization": f"Bearer {llm_key()}"}, json=payload)
+                    response = await provider_post(client, endpoint, headers={"Authorization": f"Bearer {llm_key()}"}, json=payload, operation="answer")
                     response.raise_for_status()
                     raw = response.json()["choices"][0]["message"]["content"]
                     try:
@@ -511,7 +516,7 @@ async def answer(state: ChatState) -> dict:
             mode.update({"llm": "online", "model": payload["model"]})
             trace.append({"step": "answer", "status": "ok", "detail": "真实大模型结合本次查询、相关资料与历史对话组织完整回答；数值由业务查询替换，依据单独展示。"})
             return {"answer": candidate, "citations": cited, "sources": sources, "trace": trace, "mode": mode}
-        except (httpx.HTTPError, OSError, ValueError, KeyError, IndexError, TypeError) as error:
+        except (httpx.HTTPError, OSError, ValueError, KeyError, IndexError, TypeError, ResourceUnavailable) as error:
             trace.append({"step": "answer", "status": "fallback", "detail": f"模型调用或事实校验未通过（{safe_status(error)}），改用本次查询和本地规则简要回答。"})
     else:
         trace.append({"step": "answer", "status": "fallback", "detail": "未配置大模型，当前回答由本次查询与本地规则生成。"})
@@ -596,7 +601,9 @@ graph = builder.compile()
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "java_url": JAVA_URL, "llm_configured": bool(llm_key()), "embedding_configured": bool(embedding_key()), "flow": ["plan", "read_only_tools", "verify", "answer"], "retrieval": "hybrid" if embedding_key() else "local", "writes": False}
+    dependencies = await dependency_health()
+    return {"status": "ok" if dependencies['redis_ai_admission']=='ok' else "degraded", "dependencies": dependencies,
+            "java_url": JAVA_URL, "llm_configured": bool(llm_key()), "embedding_configured": bool(embedding_key()), "flow": ["plan", "read_only_tools", "verify", "answer"], "retrieval": "hybrid" if embedding_key() else "local", "writes": False}
 
 
 @app.post("/chat")

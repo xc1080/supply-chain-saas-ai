@@ -5,3 +5,4 @@ langgraph>=0.2,<2
 python-multipart>=0.0.20,<1
 websockets>=14,<17
 redis>=5,<7
+bcrypt==5.0.0

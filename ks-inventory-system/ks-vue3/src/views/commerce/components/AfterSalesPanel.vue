@@ -7,7 +7,7 @@
       <el-table-column label="售后范围" width="120"><template #default="scope">{{ scope.row.kind === 'UNSHIPPED_REFUND' ? '未发货退款' : '退货退款' }}</template></el-table-column>
       <el-table-column label="申请原因" prop="reason" min-width="200" show-overflow-tooltip />
       <el-table-column label="申请金额" width="110"><template #default="scope">{{ money(scope.row.refundAmount) }}</template></el-table-column>
-      <el-table-column label="状态" width="150"><template #default="scope"><el-tag :type="scope.row.status === 'REFUNDED' ? 'success' : 'info'">{{ scope.row.statusName || labels[scope.row.status] }}</el-tag></template></el-table-column>
+      <el-table-column label="状态" width="150"><template #default="scope"><el-tag :type="scope.row.status === 'REFUNDED' ? 'success' : pending(scope.row) ? 'warning' : 'info'">{{ statusLabel(scope.row) }}</el-tag></template></el-table-column>
       <el-table-column label="申请时间" prop="createdAt" min-width="170" />
       <el-table-column label="操作" width="110" fixed="right"><template #default="scope"><el-button link type="primary" @click="open(scope.row)">{{ ['REFUNDED','REJECTED'].includes(scope.row.status) ? '查看记录' : '处理申请' }}</el-button></template></el-table-column>
     </el-table>
@@ -16,7 +16,7 @@
       <div v-loading="detailLoading" class="after-sales-detail">
         <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
         <template v-if="detail">
-          <p class="status">{{ detail.statusName || labels[detail.status] }}</p>
+          <p class="status">{{ statusLabel(detail) }}</p>
           <el-descriptions :column="1" border>
             <el-descriptions-item label="订单编号">{{ detail.orderId }}</el-descriptions-item>
             <el-descriptions-item label="售后原因">{{ detail.reason }}</el-descriptions-item>
@@ -25,6 +25,7 @@
             <el-descriptions-item v-if="detail.returnReceiptId" label="退货入库单">{{ detail.returnReceiptId }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.returnCondition" label="验收结果">{{ conditionLabels[detail.returnCondition] || detail.returnCondition }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.refundId" label="沙箱退款凭证">{{ detail.refundId }}</el-descriptions-item>
+            <el-descriptions-item v-if="detail.refundOperation" label="渠道处理结果">{{ outcomeLabels[detail.refundOperation.outcome] || detail.refundOperation.outcome }}</el-descriptions-item>
           </el-descriptions>
           <el-table :data="detail.items || []" empty-text="暂无商品明细">
             <el-table-column label="商品" min-width="230"><template #default="scope"><div class="return-product"><img :src="getProductImage(scope.row)" :alt="scope.row.productName" @error="handleProductImageError($event, scope.row)" /><div>{{ scope.row.productName }}<small>{{ scope.row.spec }}</small></div></div></template></el-table-column><el-table-column label="申请数量" prop="quantity" width="95" />
@@ -38,9 +39,9 @@
             <el-button type="primary" :loading="acting" @click="acceptReturn">登记退货验收</el-button>
           </div>
           <div v-else-if="can('SANDBOX_REFUND')" class="actions">
-            <p>{{ detail.returnRequired ? '退货已验收入库，退款不会再次增加库存。' : '订单尚未发货，退款时释放预留，不增加账面库存。' }}</p>
             <el-button type="primary" :loading="acting" @click="refund">沙箱退款 {{ money(detail.refundAmount) }}</el-button>
           </div>
+          <div v-else-if="can('QUERY_REFUND')" class="actions"><el-button type="primary" :loading="acting" @click="queryRefund">查询退款结果</el-button></div>
           <details class="records"><summary>处理时间</summary><p v-for="row in times" :key="row.key">{{ row.label }}：{{ detail[row.key] || '—' }}</p></details>
         </template>
       </div>
@@ -57,17 +58,20 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listCommerceAfterSales, getCommerceAfterSales, reviewCommerceAfterSales, acceptCommerceReturn, refundCommerceAfterSales } from '@/api/commerce/orders'
+import { listCommerceAfterSales, getCommerceAfterSales, reviewCommerceAfterSales, acceptCommerceReturn, refundCommerceAfterSales, queryCommercePayment } from '@/api/commerce/orders'
 import { getProductImage, handleProductImageError } from '@/utils/productMedia'
-const props = defineProps({shopId: {type:String, required:true}})
+const props = defineProps({shopId: {type:String, required:true}, capabilities: {type:Array, default:()=>[]}})
 const emit = defineEmits(['updated'])
 const rows = ref([]), total = ref(0), page = ref(1), pageSize = ref(20), loading = ref(false), error = ref('')
 const visible = ref(false), detail = ref(null), detailLoading = ref(false), detailError = ref(''), acting = ref(false), note = ref('')
 const acceptVisible = ref(false), returnCondition = ref('')
 const conditionLabels = {SELLABLE:'完好可售',QUALITY_HOLD:'待质检',DAMAGED:'损坏'}
 const labels = {REQUESTED:'待审核',APPROVED:'待退款',AWAITING_RETURN:'待退货验收',RETURN_RECEIVED:'已验收，待退款',REFUNDED:'已退款',REJECTED:'已拒绝'}
+const outcomeLabels = {PREPARED:'请求待确认',PENDING:'退款处理中',UNKNOWN:'退款结果待确认',SUCCEEDED:'退款成功',FAILED:'退款失败'}
+const pending = row => ['PREPARED','PENDING','UNKNOWN'].includes(row.refundOperation?.outcome)
+const statusLabel = row => pending(row) ? outcomeLabels[row.refundOperation.outcome] : row.statusName || labels[row.status]
 const times = computed(() => [{key:'createdAt',label:'申请'},{key:'reviewedAt',label:'审核'},{key:'returnedAt',label:'验收'},{key:'refundedAt',label:'退款'}].filter(row => detail.value?.[row.key]))
-const can = action => Array.isArray(detail.value?.availableActions) ? detail.value.availableActions.includes(action) : ({REVIEW:['REQUESTED'],ACCEPT_RETURN:['AWAITING_RETURN'],SANDBOX_REFUND:['APPROVED','RETURN_RECEIVED']}[action] || []).includes(detail.value?.status)
+const can = action => props.capabilities.includes(({REVIEW:'REFUND_REVIEW',ACCEPT_RETURN:'FULFILMENT',SANDBOX_REFUND:'REFUND_EXECUTE',QUERY_REFUND:'REFUND_EXECUTE'})[action]) && (Array.isArray(detail.value?.availableActions) ? detail.value.availableActions.includes(action) : ({REVIEW:['REQUESTED'],ACCEPT_RETURN:['AWAITING_RETURN'],SANDBOX_REFUND:['APPROVED','RETURN_RECEIVED']}[action] || []).includes(detail.value?.status))
 const money = value => new Intl.NumberFormat('zh-CN',{style:'currency',currency:'CNY'}).format(Number(value || 0))
 const operationKeys = new Map()
 const keyFor = action => {const key = detail.value.afterSalesId + ':' + action;if (!operationKeys.has(key)) operationKeys.set(key,crypto.randomUUID());return operationKeys.get(key)}
@@ -109,7 +113,11 @@ async function submitReturn() {
 async function refund() {
   if (!can('SANDBOX_REFUND')) return
   const confirmed = await ElMessageBox.confirm('确认在本地支付沙箱退回 ' + money(detail.value.refundAmount) + '？','沙箱退款',{confirmButtonText:'确认退款',cancelButtonText:'返回'}).then(()=>true).catch(()=>false)
-  if (confirmed && can('SANDBOX_REFUND')) await perform('refund',requestKey => refundCommerceAfterSales(detail.value.afterSalesId,{requestKey,scenario:'success'}))
+  if (confirmed && can('SANDBOX_REFUND')) await perform('refund-' + (detail.value.refundOperation?.operationId || 'first'),requestKey => refundCommerceAfterSales(detail.value.afterSalesId,{requestKey,scenario:'success'}))
+}
+async function queryRefund() {
+  if (!can('QUERY_REFUND')) return
+  await perform('query', () => queryCommercePayment(detail.value.refundOperation.operationId))
 }
 watch(() => props.shopId, () => {visible.value = false;acceptVisible.value = false;detail.value = null;rows.value = [];total.value = 0;page.value = 1;void refresh()})
 onMounted(refresh)

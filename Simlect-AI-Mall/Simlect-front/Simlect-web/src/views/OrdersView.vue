@@ -2,7 +2,7 @@
 <template>
   <!-- [zh] 开始标签 `<div>` -->
   <div class="orders-page">
-    <p v-if="DEMO_MODE" class="demo-order-note">下单预留库存 → 本地沙箱支付 → 后台发货扣减账面库存 → 确认收货。沙箱不扣真钱。
+    <p v-if="DEMO_MODE" class="demo-order-note">本地支付沙箱
       <el-button size="small" text :loading="loading" @click="onTabChange">刷新订单</el-button>
     </p>
     <!-- [zh] 开始标签 `<div>` -->
@@ -60,6 +60,7 @@
                 <!-- [zh] 闭合标签 `</header>` -->
                 </header>
                 <p v-if="DEMO_MODE" class="demo-order-note">{{ demoOrderNote(order) }}</p>
+                <p v-if="order.dispatchPromise?.dispatchDate && [0, 1].includes(Number(order.orderStatus))" class="demo-order-note">计划发货 {{ order.dispatchPromise.dispatchDate }}</p>
 
                 <!-- [zh] 开始标签 `<div>` -->
                 <div class="goods-list">
@@ -140,13 +141,14 @@
                     <!-- [zh] 闭合标签 `</el-button>` -->
                     </el-button>
                     <el-button
-                      v-if="DEMO_MODE && order.orderStatus === 0 && !order.legacy"
+                      v-if="DEMO_MODE && order.orderStatus === 0 && !order.legacy && !paymentNeedsQuery(order)"
                       type="primary"
                       size="small"
                       :disabled="!!actionOrderId && actionOrderId !== order.orderId"
                       :loading="actionOrderId === order.orderId"
                       @click.stop="sandboxPay(order)"
                     >沙箱支付</el-button>
+                    <el-button v-if="DEMO_MODE && paymentNeedsQuery(order)" type="primary" size="small" :loading="actionOrderId === order.orderId" :disabled="!!actionOrderId && actionOrderId !== order.orderId" @click.stop="queryPayment(order)">查询支付结果</el-button>
                     <!-- [zh] 开始标签 `<el-button>` -->
                     <el-button
                       v-if="order.orderStatus === 0 && !DEMO_MODE"
@@ -278,7 +280,7 @@ import { orderApi } from '@/api/modules';
 import { displayOrderStatusText } from '@/constants/backendEnums';
 import { confirmAction } from '@/utils/confirm';
 import { toast } from '@/utils/toast';
-import { demoOrderNote } from '@/utils/demoOrder';
+import { demoOrderNote, paymentNeedsQuery, paymentState, paymentStatusLabel } from '@/utils/demoOrder';
 
 const router = useRouter();
 const route = useRoute();
@@ -349,6 +351,7 @@ const canDeleteOrder = (order: Record<string, any>) => {
 
 const formatMoney = (val: unknown) => Number(val ?? 0).toFixed(2);
 const displayStatus = (order: Record<string, any>) => {
+  if (DEMO_MODE && paymentStatusLabel(order)) return paymentStatusLabel(order);
   if (DEMO_MODE && order.afterSalesStatus && order.afterSalesStatus !== 'REJECTED') return displayOrderStatusText(order);
   if (tab.value === 'completed' && order.orderStatus === 3) return '已完成';
   const text = displayOrderStatusText(order);
@@ -535,8 +538,22 @@ const sandboxPay = async (order: Record<string, any>) => {
   })) return;
   actionOrderId.value = String(order.orderId);
   try {
-    await orderApi.sandboxPay(String(order.orderId));
-    toast.success('沙箱付款成功，等待后台发货');
+    const attempt = paymentState(order) === 'FAILED' ? `retry-${order.paymentOperation?.operationId}` : undefined;
+    const result = await orderApi.sandboxPay(String(order.orderId), attempt);
+    if (Number(result?.orderStatus) === 1) toast.success('付款成功，等待发货');
+    else toast.info('支付结果已更新');
+    onTabChange();
+  } finally { actionOrderId.value = ''; }
+};
+
+const queryPayment = async (order: Record<string, any>) => {
+  if (actionOrderId.value || !paymentNeedsQuery(order)) return;
+  actionOrderId.value = String(order.orderId);
+  try {
+    const result = await orderApi.querySandboxPayment(String(order.orderId), String(order.paymentOperation.operationId));
+    if (paymentNeedsQuery(result || {})) toast.info('支付渠道仍在处理');
+    else if (paymentState(result || {}) === 'COMPENSATED') toast.success('付款已退回');
+    else toast.success('支付结果已更新');
     onTabChange();
   } finally { actionOrderId.value = ''; }
 };

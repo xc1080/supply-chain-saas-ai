@@ -20,7 +20,7 @@ import java.util.*;
  * Lock order: receipt IDs, product IDs, warehouse/inventory IDs. Original non-local behavior is untouched.
  */
 @Service
-@Profile("local")
+@Profile({"local","commerce"})
 public class CommerceReceiptInventoryGuard {
     private final JdbcTemplate jdbc;
     private final CommerceInventoryService inventory;

@@ -22,7 +22,7 @@ import java.util.*;
  * original warehouse/product deduction in the SAME transaction. No method resets existing balances.
  */
 @Service
-@Profile("local")
+@Profile({"local","commerce"})
 public class CommerceInventoryService {
     private final DataSource dataSource;
     private final JdbcTemplate jdbc;

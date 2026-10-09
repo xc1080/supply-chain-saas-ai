@@ -17,10 +17,11 @@
     </ul>
     <details v-if="plan.alternatives?.length" class="bundle-alternatives"><summary>替代候选（{{ plan.alternatives.length }}）</summary><div v-for="candidate in plan.alternatives" :key="candidate.productId"><strong>{{ candidate.name }}</strong><p>{{ candidate.reason }}</p><ul><li v-for="difference in candidate.differences || []" :key="String(difference)">{{ difference }}</li></ul><small>确认替代后需重新生成报价。</small></div></details>
     <p v-if="plan.confirmationStatus === 'REPRICE_REQUIRED'" class="bundle-notice" role="status">价格已更新，请核对新合计后再次确认。</p>
+    <p v-if="plan.confirmationStatus === 'EVIDENCE_REVIEW_REQUIRED'" class="bundle-notice" role="status">选型资料已更新，请核对型号配套后再次确认。</p>
     <p v-if="error" class="bundle-error" role="alert">{{ error }}</p>
     <footer>
       <template v-if="plan.confirmationStatus === 'ADDED'"><span class="bundle-added">整套已加入购物车</span><el-button type="primary" size="small" @click="router.push('/cart')">查看购物车</el-button></template>
-      <template v-else><small>确认加购会重核价格与库存，尚未下单。</small><el-button type="primary" :disabled="!canConfirm" :loading="busy" @click="confirm">{{ plan.confirmationStatus === 'REPRICE_REQUIRED' ? '按更新报价加入购物车' : '确认整套加入购物车' }}</el-button></template>
+      <template v-else><small>确认加购会重核选型、价格与库存，尚未下单。</small><el-button type="primary" :disabled="!canConfirm" :loading="busy" @click="confirm">{{ plan.confirmationStatus === 'REPRICE_REQUIRED' ? '按更新报价加入购物车' : plan.confirmationStatus === 'EVIDENCE_REVIEW_REQUIRED' ? '按更新方案加入购物车' : '确认整套加入购物车' }}</el-button></template>
     </footer>
   </section>
 </template>

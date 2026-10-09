@@ -20,13 +20,17 @@ import java.util.*;
 /** Order -> case -> activity/receipt -> ascending products -> warehouse/stock lock order.
  * Cases reserve distinct line quantities and paid money; physical acceptance and refund are separate. */
 @Service
-@Profile("local")
+@Profile({"local","commerce"})
 public class CommerceAfterSalesService {
     private final JdbcTemplate jdbc;
     private final CommerceInventoryService stock;
     private final CommerceMerchantService merchants;
+    private final CommercePaymentService payments;
+    private final CommerceDeliveryService delivery;
     public CommerceAfterSalesService(DataSource source){this(source,new CommerceInventoryService(source),new CommerceMerchantService(source));}
-    @Autowired public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants){this.jdbc=new JdbcTemplate(source);this.stock=stock;this.merchants=merchants;}
+    public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants){this(source,stock,merchants,new CommercePaymentService(source));}
+    public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants,CommercePaymentService payments){this(source,stock,merchants,payments,new CommerceDeliveryService(source));}
+    @Autowired public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants,CommercePaymentService payments,CommerceDeliveryService delivery){this.jdbc=new JdbcTemplate(source);this.stock=stock;this.merchants=merchants;this.payments=payments;this.delivery=delivery;}
 
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public Map<String,Object> apply(String orderId,Map<String,Object> request) {
@@ -79,7 +83,7 @@ public class CommerceAfterSalesService {
 
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public Map<String,Object> review(String id,Map<String,Object> request,long actor){
-        merchant(actor);String key=key(request.get("requestKey")),decision=String.valueOf(request.get("decision"));require("APPROVE".equals(decision)||"REJECT".equals(decision),"审核决定无效",400);
+        merchants.requireCapability(CommerceShopContext.id(),actor,CommerceCapability.REFUND_REVIEW);String key=key(request.get("requestKey")),decision=String.valueOf(request.get("decision"));require("APPROVE".equals(decision)||"REJECT".equals(decision),"审核决定无效",400);
         String note=request.get("note")==null?"":text(request.get("note"),0,200,"审核备注");Map<String,Object> row=lock(id);
         if(row.get("review_key")!=null){require(key.equals(row.get("review_key"))&&("REJECT".equals(decision)=="REJECTED".equals(row.get("status"))),"同一售后不能重复执行不同审核",409);return detail(id,null);}
         require("REQUESTED".equals(row.get("status")),"当前售后不能审核",409);
@@ -89,7 +93,7 @@ public class CommerceAfterSalesService {
 
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public Map<String,Object> acceptReturn(String id,Map<String,Object> request,long actor){
-        merchant(actor);String key=key(request.get("requestKey")),condition=String.valueOf(request.get("condition"));
+        merchants.requireCapability(CommerceShopContext.id(),actor,CommerceCapability.FULFILMENT);String key=key(request.get("requestKey")),condition=String.valueOf(request.get("condition"));
         require(Arrays.asList("SELLABLE","QUALITY_HOLD","DAMAGED").contains(condition),"退货验收状态无效",409);
         Map<String,Object> row=lock(id);if(row.get("return_key")!=null){require(key.equals(row.get("return_key"))&&condition.equals(row.get("return_condition")),"退货已验收，不能更改请求编号或验收状态",409);return detail(id,null);}
         require("AWAITING_RETURN".equals(row.get("status"))&&number(row.get("return_required"))==1,"只有审核通过的已发货售后可以验收返库",409);
@@ -147,30 +151,37 @@ public class CommerceAfterSalesService {
         catch(java.security.NoSuchAlgorithmException exception){throw new IllegalStateException(exception);}
     }
 
-    @Transactional(isolation=Isolation.READ_COMMITTED)
     public Map<String,Object> refund(String id,Map<String,Object> request,long actor){
-        merchant(actor);String key=key(request.get("requestKey")),scenario=String.valueOf(request.get("scenario"));require("success".equals(scenario)||"failure".equals(scenario),"请选择沙箱退款成功或失败场景",400);
-        String outcome="success".equals(scenario)?"SUCCEEDED":"FAILED";Map<String,Object> row=lock(id);
-        List<String> attempts=jdbc.queryForList("SELECT outcome FROM commerce_refund_attempt WHERE after_sales_id=? AND request_key=?",String.class,id,key);
-        if(!attempts.isEmpty()){require(outcome.equals(attempts.get(0)),"同一退款请求不能改变沙箱场景",409);return refundResult(id,outcome);}
-        if("REFUNDED".equals(row.get("status"))){require("SUCCEEDED".equals(outcome),"售后已完成退款",409);return refundResult(id,"SUCCEEDED");}
+        merchants.requireCapability(CommerceShopContext.id(),actor,CommerceCapability.REFUND_EXECUTE);
+        String key=key(request.get("requestKey")),scenario=String.valueOf(request.get("scenario"));
+        Map<String,Object> operation=payments.refund(id,key,scenario,actor,()->{
+            Map<String,Object> row=lock(id);if(!"REFUNDED".equals(row.get("status")))validateRefund(row);return row;
+        },this::providerRefundSucceeded);
+        Map<String,Object> result=refundResult(id,String.valueOf(operation.get("local_status")));
+        if(operation.get("operationId")!=null)result.put("refundOperation",operation);return result;
+    }
+
+    private void validateRefund(Map<String,Object> row){
         require("APPROVED".equals(row.get("status"))||"RETURN_RECEIVED".equals(row.get("status")),"退款前须完成审核及必要的退货验收",409);
         require(number(row.get("return_required"))==0||"RETURN_RECEIVED".equals(row.get("status")),"已发货商品必须先验收返库",409);
         String orderId=String.valueOf(row.get("order_id"));Map<String,Object> order=order(orderId,null,false);BigDecimal amount=decimal(row.get("refund_amount"));
         require(decimal(order.get("refunded_amount")).add(amount).compareTo(decimal(order.get("total_amount")))<=0,"累计退款金额超过已付订单金额",409);
-        if("SUCCEEDED".equals(outcome)){
+    }
+
+    /** Called only by the verified provider result processor, in its atomic business transaction. */
+    public void providerRefundSucceeded(String id,String refundId,long actor){
+        Map<String,Object> row=lock(id);if("REFUNDED".equals(row.get("status")))return;
+        validateRefund(row);String orderId=String.valueOf(row.get("order_id"));Map<String,Object> order=order(orderId,null,false);BigDecimal amount=decimal(row.get("refund_amount"));
             if(number(row.get("return_required"))==0)releaseUnshipped(row);
             SortedMap<Long,Long> requested=quantities(items(id));for(Map.Entry<Long,Long> part:requested.entrySet()){
                 stock.prepareLine(orderId,part.getKey());require(jdbc.update("UPDATE commerce_fulfillment_line SET refunded=refunded+? WHERE order_id=? AND product_id=? AND refunded+?<=shipped+released",part.getValue(),orderId,part.getKey(),part.getValue())==1,"商品累计退款数量超过履约数量",409);
             }
-            String refundId="LOCAL-REFUND-"+UUID.randomUUID().toString().replace("-","");jdbc.update("UPDATE commerce_after_sales_case SET status='REFUNDED',refunded_amount=refund_amount,refund_id=?,refunded_at=CURRENT_TIMESTAMP WHERE after_sales_id=?",refundId,id);
+            jdbc.update("UPDATE commerce_after_sales_case SET status='REFUNDED',refunded_amount=refund_amount,refund_id=?,refunded_at=CURRENT_TIMESTAMP WHERE after_sales_id=?",refundId,id);
             require(jdbc.update("UPDATE commerce_order SET refunded_amount=refunded_amount+? WHERE order_id=? AND refunded_amount+?<=total_amount",amount,orderId,amount)==1,"订单退款余额已变化",409);
             boolean full=decimal(order.get("refunded_amount")).add(amount).compareTo(decimal(order.get("total_amount")))==0;header(orderId,id,full?"REFUNDED":"PARTIALLY_REFUNDED");
             long unshipped=jdbc.queryForObject("SELECT COALESCE(SUM(i.quantity-f.shipped-f.released),0) FROM commerce_order_item i JOIN commerce_fulfillment_line f ON f.order_id=i.order_id AND f.product_id=i.product_id WHERE i.order_id=?",Long.class,orderId);
             long shipped=jdbc.queryForObject("SELECT COALESCE(SUM(shipped),0) FROM commerce_fulfillment_line WHERE order_id=?",Long.class,orderId);if(unshipped==0&&shipped>0)jdbc.update("UPDATE commerce_order SET status=2 WHERE order_id=? AND status=1",orderId);
             event(id,"REFUND","REFUNDED",actor,"本地沙箱退款成功；按本售后金额累计");
-        }
-        jdbc.update("INSERT INTO commerce_refund_attempt(after_sales_id,request_key,outcome,amount,created_at) VALUES (?,?,?,?,CURRENT_TIMESTAMP)",id,key,outcome,amount);return refundResult(id,outcome);
     }
 
     private void releaseUnshipped(Map<String,Object> row){
@@ -180,6 +191,7 @@ public class CommerceAfterSalesService {
             Object end=activities.get(0).get("ends_at");LocalDateTime deadline=end instanceof java.sql.Timestamp?((java.sql.Timestamp)end).toLocalDateTime():LocalDateTime.parse(String.valueOf(end).replace(' ','T'));active=deadline.isAfter(LocalDateTime.now());
             long quantity=requested.values().stream().mapToLong(Long::longValue).sum();require(jdbc.update("UPDATE commerce_activity SET remaining=remaining+? WHERE activity_id=? AND remaining+?<=capacity",quantity,order.get("activity_id"),quantity)==1,"原活动剩余配额异常",409);
         }
+        delivery.releaseOrder(orderId,"REFUND:"+row.get("after_sales_id"),requested.values().stream().mapToLong(Long::longValue).sum(),active);
         stock.release(orderId,requested,"REFUND:"+row.get("after_sales_id"),"AFTER_SALES_REFUND",active);
     }
     private Map<String,Object> refundResult(String id,String outcome){Map<String,Object> result=detail(id,null);result.put("refundOutcome",outcome);return result;}
@@ -196,6 +208,11 @@ public class CommerceAfterSalesService {
         for(Map<String,Object> item:items(id))lines.add(map("productId",item.get("product_id"),"productCode",item.get("product_code"),"productName",item.get("product_name"),"spec",item.get("spec"),"quantity",item.get("quantity"),"unitPrice",item.get("unit_price"),"amount",item.get("amount")));
         List<String> actions=new ArrayList<>();if("REQUESTED".equals(status))actions.add("REVIEW");if("AWAITING_RETURN".equals(status))actions.add("ACCEPT_RETURN");if("APPROVED".equals(status)||"RETURN_RECEIVED".equals(status))actions.add("SANDBOX_REFUND");
         Map<String,Object> result=map("afterSalesId",id,"orderId",row.get("order_id"),"tenantId",TenantContext.id(),"shopId",row.get("shop_id"),"status",status,"statusName",states().get(status),"scope","ORDER_LINES","kind",row.get("kind"),"reason",row.get("reason"),"returnRequired",number(row.get("return_required"))==1,"returnCondition",row.get("return_condition"),"originalOrderStatus",row.get("original_order_status"),"refundAmount",row.get("refund_amount"),"refundedAmount",row.get("refunded_amount"),"reviewNote",row.get("review_note"),"returnReceiptId",row.get("return_receipt_id"),"refundId",row.get("refund_id"),"createdAt",time(row.get("created_at")),"reviewedAt",time(row.get("reviewed_at")),"returnedAt",time(row.get("returned_at")),"refundedAt",time(row.get("refunded_at")),"items",lines,"availableActions",actions,"paymentProvider","LOCAL_SANDBOX");
+        List<String> refundIds=jdbc.queryForList("SELECT operation_id FROM commerce_payment_operation WHERE after_sales_id=? AND kind='REFUND' ORDER BY CASE WHEN provider_reference=? THEN 0 WHEN local_status IN('PREPARED','PENDING','UNKNOWN') THEN 1 ELSE 2 END,created_at DESC,operation_id DESC LIMIT 1",String.class,id,row.get("refund_id"));
+        if(!refundIds.isEmpty()) {
+            Map<String,Object> refund=payments.detail(refundIds.get(0));result.put("refundOperation",refund);result.put("refundOutcome",refund.get("outcome"));
+            if(Arrays.asList("PREPARED","PENDING","UNKNOWN").contains(refund.get("outcome"))){actions.remove("SANDBOX_REFUND");actions.add("QUERY_REFUND");}
+        }
         if(history)result.put("events",jdbc.queryForList("SELECT event_type AS eventType,actor_user_id AS actorUserId,note,created_at AS createdAt FROM commerce_after_sales_event WHERE after_sales_id=? ORDER BY event_id",id));return result;
     }
     private static Map<String,String> states(){Map<String,String> result=new LinkedHashMap<>();result.put("REQUESTED","待商家审核");result.put("APPROVED","审核通过·待沙箱退款");result.put("AWAITING_RETURN","审核通过·待退货验收");result.put("RETURN_RECEIVED","已验收返库·待沙箱退款");result.put("REFUNDED","沙箱退款完成");result.put("REJECTED","商家已拒绝");return result;}

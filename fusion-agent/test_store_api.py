@@ -144,8 +144,9 @@ class FakeCommerceAuthority:
                              "myOrderId": joined[0]["orderId"] if joined else None,
                              "myOrderStatus": joined[0]["orderStatus"] if joined else None})
             return self.response(rows)
-        if path == "/commerce/inventory" and method == "GET":
-            return self.response([self.stock(product["id"]) for product in self.catalog])
+        if path == "/commerce/catalog" and method == "GET":
+            return self.response([{key:value for key,value in self.stock(product["id"]).items() if key not in ('bookStock','reservedStock')}
+                                  for product in self.catalog if self.stock(product['id'])['listed']])
         if path == "/commerce/orders" and method == "GET":
             owner = request.url.params.get("ownerId")
             orders = [order for order in reversed(list(self.orders.values())) if order["ownerId"] == owner]
@@ -226,6 +227,7 @@ class StoreIntegrationTests(unittest.TestCase):
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
         self.stack.enter_context(patch.dict("os.environ", {"FUSION_PUBLIC_CACHE_SECONDS": "0"}))
+        self.stack.enter_context(patch.dict("os.environ", {"FUSION_COMMERCE_USER": "test-service", "FUSION_COMMERCE_PASSWORD": "fixture-only"}))
         temporary = self.stack.enter_context(tempfile.TemporaryDirectory(prefix="simlect-store-test-"))
         self.stack.enter_context(patch.object(store_api, "DB_PATH", Path(temporary) / "store.sqlite3"))
         self.redis_prefix = "fusion:test:store:" + secrets.token_hex(10)
@@ -378,7 +380,7 @@ class StoreIntegrationTests(unittest.TestCase):
         self.assertEqual({p["productId"] for p in products}, {p["id"] for p in PUBLIC_PRODUCTS})
         self.assertEqual(self.api(self.alice, "product/getProduct", productId="private")["code"], 404)
         self.assertEqual(self.add_cart(self.alice, "private")["code"], 404)
-        self.assertTrue(all((method, path) in (("POST", "/login"), ("GET", "/commerce/inventory"))
+        self.assertTrue(all((method, path) in (("POST", "/login"), ("GET", "/commerce/catalog"))
                             for method, path in self.java_requests))
 
     def test_campaign_listing_hides_expired_and_private_goods_and_preserves_ordinary_price(self):

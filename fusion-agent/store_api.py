@@ -22,8 +22,10 @@ from langgraph.graph import END, START, StateGraph
 from commerce_api import CommerceAPI
 from shared_store import RedisSharedStore, SESSION_TTL, ALIVE
 from public_read_cache import PublicReadCache
-from business_catalog import profile_for
+from business_catalog import profile_for, evidence_snapshot, registry_version
 from product_media import IMAGES, product_cover
+from execution_runtime import (initialize_messages, expire_messages, retain_messages, create_message,
+                               renew_message, finish_message, cancel_message, LostLease, redact, CURRENT_MESSAGE, bind_message_run)
 
 DB_PATH = Path(os.getenv("FUSION_STORE_DB", str(Path(__file__).parent.parent / "runtime" / "store-demo.sqlite3")))
 COOKIE = os.getenv("FUSION_SESSION_COOKIE", "simlect_demo_session")
@@ -77,6 +79,7 @@ def db():
     # Schema setup belongs to first use/startup, not every visitor read.
     with _DB_INIT_LOCK:
         if DB_PATH not in _DB_INITIALIZED:
+            connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript("""
         CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, expires REAL NOT NULL, context_product TEXT, keywords TEXT NOT NULL DEFAULT '[]');
         CREATE TABLE IF NOT EXISTS carts(id TEXT PRIMARY KEY, session_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity INTEGER NOT NULL CHECK(quantity>0), UNIQUE(session_id,product_id));
@@ -84,6 +87,8 @@ def db():
         CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 1, biz_type TEXT NOT NULL DEFAULT 'chat', sent_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS proposals(token TEXT PRIMARY KEY, session_id TEXT NOT NULL, order_id TEXT NOT NULL, status INTEGER NOT NULL DEFAULT 0, expires REAL NOT NULL);
             """)
+            initialize_messages(connection)
+            connection.commit()
             _DB_INITIALIZED.add(DB_PATH)
     try:
         with connection:
@@ -126,8 +131,7 @@ def product_shape(product):
     return {"productId": product["id"], "productCode": product["code"], "productName": product["name"],
             "categoryId": category, "categoryName": category, "cover": cover, "images": [cover],
             "minPrice": product["price"], "price": product["price"], "stock": product["stock"],
-            "availableStock": product["stock"], "bookStock": product.get("bookStock", product["stock"]),
-            "reservedStock": product.get("reservedStock", 0), "stockLabel": "可售库存",
+            "availableStock": product["stock"], "stockLabel": "可售库存",
             "status": 1, "description": product["remark"], "productDesc": f"{product['remark']}\n\n规格：{product['spec']}",
             "spec": product["spec"], "technicalProfile": profile, "imageIsIllustration": True,
             "demo": product["code"].startswith("DEMO-")}
@@ -188,6 +192,7 @@ def cancel_order(session, order_id):
 def build_store_router(service):
     router = APIRouter()
     shared_store = RedisSharedStore(DB_PATH)
+    tenant_scope, shop_scope = shared_store.tenant, shared_store.shop
     router.add_event_handler("startup", shared_store.start)
     router.add_event_handler("shutdown", shared_store.close)
     valid_session = shared_store.valid_session
@@ -205,9 +210,16 @@ def build_store_router(service):
     tasks: dict[int, asyncio.Task] = {}
     def recover_interrupted_messages():
         with db() as connection:
-            connection.execute("UPDATE messages SET status=3,answer='服务已重启，请重新发送问题' WHERE status=1")
+            expire_messages(connection, tenant_scope, shop_scope)
+            retain_messages(connection)
 
     router.add_event_handler("startup", recover_interrupted_messages)
+
+    async def stop_tasks():
+        active = list(tasks.values())
+        for task in active: task.cancel()
+        if active: await asyncio.gather(*active, return_exceptions=True)
+    router.add_event_handler("shutdown", stop_tasks)
 
     async def reader_token():
         if token_cache["until"] > time.time():
@@ -216,9 +228,12 @@ def build_store_router(service):
             if token_cache["until"] > time.time():
                 return token_cache["value"]
             client = await commerce.get_client()
+            user = os.getenv("FUSION_COMMERCE_USER", "").strip()
+            password = os.getenv("FUSION_COMMERCE_PASSWORD", "").strip()
+            if not user or not password:
+                raise HTTPException(503, "商城专用业务账号尚未配置")
             response = await client.post(service.JAVA_URL + "/login", json={
-                "username": os.getenv("FUSION_DEMO_USER", "admin"),
-                "password": os.getenv("FUSION_DEMO_PASSWORD", "admin123")})
+                "username": user, "password": password})
             response.raise_for_status()
             body = response.json()
             if body.get("code") != 200 or not body.get("token"):
@@ -270,7 +285,6 @@ def build_store_router(service):
                             "price": float(stock["price"]) if stock.get("price") is not None else None,
                             "category": str(stock.get("categoryName") or "智能家居"),
                             "remark": str(stock.get("description") or ""), "stock": float(stock["availableStock"]),
-                            "bookStock": float(stock["bookStock"]), "reservedStock": float(stock["reservedStock"]),
                             "stock_kind": "可售库存", "profile": profile_for(stock["productCode"])})
         return catalog
 
@@ -335,9 +349,12 @@ def build_store_router(service):
         except ValueError: raise HTTPException(502, "报价数据未能核验，请稍后重新报价") from None
         fresh["alternatives"] = alternative_candidates(fresh, catalog)
         changed = any(Decimal(str(item["unitPrice"])) != previous[str(item["productId"])] for item in fresh["items"])
-        if changed or fresh["status"] != "READY_FOR_REVIEW":
-            fresh.update(revision=plan["revision"] + 1, confirmationStatus="REPRICE_REQUIRED" if changed else "REVIEW_REQUIRED")
+        evidence_changed=plan.get('evidenceSnapshot')!=fresh.get('evidenceSnapshot')
+        if changed or evidence_changed or fresh["status"] != "READY_FOR_REVIEW":
+            fresh.update(revision=plan["revision"] + 1, confirmationStatus="REPRICE_REQUIRED" if changed else 'EVIDENCE_REVIEW_REQUIRED' if evidence_changed and fresh['status']=='READY_FOR_REVIEW' else "REVIEW_REQUIRED")
             return await save_quote(session, fresh, plan["revision"])
+        if registry_version()!=fresh['evidenceSnapshot']['registryVersion']:
+            raise HTTPException(409,'选型资料刚刚更新，请重新核对方案')
         candidates = [{"id": secrets.token_hex(8), "product_id": item["productId"],
                        "quantity": item["quantity"] * fresh["units"], "available": item["availableStock"]}
                       for item in fresh["items"]]
@@ -364,7 +381,20 @@ def build_store_router(service):
             except (WebSocketDisconnect, RuntimeError, OSError):
                 sockets.get(session, set()).discard(socket)
 
-    async def make_answer(session, message_id, question, product_id, resume_id=None):
+    async def make_answer(session, message_id, question, product_id, lease, resume_id=None):
+        parent = asyncio.current_task()
+        def bind_run(run_id):
+            with db() as connection: bind_message_run(connection,message_id,lease,run_id)
+        message_context=CURRENT_MESSAGE.set(bind_run)
+        async def keepalive():
+            while True:
+                await asyncio.sleep(1)
+                try:
+                    with db() as connection: renew_message(connection, message_id, lease)
+                except LostLease:
+                    parent.cancel()
+                    return
+        heartbeat = asyncio.create_task(keepalive())
         try:
             orders = await customer_orders(session)
             # Write intent yields a user confirmation card; the LLM never executes it.
@@ -383,8 +413,8 @@ def build_store_router(service):
                     result_text, biz = "请提供要取消的订单号；只能取消当前访客的未支付订单。", "chat"
             else:
                 with db() as connection:
-                    previous = connection.execute("SELECT question,answer FROM messages WHERE session_id=? AND id<? AND status=2 ORDER BY id DESC LIMIT 3", (session, message_id)).fetchall()
-                    recent_plans = connection.execute("SELECT answer FROM messages WHERE session_id=? AND id<? AND status=2 AND answer LIKE '%\"businessPlan\"%' ORDER BY id DESC LIMIT 1", (session, message_id)).fetchall()
+                    previous = connection.execute("SELECT question,answer FROM messages WHERE session_id=? AND (tenant_id=? OR tenant_id='') AND shop_id=? AND id<? AND status=2 ORDER BY id DESC LIMIT 3", (session,tenant_scope,shop_scope,message_id)).fetchall()
+                    recent_plans = connection.execute("SELECT answer FROM messages WHERE session_id=? AND (tenant_id=? OR tenant_id='') AND shop_id=? AND id<? AND status=2 AND answer LIKE '%\"businessPlan\"%' ORDER BY id DESC LIMIT 1", (session,tenant_scope,shop_scope,message_id)).fetchall()
                 history = []
                 for row in reversed(previous):
                     history.append({"role": "user", "content": model_question(row["question"])[:1000]})
@@ -412,6 +442,7 @@ def build_store_router(service):
                 if result.get("businessPlan", {}).get("type") == "CONSUMER_BUNDLE":
                     plan = {**result["businessPlan"], "quoteToken": "qt_" + secrets.token_hex(16),
                             "revision": 1, "expiresAt": time.time() + 900, "confirmationStatus": "PENDING"}
+                    plan['evidenceSnapshot']=evidence_snapshot([item['code'] for item in plan['items'] if item.get('code')],plan.get('request',{}).get('ownedGatewayModels',[]))
                     meta["businessPlan"] = await save_quote(session, plan)
                 if result["products"]:
                     payload = {"type": "PRODUCT_SEARCH_RESULT", "intro": result["answer"], "products": [product_shape(p) for p in result["products"]], **meta}
@@ -421,19 +452,25 @@ def build_store_router(service):
                     biz = "chat"
                 result_text = json.dumps(payload, ensure_ascii=False)
             with db() as connection:
-                cursor = connection.execute("UPDATE messages SET answer=?,status=2,biz_type=? WHERE id=? AND session_id=? AND status=1", (result_text, biz, message_id, session))
-            if cursor.rowcount:
-                await send(session, {"messageType": "agent", "messageId": message_id, "assistantMessage": result_text, "bizType": biz, "outPutType": 1})
+                finish_message(connection,message_id,lease,tenant_scope,shop_scope,session,result_text,biz,2)
         except asyncio.CancelledError:
+            try:
+                with db() as connection:
+                    finish_message(connection,message_id,lease,tenant_scope,shop_scope,session,'回答已中断，请重试','chat',3)
+            except LostLease: pass
+        except LostLease:
             pass
         except Exception as error:
             text = "客服暂时无法读取业务数据或生成回答，请稍后重试。"
             if getattr(error, "run_id", None):
                 text = json.dumps({"type":"CHAT_RESULT","answer":text,"runId":error.run_id,"planStatus":"FAILED"},ensure_ascii=False)
             with db() as connection:
-                connection.execute("UPDATE messages SET status=3,answer=? WHERE id=? AND session_id=? AND status=1", (text, message_id, session))
-            await send(session, {"messageType": "agent", "messageId": message_id, "assistantMessage": text, "outPutType": 2})
+                try: finish_message(connection,message_id,lease,tenant_scope,shop_scope,session,text,'chat',3)
+                except LostLease: pass
         finally:
+            CURRENT_MESSAGE.reset(message_context)
+            heartbeat.cancel()
+            await asyncio.gather(heartbeat, return_exceptions=True)
             tasks.pop(message_id, None)
 
     @router.websocket("/ws/")
@@ -449,6 +486,24 @@ def build_store_router(service):
             return
         await socket.accept()
         sockets.setdefault(session, set()).add(socket)
+        with db() as connection:
+            sequence = connection.execute("SELECT COALESCE(MAX(sequence),0) FROM message_events WHERE tenant_id=? AND shop_id=? AND session_id=?",(tenant_scope,shop_scope,session)).fetchone()[0]
+        if socket.query_params.get('afterSequence') is not None:
+            try: sequence=max(0,int(socket.query_params['afterSequence']))
+            except ValueError:
+                await socket.close(code=1008)
+                sockets.get(session,set()).discard(socket)
+                return
+        async def deliver_events():
+            nonlocal sequence
+            while True:
+                with db() as connection:
+                    rows = connection.execute("SELECT sequence,payload FROM message_events WHERE tenant_id=? AND shop_id=? AND session_id=? AND sequence>? ORDER BY sequence LIMIT 100",(tenant_scope,shop_scope,session,sequence)).fetchall()
+                for row in rows:
+                    await socket.send_json({**json.loads(row['payload']), 'eventSequence':row['sequence']})
+                    sequence = row['sequence']
+                await asyncio.sleep(0.2 if rows else 0.5)
+        delivery = asyncio.create_task(deliver_events())
         try:
             while True:
                 text = await socket.receive_text()
@@ -457,6 +512,8 @@ def build_store_router(service):
         except WebSocketDisconnect:
             pass
         finally:
+            delivery.cancel()
+            await asyncio.gather(delivery, return_exceptions=True)
             sockets.get(session, set()).discard(socket)
 
     @router.api_route("/api/{path:path}", methods=["GET", "POST"])
@@ -561,6 +618,7 @@ def build_store_router(service):
                 else: raise HTTPException(404, "收货地址操作不存在")
                 return ok()
             if path == "order/postOrder":
+                if request.method!='POST':raise HTTPException(405,'请使用POST提交订单')
                 if params.get("payMethod") != "demo": raise HTTPException(422, "当前仅接本地支付沙箱，不提供真实收款")
                 shipping_address = await shared_store.shipping_address(session, str(params.get("addressId") or ""))
                 lines = params.get("orderList")
@@ -590,14 +648,25 @@ def build_store_router(service):
             if path in ("order/getMyOrderDetail", "order/getOrderInfo"):
                 return ok(await customer_order(session, str(params.get("orderId") or params.get("payOrderId"))))
             if path == "order/cancelOrder":
+                if request.method!='POST':raise HTTPException(405,'请使用POST取消订单')
                 return ok(await cancel_customer_order(session, str(params.get("orderId"))))
+            if path=='order/querySandboxPayment':
+                if request.method!='POST':raise HTTPException(405,'请使用POST核对支付结果')
+                order_id=str(params.get('orderId') or '')
+                operation_id=str(params.get('operationId') or '')
+                if not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',operation_id):raise HTTPException(422,'支付操作编号无效')
+                await customer_order(session,order_id)
+                result=await commerce.query_payment(session,order_id,operation_id)
+                invalidate_public_reads()
+                return ok(result)
             if path in ("order/sandboxPay", "order/receiveOrder"):
+                if request.method!='POST':raise HTTPException(405,'请使用POST提交订单操作')
                 order_id = str(params.get("orderId") or "")
                 order = await customer_order(session, order_id)
                 if order.get("legacy"): raise HTTPException(409, "历史演示订单未接库存，请重新下单体验支付沙箱")
                 if path == "order/sandboxPay":
                     scenario = params.get("scenario", "success")
-                    if scenario not in ("success", "failure"): raise HTTPException(422, "支付沙箱场景无效")
+                    if scenario not in ("success", "failure",'timeout_after_success','delayed_success'): raise HTTPException(422, "支付沙箱场景无效")
                     payment_key = str(params.get("paymentRequestId") or "pay-" + order_id)
                     if not 1 <= len(payment_key) <= 80: raise HTTPException(422, "支付请求标识无效")
                     result = await commerce.action(session, order_id, "sandbox-pay", paymentRequestId=payment_key, scenario=scenario)
@@ -702,10 +771,9 @@ def build_store_router(service):
                         pid = None
                         await shared_store.context(session, update=True)
                 with db() as connection:
-                    if connection.execute("SELECT count(*) FROM messages WHERE session_id=? AND status=1", (session,)).fetchone()[0]: raise HTTPException(409, "正在回答上一个问题，请等待或停止后再发送")
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    message_id = connection.execute("INSERT INTO messages(session_id,question,sent_at) VALUES(?,?,?)", (session, question, timestamp)).lastrowid
-                task = asyncio.create_task(make_answer(session, message_id, clean_question, pid))
+                    message_id, lease = create_message(connection,tenant_scope,shop_scope,session,question,timestamp)
+                task = asyncio.create_task(make_answer(session, message_id, clean_question, pid, lease))
                 tasks[message_id] = task
                 return ok({"messageId": message_id, "userMessage": question, "status": 1, "sendTime": timestamp})
             if path in ("agent/getRun", "agent/resumeRun"):
@@ -717,15 +785,15 @@ def build_store_router(service):
                 if path.endswith("getRun"): return ok({"runId":run_id,"status":row["status"],"trace":saved.get("trace",[]),"version":row["version"]})
                 if row["status"] not in ("FAILED","INTERRUPTED","CANCELLED"): raise HTTPException(409,"此任务无需恢复或仍在执行")
                 with db() as connection:
-                    if connection.execute("SELECT count(*) FROM messages WHERE session_id=? AND status=1",(session,)).fetchone()[0]: raise HTTPException(409,"请先等待当前回答完成")
                     question = str(saved.get("message") or "")
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    message_id = connection.execute("INSERT INTO messages(session_id,question,sent_at) VALUES(?,?,?)",(session,question,timestamp)).lastrowid
-                tasks[message_id] = asyncio.create_task(make_answer(session,message_id,question,(saved.get("context") or {}).get("product_id"),run_id))
+                    message_id, lease = create_message(connection,tenant_scope,shop_scope,session,question,timestamp)
+                tasks[message_id] = asyncio.create_task(make_answer(session,message_id,question,(saved.get("context") or {}).get("product_id"),lease,run_id))
                 return ok({"messageId":message_id,"userMessage":question,"status":1,"sendTime":timestamp})
             if path == "agent/loadHistoryMessage":
                 with db() as connection:
-                    rows = connection.execute("SELECT * FROM messages WHERE session_id=? ORDER BY id DESC", (session,)).fetchall()
+                    expire_messages(connection,tenant_scope,shop_scope)
+                    rows = connection.execute("SELECT * FROM messages WHERE session_id=? AND (tenant_id=? OR tenant_id='') AND shop_id=? ORDER BY id DESC", (session,tenant_scope,shop_scope)).fetchall()
                     proposal_rows = connection.execute("SELECT * FROM proposals WHERE session_id=?", (session,)).fetchall()
                 proposal_map = {p["token"]: p for p in proposal_rows}
                 messages = []
@@ -751,10 +819,18 @@ def build_store_router(service):
                             text = json.dumps(card, ensure_ascii=False)
                     messages.append({"messageId": row["id"], "userMessage": row["question"], "assistantMessage": text, "status": row["status"], "bizType": row["biz_type"], "sendTime": row["sent_at"]})
                 return ok(page(messages, params))
+            if path == "agent/messageStatus":
+                mid=integer(params.get('messageId') or 0)
+                with db() as connection:
+                    expire_messages(connection,tenant_scope,shop_scope)
+                    row=connection.execute("SELECT id,question,answer,status,biz_type,sent_at FROM messages WHERE id=? AND session_id=? AND (tenant_id=? OR tenant_id='') AND shop_id=?",(mid,session,tenant_scope,shop_scope)).fetchone()
+                if not row: raise HTTPException(404,'消息不存在')
+                return ok({'messageId':row['id'],'userMessage':row['question'],'assistantMessage':row['answer'],
+                           'status':row['status'],'bizType':row['biz_type'],'sendTime':row['sent_at']})
             if path == "agent/cancelMessage":
                 mid = int(params.get("messageId") or 0)
                 with db() as connection:
-                    changed = connection.execute("UPDATE messages SET status=3,answer='已停止回答' WHERE id=? AND session_id=? AND status=1", (mid, session)).rowcount
+                    changed = cancel_message(connection,tenant_scope,shop_scope,session,mid)
                 if changed and mid in tasks: tasks[mid].cancel()
                 return ok()
             if path in ("agent/clearProductConsult", "agent/pauseProductConsult"):

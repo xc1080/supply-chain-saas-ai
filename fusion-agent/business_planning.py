@@ -8,7 +8,7 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 import re
 
-from business_catalog import profile_for, requested_gateways, compatibility_assessment
+from business_catalog import profile_for, requested_gateways, compatibility_assessment, evidence_snapshot
 
 MAX_ITEMS = 20
 MAX_QUANTITY = 999
@@ -181,6 +181,8 @@ def request_from_message(message: str, catalog: list[dict]) -> dict:
     if not items and not requirements and not any(item["field"].startswith("quantity:") for item in missing):
         missing.append({"field": "requirements", "question": "想配哪些设备、每种多少件？例如灯和人体传感器。"})
     return {"items": items, "requirements": requirements, "budget": budget, "units": units,
+            "requestedFirmwareVersion": (re.search(r"固件(?:版本)?(?:为|是)?\s*[:：]?\s*([A-Za-z0-9_.-]{1,40})",message).group(1) if re.search(r"固件(?:版本)?(?:为|是)?\s*[:：]?\s*([A-Za-z0-9_.-]{1,40})",message) else None),
+            "requestedRegion": "CN" if re.search(r"(?:中国|国内|大陆).{0,8}(?:安装|使用)|(?:安装|使用).{0,8}(?:中国|国内|大陆)",message) else None,
             "ownedGatewayModels": owned_gateways,
             "requestedPlatforms": [platform for platform in PLATFORMS if platform.casefold() in message.casefold()],
             "installationConfirmed": bool(re.search(r"(?:已确认|已核对|确认了).{0,12}(?:安装|电源|频段)|(?:安装|电源|频段).{0,12}(?:已确认|已核对|没问题)", message)),
@@ -222,6 +224,8 @@ def merge_clarification(previous: dict, message: str, catalog: list[dict]) -> di
         merged["ownedGatewayModels"] = []
     if current["requestedPlatforms"]:
         merged["requestedPlatforms"] = current["requestedPlatforms"]
+    for field in ('requestedFirmwareVersion','requestedHardwareRevision','requestedRegion'):
+        if current.get(field): merged[field]=current[field]
     for field, pattern in (("installationConfirmed", r"安装|电源|接线|频段"), ("regionConfirmed", r"区域|地区|英国|UK")):
         if current[field]:
             merged[field] = True
@@ -232,7 +236,7 @@ def merge_clarification(previous: dict, message: str, catalog: list[dict]) -> di
     missing = []
     for item in previous.get("missing", []):
         field = item.get("field", "")
-        if field in {"budget", "gateway", "regionConfirmed", "installationConfirmed", "platformVerification"}:
+        if field in {"budget", "gateway", "regionConfirmed", "installationConfirmed", "platformVerification",'firmwareVerification','hardwareVerification','regionVerification','evidenceVerification'}:
             continue  # Recomputed against the merged values by prepare_bundle.
         if field == "requirements" and (merged["items"] or merged["requirements"]):
             continue
@@ -283,6 +287,10 @@ def validate_request(raw: dict) -> dict:
     missing = raw.get("missing", [])
     if not isinstance(missing, list):
         raise ValueError("Invalid missing inputs")
+    for field in ('requestedFirmwareVersion','requestedHardwareRevision','requestedRegion'):
+        value=raw.get(field)
+        if value is not None and (not isinstance(value,str) or not re.fullmatch(r'[A-Za-z0-9_.-]{1,40}',value)):
+            raise ValueError('Invalid version/region requirement')
     return {**raw, "items": clean_items, "units": units, "budget": budget,
             "ownedGatewayModels": owned,
             "requestedPlatforms": platforms,
@@ -292,8 +300,9 @@ def validate_request(raw: dict) -> dict:
 
 def _pair_check(product: dict, gateway_models: list[str]) -> dict:
     profile = profile_for(str(product.get("code", "")))
-    if profile and profile.get("imageKind") == "gateway":
-        return {"status": "gateway_component", "sourceId": "M-" + profile["code"]}
+    if profile and profile.get("imageKind") == "gateway" and profile.get('evidenceStatus')=='PUBLISHED':
+        return {"status": "gateway_component", "sourceId": "M-" + profile["code"],
+                'evidenceVersion':profile['evidenceVersion'],'validationScope':profile['validationScope']}
     return compatibility_assessment(product, "；".join(gateway_models))
 
 
@@ -341,6 +350,14 @@ def prepare_bundle(raw: dict, catalog: list[dict]) -> tuple[dict, list[dict]]:
         missing.append({"field": "installationConfirmed", "question": "请先核对灯口、电源、接线及设备安装条件；这些条件是否已确认？"})
     if request["requestedPlatforms"] and any(not set(request["requestedPlatforms"]).issubset(set((profile_for(p.get("code", "")) or {}).get("platforms", []))) for p in selected):
         missing.append({"field": "platformVerification", "question": "现有型号资料未证实这些设备全部支持指定的平台，需要商家补充厂商平台依据。"})
+    if any(check['status']=='evidence_withdrawn' for check in checks):
+        missing.append({'field':'evidenceVerification','question':'所选型号的依据已撤销或未发布，需要重新核对有效厂商资料。'})
+    for field,source_key,missing_key,label in [('requestedFirmwareVersion','firmwareVersions','firmwareVerification','固件版本'),
+                                             ('requestedHardwareRevision','hardwareRevisions','hardwareVerification','硬件版本')]:
+        if request.get(field) and any(request[field] not in (profile_for(p.get('code','')) or {}).get(source_key,[]) for p in selected):
+            missing.append({'field':missing_key,'question':'现有资料未验证指定'+label+'，需要该版本的厂商兼容依据。'})
+    if request.get('requestedRegion') and any(not str((profile_for(p.get('code','')) or {}).get('region','')).upper().startswith(request['requestedRegion'].upper()) for p in selected):
+        missing.append({'field':'regionVerification','question':'现有型号资料未验证指定安装地区；地区确认不能替代型号电源、频段和法规适配依据。'})
     compatible = all(check["status"] in {"verified_pair", "gateway_not_required", "gateway_component"} for check in checks)
     compatibility = "COMPATIBLE" if checks and compatible else "UNKNOWN"
     if any(check["status"] == "needs_gateway_model" for check in checks):
@@ -348,7 +365,9 @@ def prepare_bundle(raw: dict, catalog: list[dict]) -> tuple[dict, list[dict]]:
     plan = {"type": "CONSUMER_BUNDLE", "status": "NEEDS_INPUT" if missing else "REVIEW_REQUIRED",
             "units": request["units"], "items": items, "missing": missing,
             "budget": {"limit": request["budget"], "total": None, "withinBudget": None, "scope": "PRODUCTS_ONLY"},
-            "compatibility": {"status": compatibility, "scope": "gateway_model_pairs", "checks": checks},
+            "compatibility": {"status": compatibility, "scope": "gateway_model_pairs", "checks": checks,
+                              'firmwareStatus':'UNVERIFIED','hardwareStatus':'UNVERIFIED','regionStatus':'USER_ACKNOWLEDGED' if request['regionConfirmed'] else 'NEEDS_INPUT'},
+            'evidenceSnapshot':evidence_snapshot([p['code'] for p in selected],request['ownedGatewayModels']),
             "inventory": {"requestedUnits": request["units"], "promisableUnits": None, "shortages": []},
             "delivery": {"status": "UNKNOWN", "date": None, "promise": False},
             "alternatives": [], "requiresApproval": True, "executable": False,
@@ -360,6 +379,7 @@ def prepare_bundle(raw: dict, catalog: list[dict]) -> tuple[dict, list[dict]]:
                        "requestedPlatforms": request["requestedPlatforms"],
                        "installationConfirmed": request["installationConfirmed"],
                        "regionConfirmed": request["regionConfirmed"],
+                       **{field:request.get(field) for field in ('requestedFirmwareVersion','requestedHardwareRevision','requestedRegion')},
                        "requirements": request.get("requirements", []), "missing": missing}
     return plan, selected
 

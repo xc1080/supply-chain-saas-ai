@@ -71,11 +71,12 @@ export const orderApi = {
   getOrderInfo: (payOrderId: string) => request.postForm('/order/getOrderInfo', { payOrderId }),
   loadMyOrder: (params: Record<string, unknown>) => request.postForm('/order/loadMyOrder', params),
   cancelOrder: (orderId: string) => request.postForm('/order/cancelOrder', { orderId }),
-  sandboxPay: (orderId: string) => request.post('/order/sandboxPay', {
+  sandboxPay: (orderId: string, paymentRequestId = `sandbox-${orderId}`) => request.post('/order/sandboxPay', {
     orderId,
-    paymentRequestId: `sandbox-${orderId}`,
+    paymentRequestId,
     scenario: 'success'
   }),
+  querySandboxPayment: (orderId: string, operationId: string) => request.post('/order/querySandboxPayment', {orderId, operationId}),
   receiveOrder: (orderId: string) => request.postForm('/order/receiveOrder', { orderId }),
   deleteOrder: (orderId: string) => request.postForm('/order/deleteOrder', { orderId }),
   confirmOrder: (orderId: string) => request.postForm('/order/confirmOrder', { orderId }),

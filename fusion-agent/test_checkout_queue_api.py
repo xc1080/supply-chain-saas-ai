@@ -58,6 +58,7 @@ class CheckoutQueueAPItests(unittest.TestCase):
     def setUp(self):
         with patch.dict(os.environ, {"FUSION_SHOP_ID": "configured-shop"}):
             fixtures.StoreIntegrationTests.setUp(self)
+        self.stack.enter_context(patch.dict(os.environ, {"FUSION_COMMERCE_USER":"test-service","FUSION_COMMERCE_PASSWORD":"fixture-only"}))
         self.authority = QueueAuthority(self.service.catalog)
 
     def submit(self, client=None, key="queue-one", **extra):

@@ -36,7 +36,8 @@ def store_order(order: dict) -> dict:
     return {**{key: order.get(key) for key in (
                 "activityId", "tenantId", "shopId", "expiresAt", "closeReason", "statusName", "paymentProvider", "paidTime", "shippedTime", "receivedTime",
                 "transactionId", "receiptId", "carrier", "trackingNo", "paymentOutcome", "afterSalesId", "afterSalesStatus", "refundedAmount",
-                "fulfillmentStatus", "shippedAmount", "returnedAmount", "shipments", "afterSales", "afterSalesCases")},
+                "fulfillmentStatus", "shippedAmount", "returnedAmount", "shipments", "afterSales", "afterSalesCases",
+                "dispatchPromise", "paymentOperation", "refundOperation")},
             "orderId": order_id, "payOrderId": order_id,
             "orderTime": order["createTime"], "createTime": order["createTime"],
             "orderStatus": int(order["orderStatus"]), "amount": total,
@@ -93,7 +94,7 @@ class CommerceAPI:
             raise HTTPException(502, "无法连接订单业务服务，请稍后重试；相同请求不会重复下单") from None
 
     async def inventory(self):
-        return await self.request("GET", "/commerce/inventory")
+        return await self.request("GET", "/commerce/catalog")
 
     async def orders(self, session):
         orders, page_number = [], 1
@@ -120,3 +121,7 @@ class CommerceAPI:
     async def action(self, session, order_id, action, **extra):
         return store_order(await self.request("POST", "/commerce/orders/" + quote(order_id, safe="") + "/" + action,
                                               body={"ownerId": owner_id(session), **extra}))
+
+    async def query_payment(self, session, order_id, operation_id):
+        path = "/commerce/orders/" + quote(order_id, safe="") + "/payments/" + quote(operation_id, safe="") + "/query"
+        return store_order(await self.request("POST", path, body={"ownerId": owner_id(session)}))

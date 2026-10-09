@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import com.ruoyi.common.core.tenant.TenantContext;
 import com.ruoyi.common.core.tenant.CommerceShopContext;
@@ -29,13 +28,15 @@ import java.util.*;
 
 /** Local demo commerce. MySQL is authoritative for orders, holds and stock. */
 @Service
-@Profile("local")
+@Profile({"local","commerce"})
 public class CommerceService {
     @Value("${commerce.payment-timeout-seconds:900}") private int paymentTimeoutSeconds = 900;
     private final JdbcTemplate jdbc;
     private final DataSource dataSource;
     private final CommerceInventoryService stock;
     private final CommerceMerchantService merchants;
+    private final CommercePaymentService payments;
+    private final CommerceDeliveryService delivery;
     private static final Map<String, String> MEDIA = new LinkedHashMap<>();
     static {
         MEDIA.put("DEMO-LAMP-ZB", "lamp-zb");
@@ -63,14 +64,19 @@ public class CommerceService {
     public CommerceService(DataSource dataSource) {
         this(dataSource, new CommerceInventoryService(dataSource), new CommerceMerchantService(dataSource));
     }
-    @Autowired
     public CommerceService(DataSource dataSource, CommerceInventoryService stock, CommerceMerchantService merchants) {
+        this(dataSource,stock,merchants,new CommercePaymentService(dataSource));
+    }
+    public CommerceService(DataSource dataSource, CommerceInventoryService stock, CommerceMerchantService merchants, CommercePaymentService payments) {
+        this(dataSource,stock,merchants,payments,new CommerceDeliveryService(dataSource));
+    }
+    @Autowired
+    public CommerceService(DataSource dataSource, CommerceInventoryService stock, CommerceMerchantService merchants, CommercePaymentService payments,CommerceDeliveryService delivery) {
         this.dataSource = dataSource;
         this.jdbc = new JdbcTemplate(dataSource);
-        this.stock = stock; this.merchants = merchants;
+        this.stock = stock; this.merchants = merchants;this.payments=payments;this.delivery=delivery;
     }
 
-    @PostConstruct
     public void initializeSchema() {
         ResourceDatabasePopulator script = new ResourceDatabasePopulator(new ClassPathResource("db/commerce-demo.sql"));
         script.setSqlScriptEncoding("UTF-8");
@@ -129,7 +135,6 @@ public class CommerceService {
         String address=shippingSnapshot(request.get("shippingAddress"),false);
         SortedMap<Long, Long> quantities = normalizeItems(request.get("items"));
         merchants.requireProducts(quantities.keySet());
-        if (activity == null) releaseEndedActivities(quantities.keySet());
         String hash = shopHash(activity == null ? requestHash(quantities) : activityHash(quantities, String.valueOf(activity.get("activity_id"))));
         // A unique request row serializes retries even when their product sets differ.
         jdbc.update("INSERT INTO commerce_request(owner_id,request_key) VALUES (?,?) ON DUPLICATE KEY UPDATE request_key=VALUES(request_key)", owner, key);
@@ -141,6 +146,8 @@ public class CommerceService {
             return shape(existing.get(0));
         }
         require(address!=null,"请提供收货地址",400);
+        String orderId = "SC" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + random(10);
+        delivery.reserveOrder(orderId,quantities.values().stream().mapToLong(Long::longValue).sum(),activity==null?null:String.valueOf(activity.get("activity_id")));
         List<Map<String, Object>> products = lockProducts(quantities.keySet());
         BigDecimal total = BigDecimal.ZERO;
         for (Map<String, Object> product : products) {
@@ -153,7 +160,6 @@ public class CommerceService {
             require(price.signum() > 0, "商品售价未配置", 409);
             total = total.add(price.multiply(BigDecimal.valueOf(quantities.get(id))));
         }
-        String orderId = "SC" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + random(10);
         jdbc.update("INSERT INTO commerce_order(order_id,owner_id,request_key,request_hash,status,total_amount,create_time,expires_at,shop_id,shipping_address) VALUES (?,?,?,?,0,?,CURRENT_TIMESTAMP,?,?,?)", orderId, owner, key, hash, total, LocalDateTime.now().plusSeconds(paymentTimeoutSeconds),CommerceShopContext.id(),address);
         for (Map<String, Object> product : products) {
             long id = number(product.get("product_id"));
@@ -193,31 +199,19 @@ public class CommerceService {
         return shape(find(orderId, ownerId, false));
     }
 
-    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> pay(String orderId, Map<String, Object> request) {
         String owner = owner(request.get("ownerId"));
         String key = key(request.get("paymentRequestId"), "paymentRequestId");
         String scenario = String.valueOf(request.get("scenario"));
-        require("success".equals(scenario) || "failure".equals(scenario), "请选择沙箱支付成功或失败场景", 400);
-        String outcome = "success".equals(scenario) ? "SUCCEEDED" : "FAILED";
-        Map<String, Object> order = find(orderId, owner, true);
-        if ((int) number(order.get("status")) == 0 && expired(order)) {
-            closeExpired(orderId, order);
-            Map<String, Object> result = detail(orderId, owner); result.put("paymentOutcome", "EXPIRED"); return result;
-        }
-        List<Map<String, Object>> attempts = jdbc.queryForList("SELECT outcome FROM commerce_payment_attempt WHERE order_id=? AND request_key=?", orderId, key);
-        if (!attempts.isEmpty()) {
-            require(outcome.equals(attempts.get(0).get("outcome")), "同一支付请求不能改变沙箱场景，请使用新的请求编号", 409);
-            Map<String, Object> result = shape(order); result.put("paymentOutcome", outcome); return result;
-        }
-        requireFulfillable(order);
-        int status = (int) number(order.get("status"));
-        require(status == 0 || (status >= 1 && status <= 3 && "success".equals(scenario)), "当前订单状态不能支付", 409);
-        if (status == 0 && "success".equals(scenario)) {
-            jdbc.update("UPDATE commerce_order SET status=1,paid_time=CURRENT_TIMESTAMP,transaction_id=? WHERE order_id=? AND status=0", "LOCAL-SANDBOX-" + random(24), orderId);
-        }
-        jdbc.update("INSERT INTO commerce_payment_attempt(order_id,request_key,outcome,create_time) VALUES (?,?,?,CURRENT_TIMESTAMP)", orderId, key, outcome);
-        Map<String, Object> result = detail(orderId, owner); result.put("paymentOutcome", outcome); return result;
+        Map<String,Object> operation=payments.pay(orderId,owner,key,scenario,()->{
+            Map<String,Object> order=find(orderId,owner,true);
+            if(number(order.get("status"))==0&&expired(order)){closeExpired(orderId,order);return find(orderId,owner,false);}
+            if(number(order.get("status"))==4)require("PAYMENT_TIMEOUT".equals(order.get("close_reason")),"已取消订单不能再次支付",409);
+            if(number(order.get("status"))!=4)requireFulfillable(order);
+            return order;
+        },this::expireOrder);
+        Map<String,Object> result=detail(orderId,owner);result.put("paymentOutcome",operation.get("local_status"));
+        if(operation.get("operationId")!=null)result.put("paymentOperation",operation);return result;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -228,6 +222,7 @@ public class CommerceService {
         if (status == 4) return shape(order);
         require(status == 0, "仅待支付订单可以取消；已支付订单需要退款流程", 409);
         boolean active=releaseActivity(order);
+        delivery.releaseOrder(orderId,"CUSTOMER_CANCEL",active);
         lockProducts(itemQuantities(orderId).keySet());
         stock.release(orderId,"CUSTOMER_CANCEL",active);
         jdbc.update("UPDATE commerce_order SET status=4,close_reason='CUSTOMER_CANCEL',cancelled_time=CURRENT_TIMESTAMP WHERE order_id=? AND status=0", orderId);
@@ -236,6 +231,7 @@ public class CommerceService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> ship(String orderId, Map<String, Object> request, long userId) {
+        merchants.requireCapability(CommerceShopContext.id(),userId,CommerceCapability.FULFILMENT);
         Map<String, Object> order = find(orderId, null, true);
         List<Map<String,Object>> facts=CommercePartialSupport.lines(jdbc,orderId);
         SortedMap<Long,Long> quantities=new TreeMap<>();
@@ -264,6 +260,7 @@ public class CommerceService {
         require(!tracking.isEmpty() && tracking.length() <= 80, "物流单号需为1至80个字符", 400);
         String shipmentId="SH"+LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))+random(10);
         String receipt = "CX" + ("LEGACY_FULL".equals(requestKey)?orderId.substring(2):shipmentId.substring(2));
+        delivery.consumeOrder(orderId,requestKey,quantities.values().stream().mapToLong(Long::longValue).sum());
         // Share the ERP document lock before taking product locks. Otherwise an ERP save that
         // checked the order before dispatch committed could overwrite the new outbound receipt.
         jdbc.update("INSERT INTO commerce_receipt_lock(receipt_id) VALUES (?) ON DUPLICATE KEY UPDATE receipt_id=VALUES(receipt_id)",receipt);
@@ -403,6 +400,9 @@ public class CommerceService {
             items.add(map("productId", item.get("product_id"), "productCode", item.get("product_code"), "productName", item.get("product_name"), "spec", item.get("spec"), "quantity", item.get("quantity"), "unitPrice", item.get("unit_price"), "amount", item.get("amount"), "cover", cover(String.valueOf(item.get("product_code")))));
         }
         Map<String,Object> result=map("orderId", id, "tenantId", TenantContext.id(), "shopId",row.get("shop_id"), "activityId", row.get("activity_id"), "expiresAt", time(row.get("expires_at")), "closeReason", row.get("close_reason"), "status", status, "orderStatus", status, "statusName", names[status], "totalAmount", row.get("total_amount"), "createTime", time(row.get("create_time")), "paidTime", time(row.get("paid_time")), "shippedTime", time(row.get("shipped_time")), "receivedTime", time(row.get("received_time")), "cancelledTime", time(row.get("cancelled_time")), "transactionId", row.get("transaction_id"), "receiptId", row.get("receipt_id"), "carrier", row.get("carrier"), "trackingNo", row.get("tracking_no"), "shippingAddress",row.get("shipping_address")==null?null:JSON.parseObject(String.valueOf(row.get("shipping_address"))), "afterSalesId",row.get("after_sales_id"),"afterSalesStatus",row.get("after_sales_status"),"refundedAmount",row.get("refunded_amount"), "demo", true, "paymentProvider", "LOCAL_SANDBOX", "reservationActive", (status == 0 || status == 1) && !"REFUNDED".equals(row.get("after_sales_status")), "items", items);
+        result.put("dispatchPromise",delivery.orderPromise(id));
+        List<String> paymentIds=jdbc.queryForList("SELECT operation_id FROM commerce_payment_operation WHERE order_id=? AND kind='PAYMENT' ORDER BY CASE WHEN provider_reference=? THEN 0 WHEN local_status IN('PREPARED','PENDING','UNKNOWN','COMPENSATION_PENDING') THEN 1 ELSE 2 END,created_at DESC,operation_id DESC LIMIT 1",String.class,id,row.get("transaction_id"));
+        if(!paymentIds.isEmpty()){Map<String,Object> payment=payments.detail(paymentIds.get(0));result.put("paymentOperation",payment);result.put("paymentOutcome",payment.get("outcome"));}
         CommercePartialSupport.decorate(jdbc,result);return result;
     }
 
@@ -425,6 +425,7 @@ public class CommerceService {
     }
     private void closeExpired(String id, Map<String, Object> order) {
         boolean active=releaseActivity(order);
+        delivery.releaseOrder(id,"PAYMENT_TIMEOUT",active);
         lockProducts(itemQuantities(id).keySet());
         stock.release(id,"PAYMENT_TIMEOUT",active);
         jdbc.update("UPDATE commerce_order SET status=4,close_reason='PAYMENT_TIMEOUT',cancelled_time=CURRENT_TIMESTAMP WHERE order_id=? AND status=0", id);
@@ -447,7 +448,7 @@ public class CommerceService {
         catch (RuntimeException ex) { throw new ServiceException("活动时间格式错误", 400); }
         require(ends.isAfter(starts) && ends.isAfter(LocalDateTime.now()), "活动截止时间无效", 400);
         merchants.requireProducts(Collections.singleton(product));
-        releaseEndedActivities(Collections.singleton(product));
+        delivery.reserveActivity(id,capacity,starts);
         lockProducts(Collections.singletonList(product));
         require(number(stock.ensureStock(product).get("availableStock")) >= capacity, "可分配库存不足", 409);
         require(jdbc.queryForObject("SELECT COUNT(*) FROM commerce_activity WHERE activity_id=?", Long.class, id) == 0, "活动编号已存在", 409);
@@ -516,6 +517,9 @@ public class CommerceService {
         String placeholders=String.join(",",Collections.nCopies(products.size(),"?"));
         List<Object> args=new ArrayList<>(products); args.add(CommerceShopContext.id());
         List<Map<String,Object>> ended=jdbc.queryForList("SELECT a.* FROM commerce_activity a WHERE a.product_id IN ("+placeholders+") AND a.shop_id=? AND a.ends_at<=CURRENT_TIMESTAMP AND NOT EXISTS (SELECT 1 FROM commerce_stock_ledger l WHERE l.event_key=CONCAT('ACTIVITY_EXPIRE:',a.activity_id,':',a.product_id)) ORDER BY a.product_id,a.activity_id FOR UPDATE",args.toArray());
+        if(ended.isEmpty())return;
+        List<String> activityIds=new ArrayList<>();for(Map<String,Object> row:ended)activityIds.add(String.valueOf(row.get("activity_id")));
+        delivery.releaseActivities(activityIds);
         lockProducts(products);
         for(Map<String,Object> row:ended)stock.releaseExpiredActivity(String.valueOf(row.get("activity_id")),number(row.get("product_id")),number(row.get("remaining")));
     }

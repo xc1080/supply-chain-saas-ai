@@ -31,7 +31,7 @@ import java.util.*;
  * TenantContext must be bound by the authenticated request or worker before calling.
  */
 @Service
-@Profile("local")
+@Profile({"local","commerce"})
 public class CommerceQueueService {
     private static final Logger log = LoggerFactory.getLogger(CommerceQueueService.class);
     private static final int MAX_ATTEMPTS = 5;
