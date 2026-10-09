@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.ImageModerationRecordMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.ImageModerationRecord">
+		<id column="record_id" property="recordId" />
+		<result column="user_id" property="userId" />
+		<result column="user_ip" property="userIp" />
+		<result column="image_path" property="imagePath" />
+		<result column="scene" property="scene" />
+		<result column="order_id" property="orderId" />
+		<result column="conclusion_type" property="conclusionType" />
+		<result column="conclusion" property="conclusion" />
+		<result column="baidu_response" property="baiduResponse" />
+		<result column="status" property="status" />
+		<result column="create_time" property="createTime" />
+		<result column="handle_time" property="handleTime" />
+		<result column="handle_remark" property="handleRemark" />
+	</resultMap>
+
+	<sql id="base_column_list">
+		r.record_id,r.user_id,r.user_ip,r.image_path,r.scene,r.order_id,r.conclusion_type,r.conclusion,
+		r.baidu_response,r.status,r.create_time,r.handle_time,r.handle_remark
+	</sql>
+
+	<sql id="base_condition_filed">
+		<if test="query.recordId != null">
+			and r.record_id = #{query.recordId}
+		</if>
+		<if test="query.userId != null and query.userId != ''">
+			and r.user_id = #{query.userId}
+		</if>
+		<if test="query.scene != null and query.scene != ''">
+			and r.scene = #{query.scene}
+		</if>
+		<if test="query.orderId != null and query.orderId != ''">
+			and r.order_id = #{query.orderId}
+		</if>
+		<if test="query.status != null">
+			and r.status = #{query.status}
+		</if>
+		<if test="query.conclusionType != null">
+			and r.conclusion_type = #{query.conclusionType}
+		</if>
+	</sql>
+
+	<sql id="query_condition">
+		<where>
+			<include refid="base_condition_filed" />
+			<if test="query.userIdFuzzy != null and query.userIdFuzzy != ''">
+				and r.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+			<if test="query.createTimeStart != null and query.createTimeStart != ''">
+				<![CDATA[ and r.create_time >= str_to_date(#{query.createTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.createTimeEnd != null and query.createTimeEnd != ''">
+				<![CDATA[ and r.create_time < date_sub(str_to_date(#{query.createTimeEnd}, '%Y-%m-%d'), interval -1 day) ]]>
+			</if>
+		</where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map">
+		SELECT <include refid="base_column_list" /> FROM image_moderation_record r
+		<include refid="query_condition" />
+		<if test="query.orderBy != null">
+			order by ${query.orderBy}
+		</if>
+		<if test="query.simplePage != null">
+			limit #{query.simplePage.start}, #{query.simplePage.end}
+		</if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer">
+		SELECT count(1) FROM image_moderation_record r <include refid="query_condition" />
+	</select>
+
+	<select id="selectByRecordId" resultMap="base_result_map">
+		SELECT <include refid="base_column_list" /> FROM image_moderation_record r
+		where r.record_id = #{recordId}
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.ImageModerationRecord">
+		<selectKey keyProperty="bean.recordId" resultType="Integer" order="AFTER">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		INSERT INTO image_moderation_record
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.userId != null">user_id,</if>
+			<if test="bean.userIp != null">user_ip,</if>
+			<if test="bean.imagePath != null">image_path,</if>
+			<if test="bean.scene != null">scene,</if>
+			<if test="bean.orderId != null">order_id,</if>
+			<if test="bean.conclusionType != null">conclusion_type,</if>
+			<if test="bean.conclusion != null">conclusion,</if>
+			<if test="bean.baiduResponse != null">baidu_response,</if>
+			<if test="bean.status != null">status,</if>
+			<if test="bean.createTime != null">create_time,</if>
+			<if test="bean.handleTime != null">handle_time,</if>
+			<if test="bean.handleRemark != null">handle_remark,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.userId != null">#{bean.userId},</if>
+			<if test="bean.userIp != null">#{bean.userIp},</if>
+			<if test="bean.imagePath != null">#{bean.imagePath},</if>
+			<if test="bean.scene != null">#{bean.scene},</if>
+			<if test="bean.orderId != null">#{bean.orderId},</if>
+			<if test="bean.conclusionType != null">#{bean.conclusionType},</if>
+			<if test="bean.conclusion != null">#{bean.conclusion},</if>
+			<if test="bean.baiduResponse != null">#{bean.baiduResponse},</if>
+			<if test="bean.status != null">#{bean.status},</if>
+			<if test="bean.createTime != null">#{bean.createTime},</if>
+			<if test="bean.handleTime != null">#{bean.handleTime},</if>
+			<if test="bean.handleRemark != null">#{bean.handleRemark},</if>
+		</trim>
+	</insert>
+
+	<update id="updateByRecordId">
+		UPDATE image_moderation_record
+		<set>
+			<if test="bean.userId != null">user_id = #{bean.userId},</if>
+			<if test="bean.userIp != null">user_ip = #{bean.userIp},</if>
+			<if test="bean.imagePath != null">image_path = #{bean.imagePath},</if>
+			<if test="bean.scene != null">scene = #{bean.scene},</if>
+			<if test="bean.orderId != null">order_id = #{bean.orderId},</if>
+			<if test="bean.conclusionType != null">conclusion_type = #{bean.conclusionType},</if>
+			<if test="bean.conclusion != null">conclusion = #{bean.conclusion},</if>
+			<if test="bean.baiduResponse != null">baidu_response = #{bean.baiduResponse},</if>
+			<if test="bean.status != null">status = #{bean.status},</if>
+			<if test="bean.createTime != null">create_time = #{bean.createTime},</if>
+			<if test="bean.handleTime != null">handle_time = #{bean.handleTime},</if>
+			<if test="bean.handleRemark != null">handle_remark = #{bean.handleRemark},</if>
+		</set>
+		where record_id = #{recordId}
+	</update>
+
+	<update id="updateByRecordIdIfPending">
+		UPDATE image_moderation_record
+		<set>
+			<if test="bean.userId != null">user_id = #{bean.userId},</if>
+			<if test="bean.userIp != null">user_ip = #{bean.userIp},</if>
+			<if test="bean.imagePath != null">image_path = #{bean.imagePath},</if>
+			<if test="bean.scene != null">scene = #{bean.scene},</if>
+			<if test="bean.orderId != null">order_id = #{bean.orderId},</if>
+			<if test="bean.conclusionType != null">conclusion_type = #{bean.conclusionType},</if>
+			<if test="bean.conclusion != null">conclusion = #{bean.conclusion},</if>
+			<if test="bean.baiduResponse != null">baidu_response = #{bean.baiduResponse},</if>
+			<if test="bean.status != null">status = #{bean.status},</if>
+			<if test="bean.createTime != null">create_time = #{bean.createTime},</if>
+			<if test="bean.handleTime != null">handle_time = #{bean.handleTime},</if>
+			<if test="bean.handleRemark != null">handle_remark = #{bean.handleRemark},</if>
+		</set>
+		where record_id = #{recordId}
+		  and status = 0
+	</update>
+
+	<delete id="deleteByRecordId">
+		delete from image_moderation_record where record_id = #{recordId}
+	</delete>
+</mapper>

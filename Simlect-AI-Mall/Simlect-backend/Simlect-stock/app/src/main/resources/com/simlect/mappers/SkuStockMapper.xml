@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.SkuStockMapper">
+
+    <resultMap id="BaseResultMap" type="com.simlect.domain.SkuStock">
+        <id column="product_id" property="productId"/>
+        <id column="property_value_id_hash" property="propertyValueIdHash"/>
+        <result column="stock" property="stock"/>
+    </resultMap>
+
+    <select id="selectByKey" resultMap="BaseResultMap">
+        SELECT product_id, property_value_id_hash, stock
+        FROM sku_stock
+        WHERE product_id = #{productId}
+          AND property_value_id_hash = #{propertyValueIdHash}
+    </select>
+
+    <select id="selectByKeyForUpdate" resultMap="BaseResultMap">
+        SELECT product_id, property_value_id_hash, stock
+        FROM sku_stock
+        WHERE product_id = #{productId}
+          AND property_value_id_hash = #{propertyValueIdHash}
+        FOR UPDATE
+    </select>
+
+    <update id="changeStock">
+        UPDATE sku_stock
+        SET stock = stock + #{changeAmount}
+        WHERE product_id = #{productId}
+          AND property_value_id_hash = #{propertyValueIdHash}
+          AND stock + #{changeAmount} &gt;= 0
+    </update>
+
+    <insert id="upsert">
+        INSERT INTO sku_stock (product_id, property_value_id_hash, stock)
+        VALUES (#{productId}, #{propertyValueIdHash}, #{stock})
+        ON DUPLICATE KEY UPDATE stock = #{stock}
+    </insert>
+
+    <select id="selectTotalStockByProductId" resultType="java.lang.Integer">
+        SELECT COALESCE(SUM(stock), 0)
+        FROM sku_stock
+        WHERE product_id = #{productId}
+    </select>
+
+    <select id="countLessThan" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM sku_stock
+        WHERE stock &lt; #{threshold}
+    </select>
+
+    <select id="selectLessThan" resultMap="BaseResultMap">
+        SELECT product_id, property_value_id_hash, stock
+        FROM sku_stock
+        WHERE stock &lt; #{threshold}
+        ORDER BY stock ASC, product_id ASC, property_value_id_hash ASC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <insert id="insertChangeOperation">
+        INSERT IGNORE INTO stock_change_operation (operation_id, affected_rows, create_time, update_time)
+        VALUES (#{operationId}, NULL, NOW(), NOW())
+    </insert>
+
+    <insert id="insertCancelledChangeOperation">
+        INSERT IGNORE INTO stock_change_operation (operation_id, affected_rows, create_time, update_time)
+        VALUES (#{operationId}, -1, NOW(), NOW())
+    </insert>
+
+    <select id="selectChangeOperationResult" resultType="java.lang.Integer">
+        SELECT affected_rows
+        FROM stock_change_operation
+        WHERE operation_id = #{operationId}
+    </select>
+
+    <select id="selectChangeOperationIdForUpdate" resultType="java.lang.String">
+        SELECT operation_id
+        FROM stock_change_operation
+        WHERE operation_id = #{operationId}
+        FOR UPDATE
+    </select>
+
+    <update id="completeChangeOperation">
+        UPDATE stock_change_operation
+        SET affected_rows = #{affectedRows}, update_time = NOW()
+        WHERE operation_id = #{operationId}
+          AND affected_rows IS NULL
+    </update>
+</mapper>

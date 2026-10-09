@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <style>html,body{background:#fff}</style>
+    <script>
+      (function () {
+        if (
+          window.matchMedia('(display-mode: standalone)').matches ||
+          window.navigator.standalone === true
+        ) {
+          document.documentElement.classList.add('pwa-standalone');
+        }
+      })();
+    </script>
+    <link rel="preload" href="/apple-touch-icon.png" as="image" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/pwa/splash-iphone-se.png?v=14" />
+    <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/pwa/splash-iphone-12-13-14.png?v=14" />
+    <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/pwa/splash-iphone-14-pro.png?v=14" />
+    <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/pwa/splash-iphone-14-pro-max.png?v=14" />
+    <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/pwa/splash-iphone-16-pro.png?v=14" />
+    <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/pwa/splash-iphone-16-pro-max.png?v=14" />
+    <link rel="apple-touch-startup-image" href="/pwa/splash-iphone-16-pro-max.png?v=14" />
+    <style>
+      html.pwa-standalone,
+      html.pwa-standalone body {
+        background: #fff;
+      }
+      #pwa-boot-splash { display: none !important; }
+      html.pwa-standalone #pwa-boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
+          env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+      }
+      #pwa-boot-splash .boot-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+      }
+      #pwa-boot-splash .boot-content.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      #pwa-boot-splash.is-hidden .boot-content {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      #pwa-boot-splash .boot-mark { width: 88px; height: 88px; object-fit: contain; }
+      #pwa-boot-splash .boot-title {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        color: #1d1d1f;
+        font-family: 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      }
+      #pwa-boot-splash.is-hidden { pointer-events: none; }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="简选 Simlect" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#1d1d1f" />
+    <meta name="msapplication-TileColor" content="#1d1d1f" />
+    <meta name="color-scheme" content="light" />
+    <title>简选 Simlect</title>
+  </head>
+  <body>
+    <div id="pwa-boot-splash" hidden style="display:none" aria-hidden="true">
+      <div class="boot-content">
+        <img class="boot-mark" src="/apple-touch-icon.png" width="88" height="88" alt="" />
+        <p class="boot-title">简选 Simlect</p>
+      </div>
+    </div>
+    <script>
+      (function () {
+        if (!document.documentElement.classList.contains('pwa-standalone')) {
+          var splash = document.getElementById('pwa-boot-splash');
+          splash && splash.remove();
+          return;
+        }
+        var splash = document.getElementById('pwa-boot-splash');
+        var content = splash && splash.querySelector('.boot-content');
+        if (!splash || !content) return;
+        window.__pwaBootSplashAt = Date.now();
+        splash.hidden = false;
+        splash.style.display = '';
+        requestAnimationFrame(function () {
+          content.classList.add('is-visible');
+        });
+        setTimeout(function () {
+          if (!splash.parentNode) return;
+          splash.classList.add('is-hidden');
+          setTimeout(function () {
+            splash.remove();
+          }, 300);
+        }, 3000);
+      })();
+    </script>
+    <svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
+      <filter id="liquid-glass-strong" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.01 0.01" numOctaves="1" seed="5" result="turbulence" />
+        <feComponentTransfer in="turbulence" result="mapped">
+          <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+          <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+          <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+        </feComponentTransfer>
+        <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
+        <feDisplacementMap in="SourceGraphic" in2="softMap" scale="150" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+      <filter id="liquid-glass-medium" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.01 0.01" numOctaves="1" seed="5" result="turbulence" />
+        <feComponentTransfer in="turbulence" result="mapped">
+          <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+          <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+          <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+        </feComponentTransfer>
+        <feGaussianBlur in="turbulence" stdDeviation="2.5" result="softMap" />
+        <feDisplacementMap in="SourceGraphic" in2="softMap" scale="72" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+      <filter id="liquid-glass-subtle" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.01 0.01" numOctaves="1" seed="5" result="turbulence" />
+        <feComponentTransfer in="turbulence" result="mapped">
+          <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+          <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+          <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+        </feComponentTransfer>
+        <feGaussianBlur in="turbulence" stdDeviation="2" result="softMap" />
+        <feDisplacementMap in="SourceGraphic" in2="softMap" scale="36" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

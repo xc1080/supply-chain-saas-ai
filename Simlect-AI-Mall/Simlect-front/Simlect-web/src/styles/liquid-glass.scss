@@ -1,0 +1,103 @@
+
+
+:root {
+  --m-radius: 16px;
+  --m-radius-sm: 12px;
+  --m-gold: #c9a962;
+  --m-gold-soft: rgba(201, 169, 98, 0.16);
+  --m-ink: #333333;
+  --m-ink-2: #4b4b4f;
+  --m-ink-3: #8a8a8f;
+
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-bg-header: #fff;
+  --glass-bg-light: rgba(255, 255, 255, 0.42);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-border-soft: rgba(120, 120, 128, 0.16);
+  --glass-shadow: 0 8px 30px rgba(17, 23, 41, 0.12);
+  --glass-shadow-sm: 0 2px 12px rgba(17, 23, 41, 0.06);
+  --glass-blur: saturate(180%) blur(20px);
+  --glass-blur-sm: saturate(160%) blur(12px);
+
+  --glass-page-bg:
+    radial-gradient(120% 80% at 12% -10%, rgba(201, 169, 98, 0.18), transparent 60%),
+    radial-gradient(120% 90% at 100% 0%, rgba(0, 113, 227, 0.12), transparent 55%),
+    linear-gradient(180deg, #eef0f5 0%, #e7e9f0 100%);
+}
+
+.glass-card {
+  position: relative;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--m-radius);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
+    pointer-events: none;
+  }
+}
+
+.glass-strong {
+  background: var(--glass-bg-strong);
+}
+
+.glass-header {
+  position: relative;
+  background: var(--glass-bg-header);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border-soft);
+  box-shadow: var(--glass-shadow-sm);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5) 20%, rgba(255, 255, 255, 0.5) 80%, transparent);
+    pointer-events: none;
+  }
+}
+
+.glass-bottom-bar {
+  position: relative;
+  background: var(--glass-bg-header);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-top: 1px solid var(--glass-border-soft);
+  box-shadow: 0 -4px 16px rgba(17, 23, 41, 0.06);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35) 30%, rgba(255, 255, 255, 0.35) 70%, transparent);
+    pointer-events: none;
+  }
+}
+
+.glass-chip {
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid rgba(120, 120, 128, 0.18);
+  border-radius: var(--m-radius-sm);
+  box-shadow: var(--glass-shadow-sm);
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+
+  &:active {
+    background: rgba(255, 255, 255, 0.78);
+    transform: scale(0.96);
+    box-shadow: none;
+  }
+}

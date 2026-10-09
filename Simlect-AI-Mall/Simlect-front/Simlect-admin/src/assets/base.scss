@@ -1,0 +1,175 @@
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f5f5f7;
+    border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c7c7cc;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #aeaeb2;
+}
+
+::-webkit-scrollbar-corner {
+    background: #f5f5f7;
+}
+
+:root {
+    --text: #1d1d1f;
+    --text2: #6e6e73;
+    --text3: #86868b;
+    --pink: #f5f5f7;
+    --red: #ff3b30;
+    --primary: #1d1d1f;
+    --primary-hover: #424245;
+    --primary-soft: #f5f5f7;
+    --primary-muted: rgba(29, 29, 31, 0.08);
+    --link: #0071e3;
+    --link2: #005bb5;
+    --green: #34c759;
+    --gold: #c9a962;
+    --gold-soft: #f7f3ea;
+    --gold-muted: rgba(201, 169, 98, 0.18);
+    --card-radius: 12px;
+    --page-bg: #f5f5f7;
+    --surface: #ffffff;
+    --header-bg: #ffffff;
+    --header-border: #e8e8ed;
+    --sidebar-bg: #1d1d1f;
+    --sidebar-bg-end: #000000;
+    --sidebar-text: rgba(255, 255, 255, 0.72);
+    --sidebar-text-muted: rgba(255, 255, 255, 0.45);
+    --sidebar-text-active: #ffffff;
+    --sidebar-hover: rgba(255, 255, 255, 0.08);
+    --sidebar-active-bg: rgba(255, 255, 255, 0.12);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.06);
+    --el-font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC',
+        'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+}
+
+body {
+    padding: 0;
+    margin: 0;
+    font-size: 14px;
+    font-family: var(--el-font-family);
+    background: var(--page-bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+}
+
+* {
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.a-link {
+    text-decoration: none;
+    color: var(--link);
+    cursor: pointer;
+}
+
+.el-card__header {
+    padding: 12px 16px !important;
+    border-bottom: 1px solid var(--header-border) !important;
+}
+
+.el-card__body {
+    padding: 16px !important;
+}
+
+.search-panel {
+    .el-form-item {
+        margin-bottom: 0;
+    }
+
+    margin-bottom: 12px;
+}
+
+.table-panel {
+    .list-op-panel {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+    }
+}
+
+.el-button--primary {
+    --el-button-bg-color: var(--primary);
+    --el-button-border-color: var(--primary);
+    --el-button-hover-bg-color: var(--primary-hover);
+    --el-button-hover-border-color: var(--primary-hover);
+    --el-button-active-bg-color: var(--primary-hover);
+    --el-button-active-border-color: var(--primary-hover);
+}
+
+.el-button--success {
+    --el-button-bg-color: var(--green);
+    --el-button-border-color: var(--green);
+}
+
+.el-button.is-link {
+    --el-button-text-color: var(--link);
+    --el-button-hover-link-text-color: var(--link2);
+    --el-button-hover-text-color: var(--link2);
+}
+
+.el-button.is-link.el-button--danger {
+    --el-button-text-color: var(--red);
+    --el-button-hover-text-color: #d70015;
+}
+
+.el-popper,
+.el-message,
+.el-message-box,
+.el-notification,
+.el-dialog,
+.el-drawer {
+    font-family: var(--el-font-family);
+}
+
+.table-data-card {
+    border-radius: var(--card-radius);
+    border: 1px solid var(--header-border);
+    box-shadow: var(--shadow-card);
+    background: var(--surface);
+}
+
+.eshop-image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.88);
+    cursor: zoom-out;
+
+    &__img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        user-select: none;
+        -webkit-user-drag: none;
+        transform-origin: center center;
+        will-change: transform;
+        touch-action: none;
+        cursor: grab;
+    }
+
+    &__img:active {
+        cursor: grabbing;
+    }
+}

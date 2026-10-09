@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.MqCompensationLogMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.MqCompensationLog">
+		<id column="log_id" property="logId" />
+		<result column="idempotency_key" property="idempotencyKey" />
+		<result column="exchange" property="exchange" />
+		<result column="routing_key" property="routingKey" />
+		<result column="biz_scene" property="bizScene" />
+		<result column="payload_json" property="payloadJson" />
+		<result column="reliability_level" property="reliabilityLevel" />
+		<result column="error_message" property="errorMessage" />
+		<result column="retry_count" property="retryCount" />
+		<result column="status" property="status" />
+		<result column="create_time" property="createTime" />
+		<result column="update_time" property="updateTime" />
+		<result column="handle_time" property="handleTime" />
+		<result column="handle_remark" property="handleRemark" />
+	</resultMap>
+
+	<sql id="base_column_list">
+		l.log_id,l.idempotency_key,l.exchange,l.routing_key,l.biz_scene,l.payload_json,
+		l.reliability_level,l.error_message,l.retry_count,l.status,l.create_time,l.update_time,
+		l.handle_time,l.handle_remark
+	</sql>
+
+	<sql id="base_condition_filed">
+		<if test="query.logId != null">
+			and l.log_id = #{query.logId}
+		</if>
+		<if test="query.idempotencyKey != null and query.idempotencyKey != ''">
+			and l.idempotency_key = #{query.idempotencyKey}
+		</if>
+		<if test="query.exchange != null and query.exchange != ''">
+			and l.exchange = #{query.exchange}
+		</if>
+		<if test="query.routingKey != null and query.routingKey != ''">
+			and l.routing_key = #{query.routingKey}
+		</if>
+		<if test="query.bizScene != null and query.bizScene != ''">
+			and l.biz_scene = #{query.bizScene}
+		</if>
+		<if test="query.status != null">
+			and l.status = #{query.status}
+		</if>
+	</sql>
+
+	<sql id="query_condition">
+		<where>
+			<include refid="base_condition_filed" />
+			<if test="query.idempotencyKeyFuzzy != null and query.idempotencyKeyFuzzy != ''">
+				and l.idempotency_key like concat('%', #{query.idempotencyKeyFuzzy}, '%')
+			</if>
+			<if test="query.createTimeStart != null and query.createTimeStart != ''">
+				<![CDATA[ and l.create_time >= str_to_date(#{query.createTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.createTimeEnd != null and query.createTimeEnd != ''">
+				<![CDATA[ and l.create_time < date_sub(str_to_date(#{query.createTimeEnd}, '%Y-%m-%d'), interval -1 day) ]]>
+			</if>
+			<if test="query.ragRelatedOnly != null and query.ragRelatedOnly == true">
+				and (
+					l.biz_scene in ('RAG', 'CONSUME_RAG')
+					or (l.exchange = 'mq.consume' and l.routing_key like '%rag%')
+				)
+			</if>
+		</where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map">
+		SELECT <include refid="base_column_list" /> FROM mq_compensation_log l
+		<include refid="query_condition" />
+		<if test="query.orderBy != null">
+			order by ${query.orderBy}
+		</if>
+		<if test="query.simplePage != null">
+			limit #{query.simplePage.start}, #{query.simplePage.end}
+		</if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer">
+		SELECT count(1) FROM mq_compensation_log l <include refid="query_condition" />
+	</select>
+
+	<select id="selectByLogId" resultMap="base_result_map">
+		SELECT <include refid="base_column_list" /> FROM mq_compensation_log l
+		where l.log_id = #{logId}
+	</select>
+
+	<select id="selectByIdempotencyKey" resultMap="base_result_map">
+		SELECT <include refid="base_column_list" /> FROM mq_compensation_log l
+		where l.idempotency_key = #{idempotencyKey}
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.MqCompensationLog">
+		<selectKey keyProperty="bean.logId" resultType="Integer" order="AFTER">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		INSERT INTO mq_compensation_log
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.idempotencyKey != null">idempotency_key,</if>
+			<if test="bean.exchange != null">exchange,</if>
+			<if test="bean.routingKey != null">routing_key,</if>
+			<if test="bean.bizScene != null">biz_scene,</if>
+			<if test="bean.payloadJson != null">payload_json,</if>
+			<if test="bean.reliabilityLevel != null">reliability_level,</if>
+			<if test="bean.errorMessage != null">error_message,</if>
+			<if test="bean.retryCount != null">retry_count,</if>
+			<if test="bean.status != null">status,</if>
+			<if test="bean.createTime != null">create_time,</if>
+			<if test="bean.updateTime != null">update_time,</if>
+			<if test="bean.handleTime != null">handle_time,</if>
+			<if test="bean.handleRemark != null">handle_remark,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.idempotencyKey != null">#{bean.idempotencyKey},</if>
+			<if test="bean.exchange != null">#{bean.exchange},</if>
+			<if test="bean.routingKey != null">#{bean.routingKey},</if>
+			<if test="bean.bizScene != null">#{bean.bizScene},</if>
+			<if test="bean.payloadJson != null">#{bean.payloadJson},</if>
+			<if test="bean.reliabilityLevel != null">#{bean.reliabilityLevel},</if>
+			<if test="bean.errorMessage != null">#{bean.errorMessage},</if>
+			<if test="bean.retryCount != null">#{bean.retryCount},</if>
+			<if test="bean.status != null">#{bean.status},</if>
+			<if test="bean.createTime != null">#{bean.createTime},</if>
+			<if test="bean.updateTime != null">#{bean.updateTime},</if>
+			<if test="bean.handleTime != null">#{bean.handleTime},</if>
+			<if test="bean.handleRemark != null">#{bean.handleRemark},</if>
+		</trim>
+	</insert>
+
+	<update id="updateByLogId">
+		UPDATE mq_compensation_log
+		<set>
+			<if test="bean.idempotencyKey != null">idempotency_key = #{bean.idempotencyKey},</if>
+			<if test="bean.exchange != null">exchange = #{bean.exchange},</if>
+			<if test="bean.routingKey != null">routing_key = #{bean.routingKey},</if>
+			<if test="bean.bizScene != null">biz_scene = #{bean.bizScene},</if>
+			<if test="bean.payloadJson != null">payload_json = #{bean.payloadJson},</if>
+			<if test="bean.reliabilityLevel != null">reliability_level = #{bean.reliabilityLevel},</if>
+			<if test="bean.errorMessage != null">error_message = #{bean.errorMessage},</if>
+			<if test="bean.retryCount != null">retry_count = #{bean.retryCount},</if>
+			<if test="bean.status != null">status = #{bean.status},</if>
+			<if test="bean.createTime != null">create_time = #{bean.createTime},</if>
+			<if test="bean.updateTime != null">update_time = #{bean.updateTime},</if>
+			<if test="bean.handleTime != null">handle_time = #{bean.handleTime},</if>
+			<if test="bean.handleRemark != null">handle_remark = #{bean.handleRemark},</if>
+		</set>
+		where log_id = #{logId}
+	</update>
+</mapper>

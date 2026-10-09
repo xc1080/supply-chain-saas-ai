@@ -1,0 +1,90 @@
+server:
+  port: 8099
+  shutdown: graceful
+
+spring:
+  config:
+    import: optional:classpath:simlect-common.yml
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  application:
+    name: simlect-product
+  cloud:
+    openfeign:
+      sentinel:
+        enabled: true
+    loadbalancer:
+      cache:
+        enabled: true
+        ttl: 10s
+        capacity: 256
+      health-check:
+        initial-delay: 0
+        interval: 15s
+        path:
+          default: /actuator/health
+      retry:
+        enabled: true
+        max-retries-on-same-service-instance: 0
+        max-retries-on-next-service-instance: 1
+        retry-on-all-operations: false
+        avoid-previous-instance: true
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        prefer-ip-address: true
+        heart-beat-interval: 5
+        heart-beat-timeout: 15
+        ip-delete-timeout: 30
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+      eager: true
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:3306/simlect_product?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&allowMultiQueries=true&useSSL=false
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+  rabbitmq:
+    host: ${RABBIT_HOST:127.0.0.1}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:simlect}
+    password: ${RABBIT_PASSWORD:simlect}
+    virtual-host: ${RABBIT_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        default-requeue-rejected: false
+
+mybatis:
+  mapper-locations: classpath*:com/simlect/mappers/*.xml
+  type-aliases-package: com.simlect.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+simlect:
+  internal:
+    token: ${SIMLECT_INTERNAL_TOKEN:}
+    auth-enabled: true
+  feign:
+    connect-timeout-ms: 3000
+    read-timeout-ms: 10000
+  security:
+    admin-interceptor: true

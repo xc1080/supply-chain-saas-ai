@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title"><title id="title">WiFi指纹智能门锁，演示商品示意图</title><rect width="600" height="600" fill="#edf2f7"/>
+<ellipse cx="310" cy="484" rx="113" ry="18" fill="#d7e0e9"/>
+<rect x="230" y="79" width="129" height="395" rx="30" fill="#263d54"/>
+<rect x="222" y="72" width="125" height="395" rx="30" fill="#405b76" stroke="#253b51" stroke-width="3"/>
+<rect x="237" y="93" width="96" height="145" rx="18" fill="#20374d"/>
+<g fill="#8dabca"><circle cx="257" cy="123" r="5"/><circle cx="284" cy="123" r="5"/><circle cx="311" cy="123" r="5"/><circle cx="257" cy="152" r="5"/><circle cx="284" cy="152" r="5"/><circle cx="311" cy="152" r="5"/><circle cx="257" cy="181" r="5"/><circle cx="284" cy="181" r="5"/><circle cx="311" cy="181" r="5"/></g>
+<circle cx="285" cy="281" r="31" fill="#273f56" stroke="#87a5c2" stroke-width="3"/>
+<path d="M277 287C274 271 297 272 294 287M272 293C265 266 305 263 302 289M283 288V301" fill="none" stroke="#a8bfd3" stroke-width="3" stroke-linecap="round"/>
+<path d="M278 268H402Q420 268 420 284V293Q420 309 402 309H278Z" fill="#617e99" stroke="#334d65" stroke-width="3"/>
+<path fill="none" d="M326 277H402" stroke="#8fa8bf" stroke-width="4" stroke-linecap="round"/>
+<circle cx="284" cy="395" r="15" fill="#233a50" stroke="#829db5" stroke-width="2"/>
+<path fill="none" d="M284 390V401" stroke="#9cb4c9" stroke-width="3"/>
+<text x="30" y="566" fill="#70869c" font-size="18" font-family="Microsoft YaHei, PingFang SC, sans-serif">商品示意</text></svg>

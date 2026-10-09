@@ -1,0 +1,60 @@
+@use './variables' as *;
+
+
+html[data-platform='desktop'] {
+  --el-font-size-base: 14px;
+  --el-font-size-large: 16px;
+  --el-font-size-small: 13px;
+  --el-font-size-extra-small: 12px;
+  --el-component-size: 32px;
+  --el-component-size-large: 40px;
+  --el-component-size-small: 28px;
+
+  .user-dropdown-popper {
+    .el-dropdown-menu {
+      padding: 4px 0;
+      min-width: 132px;
+    }
+
+    .el-dropdown-menu__item {
+      font-size: 14px !important;
+      line-height: 36px !important;
+      height: 36px !important;
+      padding: 0 16px !important;
+    }
+  }
+
+  .search-category-popper {
+    .el-select-dropdown__item {
+      font-size: 14px !important;
+      height: 34px !important;
+      line-height: 34px !important;
+    }
+  }
+
+  .el-select-dropdown__item,
+  .el-picker-panel,
+  .el-dialog__title {
+    font-size: 14px;
+  }
+
+  .el-button--large {
+    font-size: 15px;
+    padding: 10px 20px;
+  }
+
+  .el-empty__description {
+    font-size: 14px !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .user-dropdown-popper {
+    .el-dropdown-menu__item {
+      font-size: 14px !important;
+      line-height: 36px !important;
+      height: 36px !important;
+      padding: 0 16px !important;
+    }
+  }
+}

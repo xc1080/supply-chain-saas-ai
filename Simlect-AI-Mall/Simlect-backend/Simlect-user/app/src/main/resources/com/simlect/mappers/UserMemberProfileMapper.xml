@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.UserMemberProfileMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.UserMemberProfile">
+		<id column="user_id" property="userId"  />
+		<result column="level_code" property="levelCode"  />
+		<result column="growth_value" property="growthValue"  />
+		<result column="level_name" property="levelName"  />
+		<result column="update_time" property="updateTime"  />
+	</resultMap>
+
+	<sql id="base_column_list">
+		 u.user_id,u.level_code,u.growth_value,u.level_name,u.update_time
+	</sql>
+
+	<sql id="base_condition_filed">
+<if test="query.userId != null and query.userId!=''">
+				 and  u.user_id = #{query.userId}
+			</if>
+<if test="query.levelCode != null">
+				 and  u.level_code = #{query.levelCode}
+			</if>
+<if test="query.growthValue != null">
+				 and  u.growth_value = #{query.growthValue}
+			</if>
+<if test="query.levelName != null and query.levelName!=''">
+				 and  u.level_name = #{query.levelName}
+			</if>
+	</sql>
+
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+	 </where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM user_member_profile u <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM user_member_profile u <include refid="query_condition" />
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.UserMemberProfile">
+		 INSERT INTO user_member_profile
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.levelCode != null">
+				 level_code,
+			</if>
+<if test="bean.growthValue != null">
+				 growth_value,
+			</if>
+<if test="bean.levelName != null">
+				 level_name,
+			</if>
+<if test="bean.updateTime != null">
+				 update_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.levelCode!=null">
+				 #{bean.levelCode},
+			</if>
+<if test="bean.growthValue!=null">
+				 #{bean.growthValue},
+			</if>
+<if test="bean.levelName!=null">
+				 #{bean.levelName},
+			</if>
+<if test="bean.updateTime!=null">
+				 #{bean.updateTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.UserMemberProfile">
+		 INSERT INTO user_member_profile
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.levelCode != null">
+				 level_code,
+			</if>
+<if test="bean.growthValue != null">
+				 growth_value,
+			</if>
+<if test="bean.levelName != null">
+				 level_name,
+			</if>
+<if test="bean.updateTime != null">
+				 update_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.levelCode!=null">
+				 #{bean.levelCode},
+			</if>
+<if test="bean.growthValue!=null">
+				 #{bean.growthValue},
+			</if>
+<if test="bean.levelName!=null">
+				 #{bean.levelName},
+			</if>
+<if test="bean.updateTime!=null">
+				 #{bean.updateTime},
+			</if>
+		 </trim>
+		 on DUPLICATE key update
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.levelCode!=null">
+				 level_code = VALUES(level_code),
+			</if>
+			<if test="bean.growthValue!=null">
+				 growth_value = VALUES(growth_value),
+			</if>
+			<if test="bean.levelName!=null">
+				 level_name = VALUES(level_name),
+			</if>
+			<if test="bean.updateTime!=null">
+				 update_time = VALUES(update_time),
+			</if>
+		 </trim>
+	</insert>
+
+	<update id="updateByParam" parameterType="com.simlect.entity.query.UserMemberProfileQuery">
+		 UPDATE user_member_profile u
+		 <set>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.levelCode != null">
+				 level_code = #{bean.levelCode},
+			</if>
+			<if test="bean.growthValue != null">
+				 growth_value = #{bean.growthValue},
+			</if>
+			<if test="bean.levelName != null">
+				 level_name = #{bean.levelName},
+			</if>
+			<if test="bean.updateTime != null">
+				 update_time = #{bean.updateTime},
+			</if>
+		 </set>
+		 <include refid="query_condition" />
+	</update>
+
+	<delete id="deleteByParam">
+		 delete u from user_member_profile u
+		 <include refid="query_condition" />
+	</delete>
+
+	<select id="selectByUserId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from user_member_profile u where user_id=#{userId}
+	</select>
+
+	<update id="updateByUserId" parameterType="com.simlect.entity.po.UserMemberProfile">
+		 UPDATE user_member_profile
+		 <set>
+			<if test="bean.levelCode != null">
+				 level_code = #{bean.levelCode},
+			</if>
+			<if test="bean.growthValue != null">
+				 growth_value = #{bean.growthValue},
+			</if>
+			<if test="bean.levelName != null">
+				 level_name = #{bean.levelName},
+			</if>
+			<if test="bean.updateTime != null">
+				 update_time = #{bean.updateTime},
+			</if>
+		 </set>
+		 where user_id=#{userId}
+	</update>
+
+	<!-- 成长值原子自增（防并发丢失更新） -->
+	<update id="addGrowthValue">
+		UPDATE user_member_profile
+		SET growth_value = growth_value + #{points}
+		WHERE user_id = #{userId}
+	</update>
+
+	<insert id="insertDefaultIgnore">
+		INSERT IGNORE INTO user_member_profile
+		(user_id, level_code, growth_value, level_name, update_time)
+		VALUES (#{userId}, 1, 0, '普通会员', NOW())
+	</insert>
+
+	<select id="selectUserIdForUpdate" resultType="java.lang.String">
+		SELECT user_id FROM user_member_profile WHERE user_id = #{userId} FOR UPDATE
+	</select>
+
+</mapper>

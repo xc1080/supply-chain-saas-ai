@@ -1,0 +1,24 @@
+@use './variables' as *;
+
+html[data-platform='desktop'] {
+  .app-footer.ignore {
+    margin-top: 20px;
+    background: $color-footer-bg;
+    border-top: 1px solid $color-border-gray;
+
+    .footer-inner {
+      height: 48px;
+      max-width: $content-width;
+    }
+
+    .copyright,
+    .footer-links {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .footer-links {
+      gap: 10px;
+    }
+  }
+}

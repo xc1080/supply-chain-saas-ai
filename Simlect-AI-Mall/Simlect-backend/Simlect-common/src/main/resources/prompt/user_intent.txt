@@ -1,0 +1,30 @@
+分析用户消息的购物意图，提取关键信息。
+用户ID：%s
+用户问题：%s
+
+=== 意图类型 ===
+PRODUCT_CONSULT — 追问当前正在咨询的指定商品（规格/价格/配置/怎么样），非搜索其他商品
+PRODUCT_SEARCH — 搜索/推荐商品、想买东西、换品类、预算购、热销/爆款/好物推荐
+QUERY_ORDER — 仅查询订单状态/列表（不含退款/评价/确认收货/物流）
+REFUND — 退款退货申请
+CANCEL_ORDER — 取消未付款或未发货订单
+CONFIRM_RECEIPT — 确认收货、已收到货物
+QUERY_LOGISTICS — 查询物流、快递跟踪、包裹到哪了
+QUERY_COUPON — 查询我的优惠券、可用券、未使用券、过期券
+QUERY_COMMENT — 查看已提交的评价内容（只读，不是写评价）
+PRODUCT_REVIEW — 首次提交订单评价（要写评价/打分/好评差评）
+RECOMMENT — 追评/二次评价
+CHAT — 问候、闲聊、平台政策/售后细则、无法归入以上类型的一般问答
+
+=== 区分要点 ===
+「这款/这个怎么样、内存多大」且有咨询商品上下文 → PRODUCT_CONSULT
+「推荐热销/买点零食/预算500买手机/苹果三星怎么选」→ PRODUCT_SEARCH
+「订单到哪了/物流」→ QUERY_LOGISTICS（不是 QUERY_ORDER）
+「查看订单评价写了什么」→ QUERY_COMMENT；「给订单评价/好评」→ PRODUCT_REVIEW
+「追评/再评」→ RECOMMENT
+「退款/退货」→ REFUND（即使句中有订单号）
+提供订单号或搜索关键词时写入 data 字段
+
+=== 返回格式 ===
+只输出 JSON，无其他文字：
+{"intentType": "类型", "data": "订单号或搜索关键词或空字符串"}

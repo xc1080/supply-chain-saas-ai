@@ -1,0 +1,590 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.OrderCommentMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.OrderComment">
+		<!--订单ID-->
+		<result column="order_id" property="orderId"  />
+		<!--商品ID-->
+		<result column="product_id" property="productId"  />
+		<!--评价内容-->
+		<result column="comment_content" property="commentContent"  />
+		<!--评价时间-->
+		<result column="comment_time" property="commentTime"  />
+		<!--评价图片-->
+		<result column="comment_images" property="commentImages"  />
+		<!--评价星级-->
+		<result column="star" property="star"  />
+		<!--商家回复-->
+		<result column="comment_biz_reply" property="commentBizReply"  />
+		<!--追评-->
+		<result column="recomment_content" property="recommentContent"  />
+		<!--追评时间-->
+		<result column="recomment_time" property="recommentTime"  />
+		<!--追评图片-->
+		<result column="recomment_images" property="recommentImages"  />
+		<!--用户ID-->
+		<result column="user_id" property="userId"  />
+		<!--属性信息-->
+		<result column="property_info" property="propertyInfo"  />
+		<!--0:正常 1:已删除-->
+		<result column="status" property="status"  />
+		<!-- 关联查询 -->
+		<result column="product_name" property="productName"  />
+		<result column="cover" property="cover"  />
+		<result column="nick_name" property="nickName"  />
+		<result column="avatar" property="avatar"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 o.order_id,o.product_id,o.comment_content,o.comment_time,o.comment_images,
+		 o.star,o.comment_biz_reply,o.recomment_content,o.recomment_time,o.recomment_images,
+		 o.user_id,o.property_info,o.status
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.orderId != null and query.orderId!=''">
+				 and  o.order_id = #{query.orderId}
+			</if>
+			<if test="query.productId != null and query.productId!=''">
+				 and  o.product_id = #{query.productId}
+			</if>
+			<if test="query.commentContent != null and query.commentContent!=''">
+				 and  o.comment_content = #{query.commentContent}
+			</if>
+			<if test="query.commentTime != null and query.commentTime!=''">
+				 <![CDATA[ and  o.comment_time=str_to_date(#{query.commentTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.commentImages != null and query.commentImages!=''">
+				 and  o.comment_images = #{query.commentImages}
+			</if>
+			<if test="query.star != null">
+				 and  o.star = #{query.star}
+			</if>
+			<if test="query.commentBizReply != null and query.commentBizReply!=''">
+				 and  o.comment_biz_reply = #{query.commentBizReply}
+			</if>
+			<if test="query.recommentContent != null and query.recommentContent!=''">
+				 and  o.recomment_content = #{query.recommentContent}
+			</if>
+			<if test="query.recommentTime != null and query.recommentTime!=''">
+				 <![CDATA[ and  o.recomment_time=str_to_date(#{query.recommentTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.recommentImages != null and query.recommentImages!=''">
+				 and  o.recomment_images = #{query.recommentImages}
+			</if>
+			<if test="query.userId != null and query.userId!=''">
+				 and  o.user_id = #{query.userId}
+			</if>
+			<if test="query.propertyInfo != null and query.propertyInfo!=''">
+				 and  o.property_info = #{query.propertyInfo}
+			</if>
+			<if test="query.status != null">
+				 and  o.status = #{query.status}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.orderIdFuzzy!= null  and query.orderIdFuzzy!=''">
+				 and  o.order_id like concat('%', #{query.orderIdFuzzy}, '%')
+			</if>
+			<if test="query.productIdFuzzy!= null  and query.productIdFuzzy!=''">
+				 and  o.product_id like concat('%', #{query.productIdFuzzy}, '%')
+			</if>
+			<if test="query.commentContentFuzzy!= null  and query.commentContentFuzzy!=''">
+				 and  o.comment_content like concat('%', #{query.commentContentFuzzy}, '%')
+			</if>
+			<if test="query.commentTimeStart!= null and query.commentTimeStart!=''">
+				 <![CDATA[ and  o.comment_time>=str_to_date(#{query.commentTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.commentTimeEnd!= null and query.commentTimeEnd!=''">
+				 <![CDATA[ and  o.comment_time< date_sub(str_to_date(#{query.commentTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+			<if test="query.commentImagesFuzzy!= null  and query.commentImagesFuzzy!=''">
+				 and  o.comment_images like concat('%', #{query.commentImagesFuzzy}, '%')
+			</if>
+			<if test="query.commentBizReplyFuzzy!= null  and query.commentBizReplyFuzzy!=''">
+				 and  o.comment_biz_reply like concat('%', #{query.commentBizReplyFuzzy}, '%')
+			</if>
+			<if test="query.recommentContentFuzzy!= null  and query.recommentContentFuzzy!=''">
+				 and  o.recomment_content like concat('%', #{query.recommentContentFuzzy}, '%')
+			</if>
+			<if test="query.recommentTimeStart!= null and query.recommentTimeStart!=''">
+				 <![CDATA[ and  o.recomment_time>=str_to_date(#{query.recommentTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.recommentTimeEnd!= null and query.recommentTimeEnd!=''">
+				 <![CDATA[ and  o.recomment_time< date_sub(str_to_date(#{query.recommentTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+			<if test="query.recommentImagesFuzzy!= null  and query.recommentImagesFuzzy!=''">
+				 and  o.recomment_images like concat('%', #{query.recommentImagesFuzzy}, '%')
+			</if>
+			<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  o.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+			<if test="query.propertyInfoFuzzy!= null  and query.propertyInfoFuzzy!=''">
+				 and  o.property_info like concat('%', #{query.propertyInfoFuzzy}, '%')
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" />
+		     <if test="query.queryProduct">
+				 ,(SELECT p.product_name FROM order_item p WHERE p.order_id = o.order_id AND p.product_id = o.product_id LIMIT 1) as product_name
+				 ,(SELECT p.cover FROM order_item p WHERE p.order_id = o.order_id AND p.product_id = o.product_id LIMIT 1) as cover
+			 </if>
+		     FROM order_comment o
+		     <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM order_comment o <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.OrderComment">
+		 INSERT INTO order_comment
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.commentContent != null">
+				 comment_content,
+			</if>
+			<if test="bean.commentTime != null">
+				 comment_time,
+			</if>
+			<if test="bean.commentImages != null">
+				 comment_images,
+			</if>
+			<if test="bean.star != null">
+				 star,
+			</if>
+			<if test="bean.commentBizReply != null">
+				 comment_biz_reply,
+			</if>
+			<if test="bean.recommentContent != null">
+				 recomment_content,
+			</if>
+			<if test="bean.recommentTime != null">
+				 recomment_time,
+			</if>
+			<if test="bean.recommentImages != null">
+				 recomment_images,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.propertyInfo != null">
+				 property_info,
+			</if>
+			<if test="bean.status != null">
+				 status,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.commentContent!=null">
+				 #{bean.commentContent},
+			</if>
+			<if test="bean.commentTime!=null">
+				 #{bean.commentTime},
+			</if>
+			<if test="bean.commentImages!=null">
+				 #{bean.commentImages},
+			</if>
+			<if test="bean.star!=null">
+				 #{bean.star},
+			</if>
+			<if test="bean.commentBizReply!=null">
+				 #{bean.commentBizReply},
+			</if>
+			<if test="bean.recommentContent!=null">
+				 #{bean.recommentContent},
+			</if>
+			<if test="bean.recommentTime!=null">
+				 #{bean.recommentTime},
+			</if>
+			<if test="bean.recommentImages!=null">
+				 #{bean.recommentImages},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.propertyInfo!=null">
+				 #{bean.propertyInfo},
+			</if>
+			<if test="bean.status!=null">
+				 #{bean.status},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.OrderComment">
+		 INSERT INTO order_comment
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.commentContent != null">
+				 comment_content,
+			</if>
+			<if test="bean.commentTime != null">
+				 comment_time,
+			</if>
+			<if test="bean.commentImages != null">
+				 comment_images,
+			</if>
+			<if test="bean.star != null">
+				 star,
+			</if>
+			<if test="bean.commentBizReply != null">
+				 comment_biz_reply,
+			</if>
+			<if test="bean.recommentContent != null">
+				 recomment_content,
+			</if>
+			<if test="bean.recommentTime != null">
+				 recomment_time,
+			</if>
+			<if test="bean.recommentImages != null">
+				 recomment_images,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.propertyInfo != null">
+				 property_info,
+			</if>
+			<if test="bean.status != null">
+				 status,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.commentContent!=null">
+				 #{bean.commentContent},
+			</if>
+			<if test="bean.commentTime!=null">
+				 #{bean.commentTime},
+			</if>
+			<if test="bean.commentImages!=null">
+				 #{bean.commentImages},
+			</if>
+			<if test="bean.star!=null">
+				 #{bean.star},
+			</if>
+			<if test="bean.commentBizReply!=null">
+				 #{bean.commentBizReply},
+			</if>
+			<if test="bean.recommentContent!=null">
+				 #{bean.recommentContent},
+			</if>
+			<if test="bean.recommentTime!=null">
+				 #{bean.recommentTime},
+			</if>
+			<if test="bean.recommentImages!=null">
+				 #{bean.recommentImages},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.propertyInfo!=null">
+				 #{bean.propertyInfo},
+			</if>
+			<if test="bean.status!=null">
+				 #{bean.status},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.orderId!=null">
+				 order_id = VALUES(order_id),
+			</if>
+			<if test="bean.productId!=null">
+				 product_id = VALUES(product_id),
+			</if>
+			<if test="bean.commentContent!=null">
+				 comment_content = VALUES(comment_content),
+			</if>
+			<if test="bean.commentTime!=null">
+				 comment_time = VALUES(comment_time),
+			</if>
+			<if test="bean.commentImages!=null">
+				 comment_images = VALUES(comment_images),
+			</if>
+			<if test="bean.star!=null">
+				 star = VALUES(star),
+			</if>
+			<if test="bean.commentBizReply!=null">
+				 comment_biz_reply = VALUES(comment_biz_reply),
+			</if>
+			<if test="bean.recommentContent!=null">
+				 recomment_content = VALUES(recomment_content),
+			</if>
+			<if test="bean.recommentTime!=null">
+				 recomment_time = VALUES(recomment_time),
+			</if>
+			<if test="bean.recommentImages!=null">
+				 recomment_images = VALUES(recomment_images),
+			</if>
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.propertyInfo!=null">
+				 property_info = VALUES(property_info),
+			</if>
+			<if test="bean.status!=null">
+				 status = VALUES(status),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.OrderComment">
+		 INSERT INTO order_comment(
+			 order_id,
+			 product_id,
+			 comment_content,
+			 comment_time,
+			 comment_images,
+			 star,
+			 comment_biz_reply,
+			 recomment_content,
+			 recomment_time,
+			 recomment_images,
+			 user_id,
+			 property_info,
+			 status
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderId},
+				 #{item.productId},
+				 #{item.commentContent},
+				 #{item.commentTime},
+				 #{item.commentImages},
+				 #{item.star},
+				 #{item.commentBizReply},
+				 #{item.recommentContent},
+				 #{item.recommentTime},
+				 #{item.recommentImages},
+				 #{item.userId},
+				 #{item.propertyInfo},
+				 #{item.status}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.OrderComment">
+		 INSERT INTO order_comment(
+			 order_id,
+			 product_id,
+			 comment_content,
+			 comment_time,
+			 comment_images,
+			 star,
+			 comment_biz_reply,
+			 recomment_content,
+			 recomment_time,
+			 recomment_images,
+			 user_id,
+			 property_info,
+			 status
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderId},
+				 #{item.productId},
+				 #{item.commentContent},
+				 #{item.commentTime},
+				 #{item.commentImages},
+				 #{item.star},
+				 #{item.commentBizReply},
+				 #{item.recommentContent},
+				 #{item.recommentTime},
+				 #{item.recommentImages},
+				 #{item.userId},
+				 #{item.propertyInfo},
+				 #{item.status}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			order_id = VALUES(order_id),
+			product_id = VALUES(product_id),
+			comment_content = VALUES(comment_content),
+			comment_time = VALUES(comment_time),
+			comment_images = VALUES(comment_images),
+			star = VALUES(star),
+			comment_biz_reply = VALUES(comment_biz_reply),
+			recomment_content = VALUES(recomment_content),
+			recomment_time = VALUES(recomment_time),
+			recomment_images = VALUES(recomment_images),
+			user_id = VALUES(user_id),
+			property_info = VALUES(property_info),
+			status = VALUES(status)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.OrderCommentQuery">
+		 UPDATE order_comment o
+ 		 <set> 
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.commentContent != null">
+				 comment_content = #{bean.commentContent},
+			</if>
+			<if test="bean.commentTime != null">
+				 comment_time = #{bean.commentTime},
+			</if>
+			<if test="bean.commentImages != null">
+				 comment_images = #{bean.commentImages},
+			</if>
+			<if test="bean.star != null">
+				 star = #{bean.star},
+			</if>
+			<if test="bean.commentBizReply != null">
+				 comment_biz_reply = #{bean.commentBizReply},
+			</if>
+			<if test="bean.recommentContent != null">
+				 recomment_content = #{bean.recommentContent},
+			</if>
+			<if test="bean.recommentTime != null">
+				 recomment_time = #{bean.recommentTime},
+			</if>
+			<if test="bean.recommentImages != null">
+				 recomment_images = #{bean.recommentImages},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.propertyInfo != null">
+				 property_info = #{bean.propertyInfo},
+			</if>
+			<if test="bean.status != null">
+				 status = #{bean.status},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete o from order_comment o
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据OrderId修改-->
+	<update id="updateByOrderId" parameterType="com.simlect.entity.po.OrderComment">
+		 UPDATE order_comment
+ 		 <set> 
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.commentContent != null">
+				 comment_content = #{bean.commentContent},
+			</if>
+			<if test="bean.commentTime != null">
+				 comment_time = #{bean.commentTime},
+			</if>
+			<if test="bean.commentImages != null">
+				 comment_images = #{bean.commentImages},
+			</if>
+			<if test="bean.star != null">
+				 star = #{bean.star},
+			</if>
+			<if test="bean.commentBizReply != null">
+				 comment_biz_reply = #{bean.commentBizReply},
+			</if>
+			<if test="bean.recommentContent != null">
+				 recomment_content = #{bean.recommentContent},
+			</if>
+			<if test="bean.recommentTime != null">
+				 recomment_time = #{bean.recommentTime},
+			</if>
+			<if test="bean.recommentImages != null">
+				 recomment_images = #{bean.recommentImages},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.propertyInfo != null">
+				 property_info = #{bean.propertyInfo},
+			</if>
+			<if test="bean.status != null">
+				 status = #{bean.status},
+			</if>
+ 		 </set>
+ 		 where order_id=#{orderId}
+	</update>
+
+	<!-- 根据OrderId删除-->
+	<delete id="deleteByOrderId">
+		delete from order_comment where order_id=#{orderId}
+	</delete>
+
+	<delete id="deleteByOrderIdIfStatus">
+		delete from order_comment where order_id=#{orderId} and status=#{status}
+	</delete>
+
+	<update id="publishIfStatus">
+		UPDATE order_comment
+		SET status = #{toStatus},
+		    comment_images = #{commentImages}
+		WHERE order_id = #{orderId}
+		  AND status = #{fromStatus}
+	</update>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByOrderId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from order_comment o where order_id=#{orderId}
+	</select>
+
+	<select id="selectProductCommentStats" resultType="java.util.HashMap">
+		select
+			count(1) as totalCount,
+			sum(case when o.star &gt;= 4 then 1 else 0 end) as goodCount,
+			sum(case when o.comment_images is not null and o.comment_images != '' then 1 else 0 end) as imageCount
+		from order_comment o
+		where o.product_id = #{productId}
+		  and o.status = 0
+	</select>
+
+</mapper>

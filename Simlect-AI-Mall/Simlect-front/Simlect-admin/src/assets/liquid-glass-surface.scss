@@ -1,0 +1,75 @@
+
+.liquid-glass-surface {
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass-surface__effect,
+.liquid-glass-surface__tint,
+.liquid-glass-surface__shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.liquid-glass-surface__effect {
+  z-index: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.liquid-glass-surface__tint {
+  z-index: 1;
+}
+
+.liquid-glass-surface__shine {
+  z-index: 2;
+  overflow: hidden;
+}
+
+.liquid-glass-surface__content {
+  position: relative;
+  z-index: 3;
+}
+
+.liquid-glass-surface--strong .liquid-glass-surface__tint {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.liquid-glass-surface--strong .liquid-glass-surface__shine {
+  box-shadow:
+    inset 2px 2px 1px 0 rgba(255, 255, 255, 0.5),
+    inset -1px -1px 1px 1px rgba(255, 255, 255, 0.5);
+}
+
+.liquid-glass-surface--strong.liquid-glass-surface--active .liquid-glass-surface__tint {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.liquid-glass-surface--strong.liquid-glass-surface--active .liquid-glass-surface__shine {
+  box-shadow:
+    inset 2px 2px 2px 0 rgba(255, 255, 255, 0.65),
+    inset -2px -2px 2px 1px rgba(255, 255, 255, 0.45),
+    inset 0 0 8px rgba(255, 255, 255, 0.2);
+}
+
+.liquid-glass-surface--medium .liquid-glass-surface__tint {
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.liquid-glass-surface--medium .liquid-glass-surface__shine {
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.42),
+    inset -1px -1px 0 0 rgba(255, 255, 255, 0.28);
+}
+
+.liquid-glass-surface--subtle .liquid-glass-surface__tint {
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.liquid-glass-surface--subtle .liquid-glass-surface__shine {
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.35),
+    inset -1px -1px 0 0 rgba(255, 255, 255, 0.2);
+}

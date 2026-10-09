@@ -1,0 +1,597 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.ProductInfoMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.ProductInfo">
+		<!--商品ID-->
+		<result column="product_id" property="productId"  />
+		<!--商品名称-->
+		<result column="product_name" property="productName"  />
+		<!--商品描述-->
+		<result column="product_desc" property="productDesc"  />
+		<!--封面-->
+		<result column="cover" property="cover"  />
+		<!--创建时间-->
+		<result column="create_time" property="createTime"  />
+		<!--分类ID-->
+		<result column="category_id" property="categoryId"  />
+		<!--分类父ID-->
+		<result column="p_category_id" property="pCategoryId"  />
+		<!---1:已删除 0:下架  1:上架-->
+		<result column="status" property="status"  />
+		<!--最低价格-->
+		<result column="min_price" property="minPrice"  />
+		<!--最高价格-->
+		<result column="max_price" property="maxPrice"  />
+		<!--销量-->
+		<result column="total_sale" property="totalSale"  />
+		<!--0:未推荐 1:已经推荐-->
+		<result column="commend_type" property="commendType"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 p.product_id,p.product_name,p.cover,p.create_time,
+		 p.category_id,p.p_category_id,p.status,p.min_price,p.max_price,
+		 p.total_sale,p.commend_type,p.product_desc
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.productId != null and query.productId!=''">
+				 and  p.product_id = #{query.productId}
+			</if>
+			<if test="query.productName != null and query.productName!=''">
+				 and  p.product_name = #{query.productName}
+			</if>
+			<if test="query.productDesc != null and query.productDesc!=''">
+				 and  p.product_desc = #{query.productDesc}
+			</if>
+			<if test="query.cover != null and query.cover!=''">
+				 and  p.cover = #{query.cover}
+			</if>
+			<if test="query.createTime != null and query.createTime!=''">
+				 <![CDATA[ and  p.create_time=str_to_date(#{query.createTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.categoryId != null and query.categoryId!=''">
+				 and  p.category_id = #{query.categoryId}
+			</if>
+			<if test="query.pCategoryId != null and query.pCategoryId!=''">
+				 and  p.p_category_id = #{query.pCategoryId}
+			</if>
+			<if test="query.categoryIdOrPCategoryId != null and query.categoryIdOrPCategoryId!=''">
+				<choose>
+					<when test="query.categoryUnionQuery != null and query.categoryUnionQuery">
+					</when>
+					<otherwise>
+				 and (p.category_id = #{query.categoryIdOrPCategoryId} or p.p_category_id = #{query.categoryIdOrPCategoryId})
+					</otherwise>
+				</choose>
+			</if>
+			<if test="query.status != null">
+				 and  p.status = #{query.status}
+			</if>
+			<if test="query.minPrice != null">
+				 and  p.min_price = #{query.minPrice}
+			</if>
+			<if test="query.maxPrice != null">
+				 and  p.max_price = #{query.maxPrice}
+			</if>
+			<if test="query.totalSale != null">
+				 and  p.total_sale = #{query.totalSale}
+			</if>
+			<if test="query.commendType != null">
+				 and  p.commend_type = #{query.commendType}
+			</if>
+			<if test="query.priceFrom != null">
+				 and  p.min_price &gt;= #{query.priceFrom}
+			</if>
+			<if test="query.priceTo != null">
+				 and  p.min_price &lt;= #{query.priceTo}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列（不含 where 标签，供 UNION 分支复用）-->
+	<sql id="query_condition_body">
+			<include refid="base_condition_filed" />
+			<if test="query.productIdFuzzy!= null  and query.productIdFuzzy!=''">
+				 and  p.product_id like concat('%', #{query.productIdFuzzy}, '%')
+			</if>
+			<if test="query.productNameFuzzy!= null  and query.productNameFuzzy!=''">
+				 and  p.product_name like concat('%', #{query.productNameFuzzy}, '%')
+			</if>
+			<if test="query.productDescFuzzy!= null  and query.productDescFuzzy!=''">
+				 and  p.product_desc like concat('%', #{query.productDescFuzzy}, '%')
+			</if>
+			<if test="query.coverFuzzy!= null  and query.coverFuzzy!=''">
+				 and  p.cover like concat('%', #{query.coverFuzzy}, '%')
+			</if>
+			<if test="query.createTimeStart!= null and query.createTimeStart!=''">
+				 <![CDATA[ and  p.create_time>=str_to_date(#{query.createTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.createTimeEnd!= null and query.createTimeEnd!=''">
+				 <![CDATA[ and  p.create_time< date_sub(str_to_date(#{query.createTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+			<if test="query.categoryIdFuzzy!= null  and query.categoryIdFuzzy!=''">
+				 and  p.category_id like concat('%', #{query.categoryIdFuzzy}, '%')
+			</if>
+			<if test="query.pCategoryIdFuzzy!= null  and query.pCategoryIdFuzzy!=''">
+				 and  p.p_category_id like concat('%', #{query.pCategoryIdFuzzy}, '%')
+			</if>
+			<if test="query.productIdList != null and query.productIdList.size() > 0">
+				and p.product_id in
+				 <foreach item="item" index="index" collection="query.productIdList" separator="," open="(" close=")">
+					 #{item}
+				 </foreach>
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="query_condition_body" />
+	 </where>
+	</sql>
+
+	<sql id="list_select_columns">
+		 p.product_id,p.product_name,p.cover,p.create_time,
+		p.category_id,p.p_category_id,p.status,p.min_price,p.max_price,
+		p.total_sale,p.commend_type
+		<if test="query.queryDesc==false">
+			,p.product_desc
+		</if>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="list_select_columns" /> FROM product_info p <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 分类 OR 拆 UNION：分别命中 (status,category_id,...) / (status,p_category_id,...) -->
+	<select id="selectCountByCategoryUnion" resultType="java.lang.Integer">
+		SELECT count(1) FROM (
+			SELECT p.product_id FROM product_info p
+			<where>
+				<include refid="query_condition_body" />
+				and p.category_id = #{query.categoryIdOrPCategoryId}
+			</where>
+			UNION
+			SELECT p.product_id FROM product_info p
+			<where>
+				<include refid="query_condition_body" />
+				and p.p_category_id = #{query.categoryIdOrPCategoryId}
+				and (p.category_id is null or p.category_id != #{query.categoryIdOrPCategoryId})
+			</where>
+		) category_union
+	</select>
+
+	<select id="selectListByCategoryUnion" resultMap="base_result_map">
+		SELECT product_id,product_name,cover,create_time,category_id,p_category_id,status,min_price,max_price,total_sale,commend_type
+		<if test="query.queryDesc==false">
+			,product_desc
+		</if>
+		FROM (
+			SELECT <include refid="list_select_columns" /> FROM product_info p
+			<where>
+				<include refid="query_condition_body" />
+				and p.category_id = #{query.categoryIdOrPCategoryId}
+			</where>
+			UNION
+			SELECT <include refid="list_select_columns" /> FROM product_info p
+			<where>
+				<include refid="query_condition_body" />
+				and p.p_category_id = #{query.categoryIdOrPCategoryId}
+				and (p.category_id is null or p.category_id != #{query.categoryIdOrPCategoryId})
+			</where>
+		) category_union
+		<if test="query.orderBy!=null">
+			order by ${query.orderBy}
+		</if>
+		<if test="query.simplePage!=null">
+			limit #{query.simplePage.start},#{query.simplePage.end}
+		</if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM product_info p <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.ProductInfo">
+		 INSERT INTO product_info
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.productName != null">
+				 product_name,
+			</if>
+			<if test="bean.productDesc != null">
+				 product_desc,
+			</if>
+			<if test="bean.cover != null">
+				 cover,
+			</if>
+			<if test="bean.createTime != null">
+				 create_time,
+			</if>
+			<if test="bean.categoryId != null">
+				 category_id,
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id,
+			</if>
+			<if test="bean.status != null">
+				 status,
+			</if>
+			<if test="bean.minPrice != null">
+				 min_price,
+			</if>
+			<if test="bean.maxPrice != null">
+				 max_price,
+			</if>
+			<if test="bean.totalSale != null">
+				 total_sale,
+			</if>
+			<if test="bean.commendType != null">
+				 commend_type,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.productName!=null">
+				 #{bean.productName},
+			</if>
+			<if test="bean.productDesc!=null">
+				 #{bean.productDesc},
+			</if>
+			<if test="bean.cover!=null">
+				 #{bean.cover},
+			</if>
+			<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+			<if test="bean.categoryId!=null">
+				 #{bean.categoryId},
+			</if>
+			<if test="bean.pCategoryId!=null">
+				 #{bean.pCategoryId},
+			</if>
+			<if test="bean.status!=null">
+				 #{bean.status},
+			</if>
+			<if test="bean.minPrice!=null">
+				 #{bean.minPrice},
+			</if>
+			<if test="bean.maxPrice!=null">
+				 #{bean.maxPrice},
+			</if>
+			<if test="bean.totalSale!=null">
+				 #{bean.totalSale},
+			</if>
+			<if test="bean.commendType!=null">
+				 #{bean.commendType},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.ProductInfo">
+		 INSERT INTO product_info
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.productName != null">
+				 product_name,
+			</if>
+			<if test="bean.productDesc != null">
+				 product_desc,
+			</if>
+			<if test="bean.cover != null">
+				 cover,
+			</if>
+			<if test="bean.createTime != null">
+				 create_time,
+			</if>
+			<if test="bean.categoryId != null">
+				 category_id,
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id,
+			</if>
+			<if test="bean.status != null">
+				 status,
+			</if>
+			<if test="bean.minPrice != null">
+				 min_price,
+			</if>
+			<if test="bean.maxPrice != null">
+				 max_price,
+			</if>
+			<if test="bean.totalSale != null">
+				 total_sale,
+			</if>
+			<if test="bean.commendType != null">
+				 commend_type,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.productName!=null">
+				 #{bean.productName},
+			</if>
+			<if test="bean.productDesc!=null">
+				 #{bean.productDesc},
+			</if>
+			<if test="bean.cover!=null">
+				 #{bean.cover},
+			</if>
+			<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+			<if test="bean.categoryId!=null">
+				 #{bean.categoryId},
+			</if>
+			<if test="bean.pCategoryId!=null">
+				 #{bean.pCategoryId},
+			</if>
+			<if test="bean.status!=null">
+				 #{bean.status},
+			</if>
+			<if test="bean.minPrice!=null">
+				 #{bean.minPrice},
+			</if>
+			<if test="bean.maxPrice!=null">
+				 #{bean.maxPrice},
+			</if>
+			<if test="bean.totalSale!=null">
+				 #{bean.totalSale},
+			</if>
+			<if test="bean.commendType!=null">
+				 #{bean.commendType},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.productId!=null">
+				 product_id = VALUES(product_id),
+			</if>
+			<if test="bean.productName!=null">
+				 product_name = VALUES(product_name),
+			</if>
+			<if test="bean.productDesc!=null">
+				 product_desc = VALUES(product_desc),
+			</if>
+			<if test="bean.cover!=null">
+				 cover = VALUES(cover),
+			</if>
+			<if test="bean.createTime!=null">
+				 create_time = VALUES(create_time),
+			</if>
+			<if test="bean.categoryId!=null">
+				 category_id = VALUES(category_id),
+			</if>
+			<if test="bean.pCategoryId!=null">
+				 p_category_id = VALUES(p_category_id),
+			</if>
+			<if test="bean.status!=null">
+				 status = VALUES(status),
+			</if>
+			<if test="bean.minPrice!=null">
+				 min_price = VALUES(min_price),
+			</if>
+			<if test="bean.maxPrice!=null">
+				 max_price = VALUES(max_price),
+			</if>
+			<if test="bean.totalSale!=null">
+				 total_sale = VALUES(total_sale),
+			</if>
+			<if test="bean.commendType!=null">
+				 commend_type = VALUES(commend_type),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.ProductInfo">
+		 INSERT INTO product_info(
+			 product_id,
+			 product_name,
+			 product_desc,
+			 cover,
+			 create_time,
+			 category_id,
+			 p_category_id,
+			 status,
+			 min_price,
+			 max_price,
+			 total_sale,
+			 commend_type
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.productId},
+				 #{item.productName},
+				 #{item.productDesc},
+				 #{item.cover},
+				 #{item.createTime},
+				 #{item.categoryId},
+				 #{item.pCategoryId},
+				 #{item.status},
+				 #{item.minPrice},
+				 #{item.maxPrice},
+				 #{item.totalSale},
+				 #{item.commendType}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.ProductInfo">
+		 INSERT INTO product_info(
+			 product_id,
+			 product_name,
+			 product_desc,
+			 cover,
+			 create_time,
+			 category_id,
+			 p_category_id,
+			 status,
+			 min_price,
+			 max_price,
+			 total_sale,
+			 commend_type
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.productId},
+				 #{item.productName},
+				 #{item.productDesc},
+				 #{item.cover},
+				 #{item.createTime},
+				 #{item.categoryId},
+				 #{item.pCategoryId},
+				 #{item.status},
+				 #{item.minPrice},
+				 #{item.maxPrice},
+				 #{item.totalSale},
+				 #{item.commendType}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			product_id = VALUES(product_id),
+			product_name = VALUES(product_name),
+			product_desc = VALUES(product_desc),
+			cover = VALUES(cover),
+			create_time = VALUES(create_time),
+			category_id = VALUES(category_id),
+			p_category_id = VALUES(p_category_id),
+			status = VALUES(status),
+			min_price = VALUES(min_price),
+			max_price = VALUES(max_price),
+			total_sale = VALUES(total_sale),
+			commend_type = VALUES(commend_type)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.ProductInfoQuery">
+		 UPDATE product_info p
+ 		 <set> 
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.productName != null">
+				 product_name = #{bean.productName},
+			</if>
+			<if test="bean.productDesc != null">
+				 product_desc = #{bean.productDesc},
+			</if>
+			<if test="bean.cover != null">
+				 cover = #{bean.cover},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+			<if test="bean.categoryId != null">
+				 category_id = #{bean.categoryId},
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id = #{bean.pCategoryId},
+			</if>
+			<if test="bean.status != null">
+				 status = #{bean.status},
+			</if>
+			<if test="bean.minPrice != null">
+				 min_price = #{bean.minPrice},
+			</if>
+			<if test="bean.maxPrice != null">
+				 max_price = #{bean.maxPrice},
+			</if>
+			<if test="bean.totalSale != null">
+				 total_sale = #{bean.totalSale},
+			</if>
+			<if test="bean.commendType != null">
+				 commend_type = #{bean.commendType},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete p from product_info p
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据ProductId修改-->
+	<update id="updateByProductId" parameterType="com.simlect.entity.po.ProductInfo">
+		 UPDATE product_info
+ 		 <set> 
+			<if test="bean.productName != null">
+				 product_name = #{bean.productName},
+			</if>
+			<if test="bean.productDesc != null">
+				 product_desc = #{bean.productDesc},
+			</if>
+			<if test="bean.cover != null">
+				 cover = #{bean.cover},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+			<if test="bean.categoryId != null">
+				 category_id = #{bean.categoryId},
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id = #{bean.pCategoryId},
+			</if>
+			<if test="bean.status != null">
+				 status = #{bean.status},
+			</if>
+			<if test="bean.minPrice != null">
+				 min_price = #{bean.minPrice},
+			</if>
+			<if test="bean.maxPrice != null">
+				 max_price = #{bean.maxPrice},
+			</if>
+			<if test="bean.totalSale != null">
+				 total_sale = #{bean.totalSale},
+			</if>
+			<if test="bean.commendType != null">
+				 commend_type = #{bean.commendType},
+			</if>
+ 		 </set>
+ 		 where product_id=#{productId}
+	</update>
+
+	<!-- 根据ProductId删除-->
+	<delete id="deleteByProductId">
+		delete from product_info where product_id=#{productId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByProductId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from product_info p where product_id=#{productId}
+	</select>
+
+	<select id="selectAllProductIds" resultType="java.lang.String">
+		select product_id from product_info
+	</select>
+
+<!--	新增或修改商品信息-->
+
+</mapper>

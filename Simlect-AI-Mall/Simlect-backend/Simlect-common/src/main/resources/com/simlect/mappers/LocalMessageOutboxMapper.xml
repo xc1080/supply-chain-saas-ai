@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.LocalMessageOutboxMapper">
+
+    <resultMap id="base_result_map" type="com.simlect.entity.po.LocalMessageOutbox">
+        <id column="id" property="id"/>
+        <result column="idempotency_key" property="idempotencyKey"/>
+        <result column="exchange_name" property="exchangeName"/>
+        <result column="routing_key" property="routingKey"/>
+        <result column="payload_json" property="payloadJson"/>
+        <result column="reliability_level" property="reliabilityLevel"/>
+        <result column="status" property="status"/>
+        <result column="retry_count" property="retryCount"/>
+        <result column="error_message" property="errorMessage"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="sent_time" property="sentTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into local_message_outbox
+        (idempotency_key, exchange_name, routing_key, payload_json, reliability_level,
+         status, retry_count, create_time, update_time)
+        values
+        (#{idempotencyKey}, #{exchangeName}, #{routingKey}, #{payloadJson}, #{reliabilityLevel},
+         #{status}, #{retryCount}, #{createTime}, #{updateTime})
+    </insert>
+
+    <select id="selectById" resultMap="base_result_map">
+        select * from local_message_outbox where id = #{id}
+    </select>
+
+    <select id="selectByIdempotencyKey" resultMap="base_result_map">
+        select * from local_message_outbox where idempotency_key = #{idempotencyKey}
+    </select>
+
+    <update id="updateStatus">
+        update local_message_outbox
+        set status = #{toStatus},
+            update_time = now(),
+            error_message = #{errorMessage},
+            sent_time = #{sentTime}
+            <if test="incRetry">
+                , retry_count = ifnull(retry_count, 0) + 1
+            </if>
+        where id = #{id}
+          and status = #{fromStatus}
+    </update>
+
+    <select id="selectDispatchBatch" resultMap="base_result_map">
+        select * from local_message_outbox
+        where status in
+        <foreach collection="statuses" item="s" open="(" separator="," close=")">
+            #{s}
+        </foreach>
+        and create_time &lt;= #{beforeTime}
+        order by id asc
+        limit #{limit}
+    </select>
+</mapper>

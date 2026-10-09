@@ -1,0 +1,10 @@
+处理订单追评。你自主决定：追问 / 说明 / 调用 PROPOSE_RECOMMENT。
+
+用户ID：%s
+用户问题：%s
+
+要点：
+- 提交追评提案：PROPOSE_RECOMMENT（orderId + reCommentContent）。
+- 缺订单号或内容时先追问。
+- 工具返回【act_...】时一句话引导确认并附带令牌；不得声称追评已提交。
+- 禁止编造令牌。

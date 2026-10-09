@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.ProductCartMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.ProductCart">
+		<!--购物车ID-->
+		<result column="cart_id" property="cartId"  />
+		<!--用户ID-->
+		<result column="user_id" property="userId"  />
+		<!--商品ID-->
+		<result column="product_id" property="productId"  />
+		<!--属性值id组-->
+		<result column="property_value_ids" property="propertyValueIds"  />
+		<!--属性值id组hash-->
+		<result column="property_value_id_hash" property="propertyValueIdHash"  />
+		<!--数量-->
+		<result column="buy_count" property="buyCount"  />
+		<!--加入购物车时的单价-->
+		<result column="add_price" property="addPrice"  />
+		<!--更新时间-->
+		<result column="last_update_time" property="lastUpdateTime"  />
+		<!--创建时间-->
+		<result column="create_time" property="createTime"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 p.cart_id,p.user_id,p.product_id,p.property_value_ids,p.property_value_id_hash,
+		 p.buy_count,p.add_price,p.last_update_time,p.create_time
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.cartId != null and query.cartId!=''">
+				 and  p.cart_id = #{query.cartId}
+			</if>
+			<if test="query.userId != null and query.userId!=''">
+				 and  p.user_id = #{query.userId}
+			</if>
+			<if test="query.productId != null and query.productId!=''">
+				 and  p.product_id = #{query.productId}
+			</if>
+			<if test="query.propertyValueIds != null and query.propertyValueIds!=''">
+				 and  p.property_value_ids = #{query.propertyValueIds}
+			</if>
+			<if test="query.propertyValueIdHash != null and query.propertyValueIdHash!=''">
+				 and  p.property_value_id_hash = #{query.propertyValueIdHash}
+			</if>
+			<if test="query.buyCount != null">
+				 and  p.buy_count = #{query.buyCount}
+			</if>
+			<if test="query.lastUpdateTime != null and query.lastUpdateTime!=''">
+				 <![CDATA[ and  p.last_update_time=str_to_date(#{query.lastUpdateTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.createTime != null and query.createTime!=''">
+				 <![CDATA[ and  p.create_time=str_to_date(#{query.createTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.cartIdFuzzy!= null  and query.cartIdFuzzy!=''">
+				 and  p.cart_id like concat('%', #{query.cartIdFuzzy}, '%')
+			</if>
+			<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  p.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+			<if test="query.productIdFuzzy!= null  and query.productIdFuzzy!=''">
+				 and  p.product_id like concat('%', #{query.productIdFuzzy}, '%')
+			</if>
+			<if test="query.propertyValueIdsFuzzy!= null  and query.propertyValueIdsFuzzy!=''">
+				 and  p.property_value_ids like concat('%', #{query.propertyValueIdsFuzzy}, '%')
+			</if>
+			<if test="query.propertyValueIdHashFuzzy!= null  and query.propertyValueIdHashFuzzy!=''">
+				 and  p.property_value_id_hash like concat('%', #{query.propertyValueIdHashFuzzy}, '%')
+			</if>
+			<if test="query.lastUpdateTimeStart!= null and query.lastUpdateTimeStart!=''">
+				 <![CDATA[ and  p.last_update_time>=str_to_date(#{query.lastUpdateTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.lastUpdateTimeEnd!= null and query.lastUpdateTimeEnd!=''">
+				 <![CDATA[ and  p.last_update_time< date_sub(str_to_date(#{query.lastUpdateTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+			<if test="query.createTimeStart!= null and query.createTimeStart!=''">
+				 <![CDATA[ and  p.create_time>=str_to_date(#{query.createTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.createTimeEnd!= null and query.createTimeEnd!=''">
+				 <![CDATA[ and  p.create_time< date_sub(str_to_date(#{query.createTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM product_cart p <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM product_cart p <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.ProductCart">
+		 INSERT INTO product_cart
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.cartId != null">
+				 cart_id,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.propertyValueIds != null">
+				 property_value_ids,
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash,
+			</if>
+			<if test="bean.buyCount != null">
+				 buy_count,
+			</if>
+			<if test="bean.addPrice != null">
+				 add_price,
+			</if>
+			<if test="bean.lastUpdateTime != null">
+				 last_update_time,
+			</if>
+			<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.cartId!=null">
+				 #{bean.cartId},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.propertyValueIds!=null">
+				 #{bean.propertyValueIds},
+			</if>
+			<if test="bean.propertyValueIdHash!=null">
+				 #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.buyCount!=null">
+				 #{bean.buyCount},
+			</if>
+			<if test="bean.addPrice!=null">
+				 #{bean.addPrice},
+			</if>
+			<if test="bean.lastUpdateTime!=null">
+				 #{bean.lastUpdateTime},
+			</if>
+			<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.ProductCart">
+		 INSERT INTO product_cart
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.cartId != null">
+				 cart_id,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.propertyValueIds != null">
+				 property_value_ids,
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash,
+			</if>
+			<if test="bean.buyCount != null">
+				 buy_count,
+			</if>
+			<if test="bean.addPrice != null">
+				 add_price,
+			</if>
+			<if test="bean.lastUpdateTime != null">
+				 last_update_time,
+			</if>
+			<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.cartId!=null">
+				 #{bean.cartId},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.propertyValueIds!=null">
+				 #{bean.propertyValueIds},
+			</if>
+			<if test="bean.propertyValueIdHash!=null">
+				 #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.buyCount!=null">
+				 #{bean.buyCount},
+			</if>
+			<if test="bean.addPrice!=null">
+				 #{bean.addPrice},
+			</if>
+			<if test="bean.lastUpdateTime!=null">
+				 #{bean.lastUpdateTime},
+			</if>
+			<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.cartId!=null">
+				 cart_id = VALUES(cart_id),
+			</if>
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.productId!=null">
+				 product_id = VALUES(product_id),
+			</if>
+			<if test="bean.propertyValueIds!=null">
+				 property_value_ids = VALUES(property_value_ids),
+			</if>
+			<if test="bean.propertyValueIdHash!=null">
+				 property_value_id_hash = VALUES(property_value_id_hash),
+			</if>
+			<if test="bean.buyCount!=null">
+				 buy_count = VALUES(buy_count),
+			</if>
+			<!-- 已存在行不覆盖加入时单价 -->
+			<if test="bean.lastUpdateTime!=null">
+				 last_update_time = VALUES(last_update_time),
+			</if>
+			<if test="bean.createTime!=null">
+				 create_time = VALUES(create_time),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.ProductCart">
+		 INSERT INTO product_cart(
+			 cart_id,
+			 user_id,
+			 product_id,
+			 property_value_ids,
+			 property_value_id_hash,
+			 buy_count,
+			 add_price,
+			 last_update_time,
+			 create_time
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.cartId},
+				 #{item.userId},
+				 #{item.productId},
+				 #{item.propertyValueIds},
+				 #{item.propertyValueIdHash},
+				 #{item.buyCount},
+				 #{item.addPrice},
+				 #{item.lastUpdateTime},
+				 #{item.createTime}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.ProductCart">
+		 INSERT INTO product_cart(
+			 cart_id,
+			 user_id,
+			 product_id,
+			 property_value_ids,
+			 property_value_id_hash,
+			 buy_count,
+			 add_price,
+			 last_update_time,
+			 create_time
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.cartId},
+				 #{item.userId},
+				 #{item.productId},
+				 #{item.propertyValueIds},
+				 #{item.propertyValueIdHash},
+				 #{item.buyCount},
+				 #{item.addPrice},
+				 #{item.lastUpdateTime},
+				 #{item.createTime}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			cart_id = VALUES(cart_id),
+			user_id = VALUES(user_id),
+			product_id = VALUES(product_id),
+			property_value_ids = VALUES(property_value_ids),
+			property_value_id_hash = VALUES(property_value_id_hash),
+			buy_count = VALUES(buy_count),
+			last_update_time = VALUES(last_update_time),
+			create_time = VALUES(create_time)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.ProductCartQuery">
+		 UPDATE product_cart p
+ 		 <set> 
+			<if test="bean.cartId != null">
+				 cart_id = #{bean.cartId},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.propertyValueIds != null">
+				 property_value_ids = #{bean.propertyValueIds},
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash = #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.buyCount != null">
+				 buy_count = #{bean.buyCount},
+			</if>
+			<if test="bean.addPrice != null">
+				 add_price = #{bean.addPrice},
+			</if>
+			<if test="bean.lastUpdateTime != null">
+				 last_update_time = #{bean.lastUpdateTime},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete p from product_cart p
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据CartId修改-->
+	<update id="updateByCartId" parameterType="com.simlect.entity.po.ProductCart">
+		 UPDATE product_cart
+ 		 <set> 
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.propertyValueIds != null">
+				 property_value_ids = #{bean.propertyValueIds},
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash = #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.buyCount != null">
+				 buy_count = #{bean.buyCount},
+			</if>
+			<if test="bean.addPrice != null">
+				 add_price = #{bean.addPrice},
+			</if>
+			<if test="bean.lastUpdateTime != null">
+				 last_update_time = #{bean.lastUpdateTime},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+ 		 </set>
+ 		 where cart_id=#{cartId}
+	</update>
+
+	<!-- 根据CartId删除-->
+	<delete id="deleteByCartId">
+		delete from product_cart where cart_id=#{cartId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByCartId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from product_cart p where cart_id=#{cartId}
+	</select>
+
+	<!-- 根据ProductIdAndPropertyValueIdHashAndUserId修改-->
+	<update id="updateByProductIdAndPropertyValueIdHashAndUserId" parameterType="com.simlect.entity.po.ProductCart">
+		 UPDATE product_cart
+ 		 <set> 
+			<if test="bean.cartId != null">
+				 cart_id = #{bean.cartId},
+			</if>
+			<if test="bean.propertyValueIds != null">
+				 property_value_ids = #{bean.propertyValueIds},
+			</if>
+			<if test="bean.buyCount != null">
+				 buy_count = #{bean.buyCount},
+			</if>
+			<if test="bean.addPrice != null">
+				 add_price = #{bean.addPrice},
+			</if>
+			<if test="bean.lastUpdateTime != null">
+				 last_update_time = #{bean.lastUpdateTime},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+ 		 </set>
+ 		 where product_id=#{productId} and property_value_id_hash=#{propertyValueIdHash} and user_id=#{userId}
+	</update>
+
+	<!-- 根据ProductIdAndPropertyValueIdHashAndUserId删除-->
+	<delete id="deleteByProductIdAndPropertyValueIdHashAndUserId">
+		delete from product_cart where product_id=#{productId} and property_value_id_hash=#{propertyValueIdHash} and user_id=#{userId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByProductIdAndPropertyValueIdHashAndUserId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from product_cart p where product_id=#{productId} and property_value_id_hash=#{propertyValueIdHash} and user_id=#{userId}
+	</select>
+
+<!--	setBuyCountByProductIdAndPropertyValueIdHashAndUserId: 根据ProductId和PropertyValueIdHashAndUserId和userId修改buyCount-->
+	<update id="setBuyCountByProductIdAndPropertyValueIdHashAndUserId">
+		update product_cart set buy_count = buy_count + #{buyCount} where product_id= #{productId} and property_value_id_hash= #{propertyValueIdHash} and user_id= #{userId}
+	</update>
+
+	<delete id="deleteBatch">
+		delete from product_cart where (user_id, product_id, property_value_id_hash) in
+		<foreach item="item" index="index" collection="list" separator="," open="(" close=")">
+			(#{item.userId}, #{item.productId}, #{item.propertyValueIdHash})
+		</foreach>
+	</delete>
+</mapper>

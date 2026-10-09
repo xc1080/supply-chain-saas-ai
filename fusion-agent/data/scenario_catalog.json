@@ -1,0 +1,490 @@
+{
+  "schemaVersion": 1,
+  "scenario": "smart-home-retail",
+  "simulation": {
+    "label": "经营练习样本",
+    "currency": "CNY",
+    "notice": "型号与技术描述引用公开厂商资料；售价、成本、库存、补货阈值、采购交期和供应商均为虚构模拟。不存在真实采购、收款或寄送。区域型号不能作为中国安装适配承诺。"
+  },
+  "products": [
+    {
+      "code": "LAB-TAPO-H100",
+      "name": "Tapo H100 智能网关",
+      "brand": "Tapo",
+      "model": "H100",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能网关",
+      "spec": "UK / Sub-GHz / 2.4GHz Wi-Fi",
+      "protocols": [
+        "sub-ghz",
+        "wifi"
+      ],
+      "gatewayRequired": false,
+      "compatibleGatewayCodes": [],
+      "compatibilityStatus": "unknown",
+      "sources": [
+        {
+          "url": "https://www.tp-link.com/uk/home-networking/smarthome-accessory/tapo-h100/",
+          "title": "Tapo H100 UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "连接 Tapo 低功耗设备，支持报警和门铃提示。",
+        "厂商列出 868/922MHz 区域版本，必须使用相匹配频段。",
+        "UK 区域型号需核对电源规格、无线频段和安装条件，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 159,
+        "costPrice": 90,
+        "openingStock": 10,
+        "reorderPoint": 5,
+        "targetStock": 25,
+        "supplierLeadDays": 5,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "gateway"
+    },
+    {
+      "code": "LAB-TAPO-H200",
+      "name": "Tapo H200 智能中枢",
+      "brand": "Tapo",
+      "model": "H200",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能网关",
+      "spec": "UK / Tapo Sub-GHz / 2.4GHz Wi-Fi",
+      "protocols": [
+        "sub-ghz",
+        "wifi"
+      ],
+      "gatewayRequired": false,
+      "compatibleGatewayCodes": [],
+      "compatibilityStatus": "unknown",
+      "sources": [
+        {
+          "url": "https://www.tp-link.com/uk/home-networking/smart-hub/tapo-h200/",
+          "title": "Tapo H200 UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "Tapo 智能中枢，支持兼容设备及本地 microSD 存储。",
+        "只对有明确资料依据的设备型号核验配对。",
+        "UK 区域型号需核对电源规格、无线频段和安装条件，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 299,
+        "costPrice": 180,
+        "openingStock": 6,
+        "reorderPoint": 3,
+        "targetStock": 15,
+        "supplierLeadDays": 7,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "gateway"
+    },
+    {
+      "code": "LAB-TAPO-T100",
+      "name": "Tapo T100 人体移动传感器",
+      "brand": "Tapo",
+      "model": "T100",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能传感器",
+      "spec": "UK / Sub-GHz / 电池供电",
+      "protocols": [
+        "sub-ghz"
+      ],
+      "gatewayRequired": true,
+      "compatibleGatewayCodes": [
+        "LAB-TAPO-H100",
+        "LAB-TAPO-H200"
+      ],
+      "compatibilityStatus": "verified",
+      "sources": [
+        {
+          "url": "https://www.tp-link.com/uk/smart-home/smart-sensor/tapo-t100/",
+          "title": "Tapo T100 UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "人体移动检测；官方列明需 Tapo H100 或 H200 网关。",
+        "低功耗 Sub-GHz 通信，不是 Zigbee 设备。",
+        "UK 区域型号需核对无线频段、适用地区和安装条件，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 89,
+        "costPrice": 48,
+        "openingStock": 30,
+        "reorderPoint": 10,
+        "targetStock": 60,
+        "supplierLeadDays": 5,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "sensor"
+    },
+    {
+      "code": "LAB-TAPO-T110",
+      "name": "Tapo T110 门窗传感器",
+      "brand": "Tapo",
+      "model": "T110",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能传感器",
+      "spec": "UK / Sub-GHz / CR2032",
+      "protocols": [
+        "sub-ghz"
+      ],
+      "gatewayRequired": true,
+      "compatibleGatewayCodes": [],
+      "compatibilityStatus": "unknown",
+      "sources": [
+        {
+          "url": "https://www.tp-link.com/uk/smart-home/smart-sensor/tapo-t110/",
+          "title": "Tapo T110 UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "检测门窗开合，采用 CR2032 电池。",
+        "厂商标明需要网关；本样本未录入其具体网关配对清单。",
+        "UK 区域型号需核对无线频段、适用地区和安装条件，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 69,
+        "costPrice": 35,
+        "openingStock": 42,
+        "reorderPoint": 15,
+        "targetStock": 80,
+        "supplierLeadDays": 5,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "sensor"
+    },
+    {
+      "code": "LAB-TAPO-T310",
+      "name": "Tapo T310 温湿度传感器",
+      "brand": "Tapo",
+      "model": "T310",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能传感器",
+      "spec": "UK / Sub-GHz / CR2450",
+      "protocols": [
+        "sub-ghz"
+      ],
+      "gatewayRequired": true,
+      "compatibleGatewayCodes": [
+        "LAB-TAPO-H100"
+      ],
+      "compatibilityStatus": "verified",
+      "sources": [
+        {
+          "url": "https://www.tp-link.com/uk/smart-home/smart-sensor/tapo-t310/",
+          "title": "Tapo T310 UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "温湿度监测，支持 App 阈值提醒。",
+        "官方产品页明确需要 Tapo H100 网关。",
+        "UK 区域型号需核对无线频段、适用地区和安装条件，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 79,
+        "costPrice": 42,
+        "openingStock": 8,
+        "reorderPoint": 10,
+        "targetStock": 40,
+        "supplierLeadDays": 6,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "sensor"
+    },
+    {
+      "code": "LAB-TAPO-T300",
+      "name": "Tapo T300 水浸传感器",
+      "brand": "Tapo",
+      "model": "T300",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能传感器",
+      "spec": "UK / Sub-GHz / 2 AAA 电池",
+      "protocols": [
+        "sub-ghz"
+      ],
+      "gatewayRequired": true,
+      "compatibleGatewayCodes": [],
+      "compatibilityStatus": "unknown",
+      "sources": [
+        {
+          "url": "https://www.tp-link.com/uk/smart-home/smart-sensor/tapo-t300/",
+          "title": "Tapo T300 UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "检测滴水和漏水，内置报警器。",
+        "远程通知与网关联动需要 Tapo Hub；具体网关型号组合在本样本中待确认。",
+        "UK 区域型号需核对无线频段、适用地区和安装条件，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 99,
+        "costPrice": 58,
+        "openingStock": 0,
+        "reorderPoint": 8,
+        "targetStock": 30,
+        "supplierLeadDays": 7,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "sensor"
+    },
+    {
+      "code": "LAB-TAPO-S210",
+      "name": "Tapo S210 单键智能开关",
+      "brand": "Tapo",
+      "model": "S210",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能开关",
+      "spec": "UK / Sub-GHz / 单键单控",
+      "protocols": [
+        "sub-ghz"
+      ],
+      "gatewayRequired": true,
+      "compatibleGatewayCodes": [
+        "LAB-TAPO-H100",
+        "LAB-TAPO-H200"
+      ],
+      "compatibilityStatus": "verified",
+      "sources": [
+        {
+          "url": "https://www.tp-link.com/uk/home-networking/smart-switch/tapo-s210/",
+          "title": "Tapo S210 UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "单键单控；厂商标明无需零线。",
+        "智能功能需要 Tapo H100 或 H200 网关；实际接线和负载要求按 UK 型号资料核对。",
+        "UK 区域型号需核对接线方式、无线频段和安装标准，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 129,
+        "costPrice": 72,
+        "openingStock": 15,
+        "reorderPoint": 6,
+        "targetStock": 35,
+        "supplierLeadDays": 6,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "switch"
+    },
+    {
+      "code": "LAB-TAPO-P110",
+      "name": "Tapo P110 电量监测智能插座",
+      "brand": "Tapo",
+      "model": "P110",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能插座",
+      "spec": "UK / Wi-Fi / 英标插头 / 室内",
+      "protocols": [
+        "wifi"
+      ],
+      "gatewayRequired": false,
+      "compatibleGatewayCodes": [],
+      "compatibilityStatus": "not_required",
+      "sources": [
+        {
+          "url": "https://www.tapo.com/uk/product/smart-plug/tapo-p110/",
+          "title": "Tapo P110 UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "无需额外网关，通过 Tapo App 设置。",
+        "支持电量监测；仅室内使用，UK 页面标明最大 13A，不支持电动汽车充电。",
+        "UK 区域型号需核对插头、电气参数和安装标准，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 89,
+        "costPrice": 46,
+        "openingStock": 36,
+        "reorderPoint": 12,
+        "targetStock": 70,
+        "supplierLeadDays": 4,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "plug"
+    },
+    {
+      "code": "LAB-TAPO-L530E",
+      "name": "Tapo L530E 彩色智能灯泡",
+      "brand": "Tapo",
+      "model": "L530E",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能照明",
+      "spec": "UK / Wi-Fi / E27 / 可调色",
+      "protocols": [
+        "wifi"
+      ],
+      "gatewayRequired": false,
+      "compatibleGatewayCodes": [],
+      "compatibilityStatus": "not_required",
+      "sources": [
+        {
+          "url": "https://www.tapo.com/uk/product/smart-light-bulb/tapo-l530e/",
+          "title": "Tapo L530E UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "连接家庭 Wi-Fi，无需额外网关。",
+        "支持调光和调色；E27 灯头，须核对灯座与供电规格。",
+        "UK 区域型号需核对灯头规格、电气参数和安装要求，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 79,
+        "costPrice": 40,
+        "openingStock": 60,
+        "reorderPoint": 20,
+        "targetStock": 100,
+        "supplierLeadDays": 4,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "lamp"
+    },
+    {
+      "code": "LAB-TAPO-L510E",
+      "name": "Tapo L510E 暖白智能灯泡",
+      "brand": "Tapo",
+      "model": "L510E",
+      "region": "UK（公开资料样本，非中国安装适配承诺）",
+      "category": "智能照明",
+      "spec": "UK / 2.4GHz Wi-Fi / E27 / 暖白",
+      "protocols": [
+        "wifi"
+      ],
+      "gatewayRequired": false,
+      "compatibleGatewayCodes": [],
+      "compatibilityStatus": "not_required",
+      "sources": [
+        {
+          "url": "https://www.tapo.com/uk/product/smart-light-bulb/tapo-l510e/",
+          "title": "Tapo L510E UK 官方产品资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "连接家庭 Wi-Fi，无需额外网关。",
+        "支持调光，暖白光；E27 灯头，须核对灯座与供电规格。",
+        "UK 区域型号需核对灯头规格、电气参数和安装要求，不作为中国地区适配承诺。"
+      ],
+      "simulation": {
+        "salePrice": 59,
+        "costPrice": 28,
+        "openingStock": 80,
+        "reorderPoint": 25,
+        "targetStock": 120,
+        "supplierLeadDays": 4,
+        "supplierCode": "LAB-SUP-TAPO"
+      },
+      "imageKind": "lamp"
+    },
+    {
+      "code": "LAB-AQARA-M3",
+      "name": "Aqara Hub M3 智能中枢",
+      "brand": "Aqara",
+      "model": "M3",
+      "region": "海外公开资料样本（需核对销售地区）",
+      "category": "智能网关",
+      "spec": "Matter / Thread / Zigbee / Bluetooth",
+      "protocols": [
+        "matter",
+        "thread",
+        "zigbee",
+        "bluetooth",
+        "wifi"
+      ],
+      "gatewayRequired": false,
+      "compatibleGatewayCodes": [],
+      "compatibilityStatus": "unknown",
+      "sources": [
+        {
+          "url": "https://www.aqara.com/en/news/aqara-unveils-hub-m3-a-multi-protocol-matter-controller-with-edge-capabilities/",
+          "title": "Aqara 官方 Hub M3 发布资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "支持 Zigbee、Thread 和 Bluetooth，具备 Matter 控制器能力。",
+        "官方发布资料列出与 Door and Window Sensor P2 的配合能力；不据此保证所有品牌设备互通。"
+      ],
+      "simulation": {
+        "salePrice": 699,
+        "costPrice": 430,
+        "openingStock": 4,
+        "reorderPoint": 5,
+        "targetStock": 15,
+        "supplierLeadDays": 10,
+        "supplierCode": "LAB-SUP-AQARA"
+      },
+      "imageKind": "gateway"
+    },
+    {
+      "code": "LAB-AQARA-P2",
+      "name": "Aqara P2 门窗传感器",
+      "brand": "Aqara",
+      "model": "P2",
+      "region": "海外公开资料样本（需核对销售地区）",
+      "category": "智能传感器",
+      "spec": "Matter over Thread / 门窗开合",
+      "protocols": [
+        "matter",
+        "thread"
+      ],
+      "gatewayRequired": true,
+      "compatibleGatewayCodes": [
+        "LAB-AQARA-M3"
+      ],
+      "compatibilityStatus": "verified",
+      "sources": [
+        {
+          "url": "https://www.aqara.com/en/news/aqara-unveils-hub-m3-a-multi-protocol-matter-controller-with-edge-capabilities/",
+          "title": "Aqara 官方 M3 与门窗 P2 配合资料",
+          "checkedAt": "2026-10-08"
+        },
+        {
+          "url": "https://www.aqara.com/us/product/door-and-window-sensor-p2/",
+          "title": "Aqara Door and Window Sensor P2 官方资料",
+          "checkedAt": "2026-10-08"
+        }
+      ],
+      "facts": [
+        "检测门窗开合，使用 Matter over Thread。",
+        "需要相应平台的 Matter 控制器与兼容 Thread Border Router；Aqara 官方资料列出 M3 与该传感器的配合。",
+        "本资料只指门窗 P2，不指同名的 Motion and Light Sensor P2。"
+      ],
+      "simulation": {
+        "salePrice": 169,
+        "costPrice": 98,
+        "openingStock": 20,
+        "reorderPoint": 8,
+        "targetStock": 45,
+        "supplierLeadDays": 10,
+        "supplierCode": "LAB-SUP-AQARA"
+      },
+      "imageKind": "sensor"
+    }
+  ],
+  "suppliers": [
+    {
+      "code": "LAB-SUP-TAPO",
+      "name": "样例·星桥智能设备供应商（虚构）",
+      "simulated": true,
+      "leadDays": 5
+    },
+    {
+      "code": "LAB-SUP-AQARA",
+      "name": "样例·云栖设备分销商（虚构）",
+      "simulated": true,
+      "leadDays": 10
+    }
+  ]
+}

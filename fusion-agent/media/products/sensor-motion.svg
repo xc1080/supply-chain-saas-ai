@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title"><title id="title">人体感应传感器，演示商品示意图</title><rect width="600" height="600" fill="#edf2f7"/>
+<ellipse cx="300" cy="470" rx="139" ry="20" fill="#d7e0e9"/>
+<ellipse cx="300" cy="438" rx="105" ry="24" fill="#c4d0dc"/>
+<path d="M264 333H335V430C335 451 264 451 264 430Z" fill="#fff" stroke="#c5d1dc" stroke-width="3"/>
+<rect x="175" y="149" width="262" height="209" rx="60" fill="#b8c8d6"/>
+<rect x="162" y="134" width="262" height="209" rx="60" fill="#fff" stroke="#c5d1dc" stroke-width="3"/>
+<rect x="183" y="179" width="220" height="127" rx="47" fill="#e3edf5" stroke="#d3e0ea" stroke-width="2"/>
+<path d="M202 240H383M293 187V297M238 185C217 224 219 263 242 298M347 185C368 224 366 263 343 298" fill="none" stroke="#b9d0e3" stroke-width="3"/>
+<circle cx="293" cy="159" r="6" fill="#437abb"/>
+<text x="30" y="566" fill="#70869c" font-size="18" font-family="Microsoft YaHei, PingFang SC, sans-serif">商品示意</text></svg>

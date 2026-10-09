@@ -1,0 +1,20 @@
+
+
+.search-panel {
+  margin-bottom: 14px;
+
+  .el-form--inline .el-form-item {
+    margin-bottom: 8px;
+  }
+}
+
+.table-panel {
+  .table-data-card {
+    border-radius: var(--card-radius);
+  }
+}
+
+.home-panel,
+.el-row {
+  margin-bottom: 12px;
+}

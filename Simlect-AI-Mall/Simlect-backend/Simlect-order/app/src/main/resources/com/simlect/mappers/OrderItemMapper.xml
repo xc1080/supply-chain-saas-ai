@@ -1,0 +1,531 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.OrderItemMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.OrderItem">
+		<!--订单明细ID-->
+		<result column="order_item_id" property="orderItemId"  />
+		<!--订单ID-->
+		<result column="order_id" property="orderId"  />
+		<!--封面-->
+		<result column="cover" property="cover"  />
+		<!--商品ID-->
+		<result column="product_id" property="productId"  />
+		<!--商品名称-->
+		<result column="product_name" property="productName"  />
+		<!--属性值id组hash-->
+		<result column="property_value_id_hash" property="propertyValueIdHash"  />
+		<!--属性信息-->
+		<result column="property_info" property="propertyInfo"  />
+		<!--价格-->
+		<result column="item_amount" property="itemAmount"  />
+		<!--数量-->
+		<result column="buy_count" property="buyCount"  />
+		<!--状态 1:正常 0:已退款-->
+		<result column="order_item_status" property="orderItemStatus"  />
+		<!--备注-->
+		<result column="remark" property="remark"  />
+		<!--退款订单号-->
+		<result column="refund_order_id" property="refundOrderId"  />
+    <result column="refund_amount" property="refundAmount"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 o.order_item_id,o.order_id,o.cover,o.product_id,o.product_name,
+		 o.property_value_id_hash,o.property_info,o.item_amount,o.buy_count,o.order_item_status,
+		 o.remark,o.refund_order_id,o.refund_amount
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.orderItemId != null and query.orderItemId!=''">
+				 and  o.order_item_id = #{query.orderItemId}
+			</if>
+			<if test="query.orderId != null and query.orderId!=''">
+				 and  o.order_id = #{query.orderId}
+			</if>
+			<if test="query.cover != null and query.cover!=''">
+				 and  o.cover = #{query.cover}
+			</if>
+			<if test="query.productId != null and query.productId!=''">
+				 and  o.product_id = #{query.productId}
+			</if>
+			<if test="query.productName != null and query.productName!=''">
+				 and  o.product_name = #{query.productName}
+			</if>
+			<if test="query.propertyValueIdHash != null and query.propertyValueIdHash!=''">
+				 and  o.property_value_id_hash = #{query.propertyValueIdHash}
+			</if>
+			<if test="query.propertyInfo != null and query.propertyInfo!=''">
+				 and  o.property_info = #{query.propertyInfo}
+			</if>
+			<if test="query.itemAmount != null">
+				 and  o.item_amount = #{query.itemAmount}
+			</if>
+			<if test="query.buyCount != null">
+				 and  o.buy_count = #{query.buyCount}
+			</if>
+			<if test="query.orderItemStatus != null">
+				 and  o.order_item_status = #{query.orderItemStatus}
+			</if>
+			<if test="query.remark != null and query.remark!=''">
+				 and  o.remark = #{query.remark}
+			</if>
+			<if test="query.refundOrderId != null and query.refundOrderId!=''">
+				 and  o.refund_order_id = #{query.refundOrderId}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.orderItemIdFuzzy!= null  and query.orderItemIdFuzzy!=''">
+				 and  o.order_item_id like concat('%', #{query.orderItemIdFuzzy}, '%')
+			</if>
+			<if test="query.orderIdFuzzy!= null  and query.orderIdFuzzy!=''">
+				 and  o.order_id like concat('%', #{query.orderIdFuzzy}, '%')
+			</if>
+			<if test="query.coverFuzzy!= null  and query.coverFuzzy!=''">
+				 and  o.cover like concat('%', #{query.coverFuzzy}, '%')
+			</if>
+			<if test="query.productIdFuzzy!= null  and query.productIdFuzzy!=''">
+				 and  o.product_id like concat('%', #{query.productIdFuzzy}, '%')
+			</if>
+			<if test="query.productNameFuzzy!= null  and query.productNameFuzzy!=''">
+				 and  o.product_name like concat('%', #{query.productNameFuzzy}, '%')
+			</if>
+			<if test="query.propertyValueIdHashFuzzy!= null  and query.propertyValueIdHashFuzzy!=''">
+				 and  o.property_value_id_hash like concat('%', #{query.propertyValueIdHashFuzzy}, '%')
+			</if>
+			<if test="query.propertyInfoFuzzy!= null  and query.propertyInfoFuzzy!=''">
+				 and  o.property_info like concat('%', #{query.propertyInfoFuzzy}, '%')
+			</if>
+			<if test="query.remarkFuzzy!= null  and query.remarkFuzzy!=''">
+				 and  o.remark like concat('%', #{query.remarkFuzzy}, '%')
+			</if>
+			<if test="query.refundOrderIdFuzzy!= null  and query.refundOrderIdFuzzy!=''">
+				 and  o.refund_order_id like concat('%', #{query.refundOrderIdFuzzy}, '%')
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM order_item o <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM order_item o <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.OrderItem">
+		 INSERT INTO order_item
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.orderItemId != null">
+				 order_item_id,
+			</if>
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.cover != null">
+				 cover,
+			</if>
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.productName != null">
+				 product_name,
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash,
+			</if>
+			<if test="bean.propertyInfo != null">
+				 property_info,
+			</if>
+			<if test="bean.itemAmount != null">
+				 item_amount,
+			</if>
+			<if test="bean.buyCount != null">
+				 buy_count,
+			</if>
+			<if test="bean.orderItemStatus != null">
+				 order_item_status,
+			</if>
+			<if test="bean.remark != null">
+				 remark,
+			</if>
+			<if test="bean.refundOrderId != null">
+				 refund_order_id,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.orderItemId!=null">
+				 #{bean.orderItemId},
+			</if>
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.cover!=null">
+				 #{bean.cover},
+			</if>
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.productName!=null">
+				 #{bean.productName},
+			</if>
+			<if test="bean.propertyValueIdHash!=null">
+				 #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.propertyInfo!=null">
+				 #{bean.propertyInfo},
+			</if>
+			<if test="bean.itemAmount!=null">
+				 #{bean.itemAmount},
+			</if>
+			<if test="bean.buyCount!=null">
+				 #{bean.buyCount},
+			</if>
+			<if test="bean.orderItemStatus!=null">
+				 #{bean.orderItemStatus},
+			</if>
+			<if test="bean.remark!=null">
+				 #{bean.remark},
+			</if>
+			<if test="bean.refundOrderId!=null">
+				 #{bean.refundOrderId},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.OrderItem">
+		 INSERT INTO order_item
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.orderItemId != null">
+				 order_item_id,
+			</if>
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.cover != null">
+				 cover,
+			</if>
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.productName != null">
+				 product_name,
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash,
+			</if>
+			<if test="bean.propertyInfo != null">
+				 property_info,
+			</if>
+			<if test="bean.itemAmount != null">
+				 item_amount,
+			</if>
+			<if test="bean.buyCount != null">
+				 buy_count,
+			</if>
+			<if test="bean.orderItemStatus != null">
+				 order_item_status,
+			</if>
+			<if test="bean.remark != null">
+				 remark,
+			</if>
+			<if test="bean.refundOrderId != null">
+				 refund_order_id,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.orderItemId!=null">
+				 #{bean.orderItemId},
+			</if>
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.cover!=null">
+				 #{bean.cover},
+			</if>
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.productName!=null">
+				 #{bean.productName},
+			</if>
+			<if test="bean.propertyValueIdHash!=null">
+				 #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.propertyInfo!=null">
+				 #{bean.propertyInfo},
+			</if>
+			<if test="bean.itemAmount!=null">
+				 #{bean.itemAmount},
+			</if>
+			<if test="bean.buyCount!=null">
+				 #{bean.buyCount},
+			</if>
+			<if test="bean.orderItemStatus!=null">
+				 #{bean.orderItemStatus},
+			</if>
+			<if test="bean.remark!=null">
+				 #{bean.remark},
+			</if>
+			<if test="bean.refundOrderId!=null">
+				 #{bean.refundOrderId},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.orderItemId!=null">
+				 order_item_id = VALUES(order_item_id),
+			</if>
+			<if test="bean.orderId!=null">
+				 order_id = VALUES(order_id),
+			</if>
+			<if test="bean.cover!=null">
+				 cover = VALUES(cover),
+			</if>
+			<if test="bean.productId!=null">
+				 product_id = VALUES(product_id),
+			</if>
+			<if test="bean.productName!=null">
+				 product_name = VALUES(product_name),
+			</if>
+			<if test="bean.propertyValueIdHash!=null">
+				 property_value_id_hash = VALUES(property_value_id_hash),
+			</if>
+			<if test="bean.propertyInfo!=null">
+				 property_info = VALUES(property_info),
+			</if>
+			<if test="bean.itemAmount!=null">
+				 item_amount = VALUES(item_amount),
+			</if>
+			<if test="bean.buyCount!=null">
+				 buy_count = VALUES(buy_count),
+			</if>
+			<if test="bean.orderItemStatus!=null">
+				 order_item_status = VALUES(order_item_status),
+			</if>
+			<if test="bean.remark!=null">
+				 remark = VALUES(remark),
+			</if>
+			<if test="bean.refundOrderId!=null">
+				 refund_order_id = VALUES(refund_order_id),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.OrderItem">
+		 INSERT INTO order_item(
+			 order_item_id,
+			 order_id,
+			 cover,
+			 product_id,
+			 product_name,
+			 property_value_id_hash,
+			 property_info,
+			 item_amount,
+			 buy_count,
+			 order_item_status,
+			 remark,
+			 refund_order_id
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderItemId},
+				 #{item.orderId},
+				 #{item.cover},
+				 #{item.productId},
+				 #{item.productName},
+				 #{item.propertyValueIdHash},
+				 #{item.propertyInfo},
+				 #{item.itemAmount},
+				 #{item.buyCount},
+				 #{item.orderItemStatus},
+				 #{item.remark},
+				 #{item.refundOrderId}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.OrderItem">
+		 INSERT INTO order_item(
+			 order_item_id,
+			 order_id,
+			 cover,
+			 product_id,
+			 product_name,
+			 property_value_id_hash,
+			 property_info,
+			 item_amount,
+			 buy_count,
+			 order_item_status,
+			 remark,
+			 refund_order_id
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderItemId},
+				 #{item.orderId},
+				 #{item.cover},
+				 #{item.productId},
+				 #{item.productName},
+				 #{item.propertyValueIdHash},
+				 #{item.propertyInfo},
+				 #{item.itemAmount},
+				 #{item.buyCount},
+				 #{item.orderItemStatus},
+				 #{item.remark},
+				 #{item.refundOrderId}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			order_item_id = VALUES(order_item_id),
+			order_id = VALUES(order_id),
+			cover = VALUES(cover),
+			product_id = VALUES(product_id),
+			product_name = VALUES(product_name),
+			property_value_id_hash = VALUES(property_value_id_hash),
+			property_info = VALUES(property_info),
+			item_amount = VALUES(item_amount),
+			buy_count = VALUES(buy_count),
+			order_item_status = VALUES(order_item_status),
+			remark = VALUES(remark),
+			refund_order_id = VALUES(refund_order_id)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.OrderItemQuery">
+		 UPDATE order_item o
+ 		 <set> 
+			<if test="bean.orderItemId != null">
+				 order_item_id = #{bean.orderItemId},
+			</if>
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.cover != null">
+				 cover = #{bean.cover},
+			</if>
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.productName != null">
+				 product_name = #{bean.productName},
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash = #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.propertyInfo != null">
+				 property_info = #{bean.propertyInfo},
+			</if>
+			<if test="bean.itemAmount != null">
+				 item_amount = #{bean.itemAmount},
+			</if>
+			<if test="bean.buyCount != null">
+				 buy_count = #{bean.buyCount},
+			</if>
+			<if test="bean.orderItemStatus != null">
+				 order_item_status = #{bean.orderItemStatus},
+			</if>
+			<if test="bean.remark != null">
+				 remark = #{bean.remark},
+			</if>
+<if test="bean.refundOrderId != null">
+    refund_order_id = #{bean.refundOrderId},
+</if>
+<if test="bean.refundAmount != null">
+    refund_amount = #{bean.refundAmount},
+</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete o from order_item o
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据OrderItemId修改-->
+	<update id="updateByOrderItemId" parameterType="com.simlect.entity.po.OrderItem">
+		 UPDATE order_item
+ 		 <set> 
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.cover != null">
+				 cover = #{bean.cover},
+			</if>
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.productName != null">
+				 product_name = #{bean.productName},
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash = #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.propertyInfo != null">
+				 property_info = #{bean.propertyInfo},
+			</if>
+			<if test="bean.itemAmount != null">
+				 item_amount = #{bean.itemAmount},
+			</if>
+			<if test="bean.buyCount != null">
+				 buy_count = #{bean.buyCount},
+			</if>
+			<if test="bean.orderItemStatus != null">
+				 order_item_status = #{bean.orderItemStatus},
+			</if>
+			<if test="bean.remark != null">
+				 remark = #{bean.remark},
+			</if>
+<if test="bean.refundOrderId != null">
+    refund_order_id = #{bean.refundOrderId},
+</if>
+<if test="bean.refundAmount != null">
+    refund_amount = #{bean.refundAmount},
+</if>
+ 		 </set>
+ 		 where order_item_id=#{orderItemId}
+	</update>
+
+	<!-- 根据OrderItemId删除-->
+	<delete id="deleteByOrderItemId">
+		delete from order_item where order_item_id=#{orderItemId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByOrderItemId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from order_item o where order_item_id=#{orderItemId}
+	</select>
+
+	<!-- 根据多个orderId查询订单商品-->
+	<select id="selectByOrderIds" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from order_item o
+		where o.order_id in
+		<foreach collection="orderIds" item="id" open="(" separator="," close=")">
+			#{id}
+		</foreach>
+		order by o.order_item_id
+	</select>
+
+</mapper>

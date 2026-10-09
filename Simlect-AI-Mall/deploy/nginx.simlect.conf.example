@@ -1,0 +1,55 @@
+# Simlect 对外入口示例（仅暴露 Gateway；业务端口不对公网）
+upstream simlect_gateway {
+    server 127.0.0.1:8080;
+    keepalive 32;
+}
+
+server {
+    listen 80;
+    server_name www.example.com;
+    # 建议另配 HTTPS；此处略
+
+    client_max_body_size 20m;
+
+    # C 端前端静态（按实际路径调整）
+    location / {
+        root /var/www/simlect-web;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 管理端静态（可拆到独立 server_name）
+    location /admin/ {
+        alias /var/www/simlect-admin/;
+        try_files $uri $uri/ /admin/index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://simlect_gateway;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /admin-api/ {
+        proxy_pass http://simlect_gateway;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /ws/ {
+        proxy_pass http://simlect_gateway;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;
+    }
+
+    # 禁止把 Gateway 业务端口以外的服务暴露到公网
+    # 不要反代 /actuator（健康检查仅内网探测 8080/actuator/health）
+}

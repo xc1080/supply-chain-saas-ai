@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.SysProductPropertyMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.SysProductProperty">
+		<!--属性ID-->
+		<result column="property_id" property="propertyId"  />
+		<!--属性名称-->
+		<result column="property_name" property="propertyName"  />
+		<!--一级分类-->
+		<result column="p_category_id" property="pCategoryId"  />
+		<!--二级分类-->
+		<result column="category_id" property="categoryId"  />
+		<!--排序-->
+		<result column="property_sort" property="propertySort"  />
+		<!--0:无需传封面 1:需传封面-->
+		<result column="cover_type" property="coverType"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 s.property_id,s.property_name,s.p_category_id,s.category_id,s.property_sort,
+		 s.cover_type
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.propertyId != null and query.propertyId!=''">
+				 and  s.property_id = #{query.propertyId}
+			</if>
+			<if test="query.propertyName != null and query.propertyName!=''">
+				 and  s.property_name = #{query.propertyName}
+			</if>
+			<if test="query.pCategoryId != null and query.pCategoryId!=''">
+				 and  s.p_category_id = #{query.pCategoryId}
+			</if>
+			<if test="query.categoryId != null and query.categoryId!=''">
+				 and  s.category_id = #{query.categoryId}
+			</if>
+			<if test="query.propertySort != null">
+				 and  s.property_sort = #{query.propertySort}
+			</if>
+			<if test="query.coverType != null">
+				 and  s.cover_type = #{query.coverType}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.propertyIdFuzzy!= null  and query.propertyIdFuzzy!=''">
+				 and  s.property_id like concat('%', #{query.propertyIdFuzzy}, '%')
+			</if>
+			<if test="query.propertyNameFuzzy!= null  and query.propertyNameFuzzy!=''">
+				 and  s.property_name like concat('%', #{query.propertyNameFuzzy}, '%')
+			</if>
+			<if test="query.pCategoryIdFuzzy!= null  and query.pCategoryIdFuzzy!=''">
+				 and  s.p_category_id like concat('%', #{query.pCategoryIdFuzzy}, '%')
+			</if>
+			<if test="query.categoryIdFuzzy!= null  and query.categoryIdFuzzy!=''">
+				 and  s.category_id like concat('%', #{query.categoryIdFuzzy}, '%')
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM sys_product_property s <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM sys_product_property s <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.SysProductProperty">
+		 INSERT INTO sys_product_property
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.propertyId != null">
+				 property_id,
+			</if>
+			<if test="bean.propertyName != null">
+				 property_name,
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id,
+			</if>
+			<if test="bean.categoryId != null">
+				 category_id,
+			</if>
+			<if test="bean.propertySort != null">
+				 property_sort,
+			</if>
+			<if test="bean.coverType != null">
+				 cover_type,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.propertyId!=null">
+				 #{bean.propertyId},
+			</if>
+			<if test="bean.propertyName!=null">
+				 #{bean.propertyName},
+			</if>
+			<if test="bean.pCategoryId!=null">
+				 #{bean.pCategoryId},
+			</if>
+			<if test="bean.categoryId!=null">
+				 #{bean.categoryId},
+			</if>
+			<if test="bean.propertySort!=null">
+				 #{bean.propertySort},
+			</if>
+			<if test="bean.coverType!=null">
+				 #{bean.coverType},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.SysProductProperty">
+		 INSERT INTO sys_product_property
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.propertyId != null">
+				 property_id,
+			</if>
+			<if test="bean.propertyName != null">
+				 property_name,
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id,
+			</if>
+			<if test="bean.categoryId != null">
+				 category_id,
+			</if>
+			<if test="bean.propertySort != null">
+				 property_sort,
+			</if>
+			<if test="bean.coverType != null">
+				 cover_type,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.propertyId!=null">
+				 #{bean.propertyId},
+			</if>
+			<if test="bean.propertyName!=null">
+				 #{bean.propertyName},
+			</if>
+			<if test="bean.pCategoryId!=null">
+				 #{bean.pCategoryId},
+			</if>
+			<if test="bean.categoryId!=null">
+				 #{bean.categoryId},
+			</if>
+			<if test="bean.propertySort!=null">
+				 #{bean.propertySort},
+			</if>
+			<if test="bean.coverType!=null">
+				 #{bean.coverType},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.propertyId!=null">
+				 property_id = VALUES(property_id),
+			</if>
+			<if test="bean.propertyName!=null">
+				 property_name = VALUES(property_name),
+			</if>
+			<if test="bean.pCategoryId!=null">
+				 p_category_id = VALUES(p_category_id),
+			</if>
+			<if test="bean.categoryId!=null">
+				 category_id = VALUES(category_id),
+			</if>
+			<if test="bean.propertySort!=null">
+				 property_sort = VALUES(property_sort),
+			</if>
+			<if test="bean.coverType!=null">
+				 cover_type = VALUES(cover_type),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.SysProductProperty">
+		 INSERT INTO sys_product_property(
+			 property_id,
+			 property_name,
+			 p_category_id,
+			 category_id,
+			 property_sort,
+			 cover_type
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.propertyId},
+				 #{item.propertyName},
+				 #{item.pCategoryId},
+				 #{item.categoryId},
+				 #{item.propertySort},
+				 #{item.coverType}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.SysProductProperty">
+		 INSERT INTO sys_product_property(
+			 property_id,
+			 property_name,
+			 p_category_id,
+			 category_id,
+			 property_sort,
+			 cover_type
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.propertyId},
+				 #{item.propertyName},
+				 #{item.pCategoryId},
+				 #{item.categoryId},
+				 #{item.propertySort},
+				 #{item.coverType}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			property_id = VALUES(property_id),
+			property_name = VALUES(property_name),
+			p_category_id = VALUES(p_category_id),
+			category_id = VALUES(category_id),
+			property_sort = VALUES(property_sort),
+			cover_type = VALUES(cover_type)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.SysProductPropertyQuery">
+		 UPDATE sys_product_property s
+ 		 <set> 
+			<if test="bean.propertyId != null">
+				 property_id = #{bean.propertyId},
+			</if>
+			<if test="bean.propertyName != null">
+				 property_name = #{bean.propertyName},
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id = #{bean.pCategoryId},
+			</if>
+			<if test="bean.categoryId != null">
+				 category_id = #{bean.categoryId},
+			</if>
+			<if test="bean.propertySort != null">
+				 property_sort = #{bean.propertySort},
+			</if>
+			<if test="bean.coverType != null">
+				 cover_type = #{bean.coverType},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete s from sys_product_property s
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据PropertyId修改-->
+	<update id="updateByPropertyId" parameterType="com.simlect.entity.po.SysProductProperty">
+		 UPDATE sys_product_property
+ 		 <set> 
+			<if test="bean.propertyName != null">
+				 property_name = #{bean.propertyName},
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id = #{bean.pCategoryId},
+			</if>
+			<if test="bean.categoryId != null">
+				 category_id = #{bean.categoryId},
+			</if>
+			<if test="bean.propertySort != null">
+				 property_sort = #{bean.propertySort},
+			</if>
+			<if test="bean.coverType != null">
+				 cover_type = #{bean.coverType},
+			</if>
+ 		 </set>
+ 		 where property_id=#{propertyId}
+	</update>
+
+	<!-- 根据PropertyId删除-->
+	<delete id="deleteByPropertyId">
+		delete from sys_product_property where property_id=#{propertyId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByPropertyId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from sys_product_property s where property_id=#{propertyId}
+	</select>
+
+	<!-- 获取当前分类层级下最大的property_sort的值 -->
+	<select id="selectMaxPropertySort" resultType="java.lang.Integer">
+		select max(property_sort) from sys_product_property where category_id=#{categoryId}
+	</select>
+</mapper>

@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.RagQuestionMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.RagQuestion">
+		<!--自增ID-->
+		<id column="question_id" property="questionId"  />
+		<!--问题-->
+		<result column="question" property="question"  />
+		<!--相似问题-->
+		<result column="similar_question" property="similarQuestion"  />
+		<!--答案-->
+		<result column="answer" property="answer"  />
+		<!--创建时间-->
+		<result column="create_time" property="createTime"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 r.question_id,r.question,r.similar_question,r.answer,r.create_time
+		 
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.questionId != null">
+				 and  r.question_id = #{query.questionId}
+			</if>
+			<if test="query.question != null and query.question!=''">
+				 and  r.question = #{query.question}
+			</if>
+			<if test="query.similarQuestion != null and query.similarQuestion!=''">
+				 and  r.similar_question = #{query.similarQuestion}
+			</if>
+			<if test="query.answer != null and query.answer!=''">
+				 and  r.answer = #{query.answer}
+			</if>
+			<if test="query.createTime != null and query.createTime!=''">
+				 <![CDATA[ and  r.create_time=str_to_date(#{query.createTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.questionFuzzy!= null  and query.questionFuzzy!=''">
+				 and  r.question like concat('%', #{query.questionFuzzy}, '%')
+			</if>
+			<if test="query.similarQuestionFuzzy!= null  and query.similarQuestionFuzzy!=''">
+				 and  r.similar_question like concat('%', #{query.similarQuestionFuzzy}, '%')
+			</if>
+			<if test="query.answerFuzzy!= null  and query.answerFuzzy!=''">
+				 and  r.answer like concat('%', #{query.answerFuzzy}, '%')
+			</if>
+			<if test="query.createTimeStart!= null and query.createTimeStart!=''">
+				 <![CDATA[ and  r.create_time>=str_to_date(#{query.createTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.createTimeEnd!= null and query.createTimeEnd!=''">
+				 <![CDATA[ and  r.create_time< date_sub(str_to_date(#{query.createTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM rag_question r <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM rag_question r <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.RagQuestion">
+		<selectKey keyProperty="bean.questionId" resultType="Integer" order="AFTER">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		 INSERT INTO rag_question
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.question != null">
+				 question,
+			</if>
+			<if test="bean.similarQuestion != null">
+				 similar_question,
+			</if>
+			<if test="bean.answer != null">
+				 answer,
+			</if>
+			<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.question!=null">
+				 #{bean.question},
+			</if>
+			<if test="bean.similarQuestion!=null">
+				 #{bean.similarQuestion},
+			</if>
+			<if test="bean.answer!=null">
+				 #{bean.answer},
+			</if>
+			<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.RagQuestion">
+		 INSERT INTO rag_question
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.questionId != null">
+				 question_id,
+			</if>
+			<if test="bean.question != null">
+				 question,
+			</if>
+			<if test="bean.similarQuestion != null">
+				 similar_question,
+			</if>
+			<if test="bean.answer != null">
+				 answer,
+			</if>
+			<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.questionId!=null">
+				 #{bean.questionId},
+			</if>
+			<if test="bean.question!=null">
+				 #{bean.question},
+			</if>
+			<if test="bean.similarQuestion!=null">
+				 #{bean.similarQuestion},
+			</if>
+			<if test="bean.answer!=null">
+				 #{bean.answer},
+			</if>
+			<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.question!=null">
+				 question = VALUES(question),
+			</if>
+			<if test="bean.similarQuestion!=null">
+				 similar_question = VALUES(similar_question),
+			</if>
+			<if test="bean.answer!=null">
+				 answer = VALUES(answer),
+			</if>
+			<if test="bean.createTime!=null">
+				 create_time = VALUES(create_time),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.RagQuestion" useGeneratedKeys="true" keyProperty="questionId">
+		 INSERT INTO rag_question(
+			 question,
+			 similar_question,
+			 answer,
+			 create_time
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.question},
+				 #{item.similarQuestion},
+				 #{item.answer},
+				 #{item.createTime}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.RagQuestion">
+		 INSERT INTO rag_question(
+			 question,
+			 similar_question,
+			 answer,
+			 create_time
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.question},
+				 #{item.similarQuestion},
+				 #{item.answer},
+				 #{item.createTime}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			question = VALUES(question),
+			similar_question = VALUES(similar_question),
+			answer = VALUES(answer),
+			create_time = VALUES(create_time)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.RagQuestionQuery">
+		 UPDATE rag_question r
+ 		 <set> 
+			<if test="bean.question != null">
+				 question = #{bean.question},
+			</if>
+			<if test="bean.similarQuestion != null">
+				 similar_question = #{bean.similarQuestion},
+			</if>
+			<if test="bean.answer != null">
+				 answer = #{bean.answer},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete r from rag_question r
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据QuestionId修改-->
+	<update id="updateByQuestionId" parameterType="com.simlect.entity.po.RagQuestion">
+		 UPDATE rag_question
+ 		 <set> 
+			<if test="bean.question != null">
+				 question = #{bean.question},
+			</if>
+			<if test="bean.similarQuestion != null">
+				 similar_question = #{bean.similarQuestion},
+			</if>
+			<if test="bean.answer != null">
+				 answer = #{bean.answer},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+ 		 </set>
+ 		 where question_id=#{questionId}
+	</update>
+
+	<!-- 根据QuestionId删除-->
+	<delete id="deleteByQuestionId">
+		delete from rag_question where question_id=#{questionId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByQuestionId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from rag_question r where question_id=#{questionId}
+	</select>
+
+</mapper>

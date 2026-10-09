@@ -1,0 +1,141 @@
+@font-face {
+  font-family: "iconfont"; 
+  src: url('iconfont.ttf?t=1768091168067') format('truetype');
+}
+
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-horizontal:before {
+  content: "\e8ad";
+}
+
+.icon-decline:before {
+  content: "\e617";
+}
+
+.icon-rise:before {
+  content: "\e8ac";
+}
+
+.icon-refund-amount:before {
+  content: "\e64c";
+}
+
+.icon-sale-amount:before {
+  content: "\e60b";
+}
+
+.icon-user-add:before {
+  content: "\e66f";
+}
+
+.icon-order-count:before {
+  content: "\e7e3";
+}
+
+.icon-commend:before {
+  content: "\e608";
+}
+
+.icon-cancel-commend:before {
+  content: "\e79d";
+}
+
+.icon-search:before {
+  content: "\e6dd";
+}
+
+.icon-cart:before {
+  content: "\e7c3";
+}
+
+.icon-robot:before {
+  content: "\e656";
+}
+
+.icon-view:before {
+  content: "\e607";
+}
+
+.icon-stock:before {
+  content: "\e633";
+}
+
+.icon-shangjia:before {
+  content: "\e7ed";
+}
+
+.icon-xiajia:before {
+  content: "\e7ef";
+}
+
+.icon-edit:before {
+  content: "\e70b";
+}
+
+.icon-image:before {
+  content: "\e63a";
+}
+
+.icon-delete:before {
+  content: "\e60c";
+}
+
+.icon-add:before {
+  content: "\e62f";
+}
+
+.icon-down:before {
+  content: "\e600";
+}
+
+.icon-checkcode:before {
+  content: "\e626";
+}
+
+.icon-account:before {
+  content: "\e7ae";
+}
+
+.icon-password:before {
+  content: "\e65d";
+}
+
+.icon-folder:before {
+  content: "\e8ab";
+}
+
+.icon-up:before {
+  content: "\e7af";
+}
+
+.icon-user:before {
+  content: "\e639";
+}
+
+.icon-order:before {
+  content: "\e616";
+}
+
+.icon-setting:before {
+  content: "\e871";
+}
+
+.icon-video:before {
+  content: "\e622";
+}
+
+.icon-product:before {
+  content: "\e610";
+}
+
+.icon-home:before {
+  content: "\e624";
+}
+

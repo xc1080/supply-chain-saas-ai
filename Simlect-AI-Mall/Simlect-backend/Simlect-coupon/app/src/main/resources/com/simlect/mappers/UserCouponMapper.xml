@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.UserCouponMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.UserCoupon">
+		<!--用户优惠券记录ID-->
+		<result column="user_coupon_id" property="userCouponId"  />
+		<!--用户ID-->
+		<result column="user_id" property="userId"  />
+		<!--优惠券ID-->
+		<result column="coupon_id" property="couponId"  />
+		<result column="receive_time" property="receiveTime"  />
+		<!--使用时间-->
+		<result column="use_time" property="useTime"  />
+		<result column="order_id" property="orderId"  />
+		<!--状态 0:未使用 1:已使用 2:已过期 3:已作废-->
+		<result column="status" property="status"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 u.user_coupon_id,u.user_id,u.coupon_id,
+		 u.receive_time,u.use_time,u.order_id,u.status
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.userCouponId != null and query.userCouponId!=''">
+				 and  u.user_coupon_id = #{query.userCouponId}
+			</if>
+			<if test="query.userId != null and query.userId!=''">
+				 and  u.user_id = #{query.userId}
+			</if>
+			<if test="query.couponId != null and query.couponId!=''">
+				 and  u.coupon_id = #{query.couponId}
+			</if>
+			<if test="query.useTime != null and query.useTime!=''">
+				 <![CDATA[ and  u.use_time=str_to_date(#{query.useTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.status != null">
+				 and  u.status = #{query.status}
+			</if>
+			<if test="query.executeStatusList != null and query.executeStatusList.length > 0">
+				and u.status not in
+				<foreach item="item" collection="query.executeStatusList" separator="," open="(" close=")">
+					#{item}
+				</foreach>
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.userCouponIdFuzzy!= null  and query.userCouponIdFuzzy!=''">
+				 and  u.user_coupon_id like concat('%', #{query.userCouponIdFuzzy}, '%')
+			</if>
+			<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  u.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+			<if test="query.couponIdFuzzy!= null  and query.couponIdFuzzy!=''">
+				 and  u.coupon_id like concat('%', #{query.couponIdFuzzy}, '%')
+			</if>
+			<if test="query.useTimeStart!= null and query.useTimeStart!=''">
+				 <![CDATA[ and  u.use_time>=str_to_date(#{query.useTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.useTimeEnd!= null and query.useTimeEnd!=''">
+				 <![CDATA[ and  u.use_time< date_sub(str_to_date(#{query.useTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM user_coupon u <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM user_coupon u <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.UserCoupon">
+		 INSERT INTO user_coupon
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.userCouponId != null">
+				 user_coupon_id,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.couponId != null">
+				 coupon_id,
+			</if>
+			<if test="bean.receiveTime != null">
+				 receive_time,
+			</if>
+			<if test="bean.useTime != null">
+				 use_time,
+			</if>
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.status != null">
+				 status,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.userCouponId!=null">
+				 #{bean.userCouponId},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.couponId!=null">
+				 #{bean.couponId},
+			</if>
+			<if test="bean.receiveTime!=null">
+				 #{bean.receiveTime},
+			</if>
+			<if test="bean.useTime!=null">
+				 #{bean.useTime},
+			</if>
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.status!=null">
+				 #{bean.status},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.UserCoupon">
+		 INSERT INTO user_coupon
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.userCouponId != null">
+				 user_coupon_id,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.couponId != null">
+				 coupon_id,
+			</if>
+			<if test="bean.useTime != null">
+				 use_time,
+			</if>
+			<if test="bean.status != null">
+				 status,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.userCouponId!=null">
+				 #{bean.userCouponId},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.couponId!=null">
+				 #{bean.couponId},
+			</if>
+			<if test="bean.useTime!=null">
+				 #{bean.useTime},
+			</if>
+			<if test="bean.status!=null">
+				 #{bean.status},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.userCouponId!=null">
+				 user_coupon_id = VALUES(user_coupon_id),
+			</if>
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.couponId!=null">
+				 coupon_id = VALUES(coupon_id),
+			</if>
+			<if test="bean.useTime!=null">
+				 use_time = VALUES(use_time),
+			</if>
+			<if test="bean.status!=null">
+				 status = VALUES(status),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.UserCoupon">
+		 INSERT INTO user_coupon(
+			 user_coupon_id,
+			 user_id,
+			 coupon_id,
+			 use_time,
+			 status
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.userCouponId},
+				 #{item.userId},
+				 #{item.couponId},
+				 #{item.useTime},
+				 #{item.status}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.UserCoupon">
+		 INSERT INTO user_coupon(
+			 user_coupon_id,
+			 user_id,
+			 coupon_id,
+			 use_time,
+			 status
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.userCouponId},
+				 #{item.userId},
+				 #{item.couponId},
+				 #{item.useTime},
+				 #{item.status}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			user_coupon_id = VALUES(user_coupon_id),
+			user_id = VALUES(user_id),
+			coupon_id = VALUES(coupon_id),
+			use_time = VALUES(use_time),
+			status = VALUES(status)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.UserCouponQuery">
+		 UPDATE user_coupon u
+ 		 <set> 
+			<if test="bean.userCouponId != null">
+				 user_coupon_id = #{bean.userCouponId},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.couponId != null">
+				 coupon_id = #{bean.couponId},
+			</if>
+			<if test="bean.useTime != null">
+				 use_time = #{bean.useTime},
+			</if>
+			<if test="bean.status != null">
+				 status = #{bean.status},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete u from user_coupon u
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据UserCouponId修改-->
+	<update id="updateByUserCouponId" parameterType="com.simlect.entity.po.UserCoupon">
+		 UPDATE user_coupon
+ 		 <set> 
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.couponId != null">
+				 coupon_id = #{bean.couponId},
+			</if>
+			<if test="bean.useTime != null">
+				 use_time = #{bean.useTime},
+			</if>
+			<if test="bean.status != null">
+				 status = #{bean.status},
+			</if>
+ 		 </set>
+ 		 where user_coupon_id=#{userCouponId}
+	</update>
+
+	<!-- 根据UserCouponId删除-->
+	<delete id="deleteByUserCouponId">
+		delete from user_coupon where user_coupon_id=#{userCouponId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByUserCouponId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from user_coupon u where user_coupon_id=#{userCouponId}
+	</select>
+
+<select id="selectExpiringUnused" resultType="java.util.HashMap">
+select uc.user_id as userId,
+uc.user_coupon_id as userCouponId,
+c.coupon_id as couponId,
+c.coupon_name as couponName
+from user_coupon uc
+inner join discount_coupon c on uc.coupon_id = c.coupon_id
+where uc.status = 0
+and c.valid_end_time is not null
+<![CDATA[ and c.valid_end_time >= now() ]]>
+<![CDATA[ and c.valid_end_time <= date_add(now(), interval 3 day) ]]>
+order by c.valid_end_time asc
+limit #{limit}
+</select>
+
+<!-- keyset 游标分页版：防 limit 截断导致排在后面的用户永远收不到提醒 -->
+<select id="selectExpiringUnusedByCursor" resultType="java.util.HashMap">
+select uc.user_id as userId,
+uc.user_coupon_id as userCouponId,
+c.coupon_id as couponId,
+c.coupon_name as couponName,
+c.valid_end_time as validEndTime
+from user_coupon uc
+inner join discount_coupon c on uc.coupon_id = c.coupon_id
+where uc.status = 0
+and c.valid_end_time is not null
+<![CDATA[ and c.valid_end_time >= now() ]]>
+<![CDATA[ and c.valid_end_time <= date_add(now(), interval 3 day) ]]>
+<if test="cursorEndTime != null">
+<![CDATA[ and (c.valid_end_time > #{cursorEndTime}
+    or (c.valid_end_time = #{cursorEndTime} and uc.user_coupon_id > #{cursorUserCouponId})) ]]>
+</if>
+order by c.valid_end_time asc, uc.user_coupon_id asc
+limit #{limit}
+</select>
+</mapper>

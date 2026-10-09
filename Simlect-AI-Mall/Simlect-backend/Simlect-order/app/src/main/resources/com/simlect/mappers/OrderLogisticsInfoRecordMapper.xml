@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.OrderLogisticsInfoRecordMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.OrderLogisticsInfoRecord">
+		<!--记录ID-->
+		<id column="record_id" property="recordId"  />
+		<!--订单ID-->
+		<result column="order_id" property="orderId"  />
+		<!--记录时间-->
+		<result column="record_time" property="recordTime"  />
+		<!--记录地址-->
+		<result column="record_address" property="recordAddress"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 o.record_id,o.order_id,o.record_time,o.record_address
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.recordId != null">
+				 and  o.record_id = #{query.recordId}
+			</if>
+			<if test="query.orderId != null and query.orderId!=''">
+				 and  o.order_id = #{query.orderId}
+			</if>
+			<if test="query.recordTime != null and query.recordTime!=''">
+				 <![CDATA[ and  o.record_time=str_to_date(#{query.recordTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.recordAddress != null and query.recordAddress!=''">
+				 and  o.record_address = #{query.recordAddress}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.orderIdFuzzy!= null  and query.orderIdFuzzy!=''">
+				 and  o.order_id like concat('%', #{query.orderIdFuzzy}, '%')
+			</if>
+			<if test="query.recordTimeStart!= null and query.recordTimeStart!=''">
+				 <![CDATA[ and  o.record_time>=str_to_date(#{query.recordTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.recordTimeEnd!= null and query.recordTimeEnd!=''">
+				 <![CDATA[ and  o.record_time< date_sub(str_to_date(#{query.recordTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+			<if test="query.recordAddressFuzzy!= null  and query.recordAddressFuzzy!=''">
+				 and  o.record_address like concat('%', #{query.recordAddressFuzzy}, '%')
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM order_logistics_info_record o <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM order_logistics_info_record o <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.OrderLogisticsInfoRecord">
+		<selectKey keyProperty="bean.recordId" resultType="Integer" order="AFTER">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		 INSERT INTO order_logistics_info_record
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.recordTime != null">
+				 record_time,
+			</if>
+			<if test="bean.recordAddress != null">
+				 record_address,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.recordTime!=null">
+				 #{bean.recordTime},
+			</if>
+			<if test="bean.recordAddress!=null">
+				 #{bean.recordAddress},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.OrderLogisticsInfoRecord">
+		 INSERT INTO order_logistics_info_record
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.recordId != null">
+				 record_id,
+			</if>
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.recordTime != null">
+				 record_time,
+			</if>
+			<if test="bean.recordAddress != null">
+				 record_address,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.recordId!=null">
+				 #{bean.recordId},
+			</if>
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.recordTime!=null">
+				 #{bean.recordTime},
+			</if>
+			<if test="bean.recordAddress!=null">
+				 #{bean.recordAddress},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.orderId!=null">
+				 order_id = VALUES(order_id),
+			</if>
+			<if test="bean.recordTime!=null">
+				 record_time = VALUES(record_time),
+			</if>
+			<if test="bean.recordAddress!=null">
+				 record_address = VALUES(record_address),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.OrderLogisticsInfoRecord" useGeneratedKeys="true" keyProperty="recordId">
+		 INSERT INTO order_logistics_info_record(
+			 order_id,
+			 record_time,
+			 record_address
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderId},
+				 #{item.recordTime},
+				 #{item.recordAddress}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.OrderLogisticsInfoRecord">
+		 INSERT INTO order_logistics_info_record(
+			 order_id,
+			 record_time,
+			 record_address
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderId},
+				 #{item.recordTime},
+				 #{item.recordAddress}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			order_id = VALUES(order_id),
+			record_time = VALUES(record_time),
+			record_address = VALUES(record_address)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.OrderLogisticsInfoRecordQuery">
+		 UPDATE order_logistics_info_record o
+ 		 <set> 
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.recordTime != null">
+				 record_time = #{bean.recordTime},
+			</if>
+			<if test="bean.recordAddress != null">
+				 record_address = #{bean.recordAddress},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete o from order_logistics_info_record o
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据RecordId修改-->
+	<update id="updateByRecordId" parameterType="com.simlect.entity.po.OrderLogisticsInfoRecord">
+		 UPDATE order_logistics_info_record
+ 		 <set> 
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.recordTime != null">
+				 record_time = #{bean.recordTime},
+			</if>
+			<if test="bean.recordAddress != null">
+				 record_address = #{bean.recordAddress},
+			</if>
+ 		 </set>
+ 		 where record_id=#{recordId}
+	</update>
+
+	<!-- 根据RecordId删除-->
+	<delete id="deleteByRecordId">
+		delete from order_logistics_info_record where record_id=#{recordId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByRecordId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from order_logistics_info_record o where record_id=#{recordId}
+	</select>
+
+</mapper>

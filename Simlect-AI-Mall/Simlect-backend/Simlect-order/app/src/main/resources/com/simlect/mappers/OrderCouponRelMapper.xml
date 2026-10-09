@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.OrderCouponRelMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.OrderCouponRel">
+		<id column="id" property="id"  />
+		<result column="order_id" property="orderId"  />
+		<result column="user_coupon_id" property="userCouponId"  />
+		<result column="coupon_id" property="couponId"  />
+		<result column="discount_amount" property="discountAmount"  />
+		<result column="create_time" property="createTime"  />
+	</resultMap>
+
+	<sql id="base_column_list">
+		 o.id,o.order_id,o.user_coupon_id,o.coupon_id,o.discount_amount,o.create_time
+	</sql>
+
+	<sql id="base_condition_filed">
+<if test="query.id != null">
+				 and  o.id = #{query.id}
+			</if>
+<if test="query.orderId != null and query.orderId!=''">
+				 and  o.order_id = #{query.orderId}
+			</if>
+<if test="query.userCouponId != null and query.userCouponId!=''">
+				 and  o.user_coupon_id = #{query.userCouponId}
+			</if>
+<if test="query.couponId != null and query.couponId!=''">
+				 and  o.coupon_id = #{query.couponId}
+			</if>
+<if test="query.discountAmount != null">
+				 and  o.discount_amount = #{query.discountAmount}
+			</if>
+<if test="query.createTime != null and query.createTime!=''">
+				 <![CDATA[ and  o.create_time=str_to_date(#{query.createTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+	</sql>
+
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+<if test="query.orderIdFuzzy!= null  and query.orderIdFuzzy!=''">
+				 and  o.order_id like concat('%', #{query.orderIdFuzzy}, '%')
+			</if>
+<if test="query.userCouponIdFuzzy!= null  and query.userCouponIdFuzzy!=''">
+				 and  o.user_coupon_id like concat('%', #{query.userCouponIdFuzzy}, '%')
+			</if>
+<if test="query.couponIdFuzzy!= null  and query.couponIdFuzzy!=''">
+				 and  o.coupon_id like concat('%', #{query.couponIdFuzzy}, '%')
+			</if>
+<if test="query.createTimeStart!= null and query.createTimeStart!=''">
+				 <![CDATA[ and  o.create_time>=str_to_date(#{query.createTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+<if test="query.createTimeEnd!= null and query.createTimeEnd!=''">
+				 <![CDATA[ and  o.create_time< date_sub(str_to_date(#{query.createTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM order_coupon_rel o <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM order_coupon_rel o <include refid="query_condition" />
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.OrderCouponRel">
+		<selectKey keyProperty="bean.id" resultType="Long" order="AFTER">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		 INSERT INTO order_coupon_rel
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+<if test="bean.id != null">
+				 id,
+			</if>
+<if test="bean.orderId != null">
+				 order_id,
+			</if>
+<if test="bean.userCouponId != null">
+				 user_coupon_id,
+			</if>
+<if test="bean.couponId != null">
+				 coupon_id,
+			</if>
+<if test="bean.discountAmount != null">
+				 discount_amount,
+			</if>
+<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+<if test="bean.id!=null">
+				 #{bean.id},
+			</if>
+<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+<if test="bean.userCouponId!=null">
+				 #{bean.userCouponId},
+			</if>
+<if test="bean.couponId!=null">
+				 #{bean.couponId},
+			</if>
+<if test="bean.discountAmount!=null">
+				 #{bean.discountAmount},
+			</if>
+<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.OrderCouponRel">
+		 INSERT INTO order_coupon_rel
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+<if test="bean.id != null">
+				 id,
+			</if>
+<if test="bean.orderId != null">
+				 order_id,
+			</if>
+<if test="bean.userCouponId != null">
+				 user_coupon_id,
+			</if>
+<if test="bean.couponId != null">
+				 coupon_id,
+			</if>
+<if test="bean.discountAmount != null">
+				 discount_amount,
+			</if>
+<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+<if test="bean.id!=null">
+				 #{bean.id},
+			</if>
+<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+<if test="bean.userCouponId!=null">
+				 #{bean.userCouponId},
+			</if>
+<if test="bean.couponId!=null">
+				 #{bean.couponId},
+			</if>
+<if test="bean.discountAmount!=null">
+				 #{bean.discountAmount},
+			</if>
+<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+		 on DUPLICATE key update
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.orderId!=null">
+				 order_id = VALUES(order_id),
+			</if>
+			<if test="bean.userCouponId!=null">
+				 user_coupon_id = VALUES(user_coupon_id),
+			</if>
+			<if test="bean.couponId!=null">
+				 coupon_id = VALUES(coupon_id),
+			</if>
+			<if test="bean.discountAmount!=null">
+				 discount_amount = VALUES(discount_amount),
+			</if>
+			<if test="bean.createTime!=null">
+				 create_time = VALUES(create_time),
+			</if>
+		 </trim>
+	</insert>
+
+	<update id="updateByParam" parameterType="com.simlect.entity.query.OrderCouponRelQuery">
+		 UPDATE order_coupon_rel o
+		 <set>
+			<if test="bean.id != null">
+				 id = #{bean.id},
+			</if>
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.userCouponId != null">
+				 user_coupon_id = #{bean.userCouponId},
+			</if>
+			<if test="bean.couponId != null">
+				 coupon_id = #{bean.couponId},
+			</if>
+			<if test="bean.discountAmount != null">
+				 discount_amount = #{bean.discountAmount},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+		 </set>
+		 <include refid="query_condition" />
+	</update>
+
+	<delete id="deleteByParam">
+		 delete o from order_coupon_rel o
+		 <include refid="query_condition" />
+	</delete>
+
+	<update id="updateById" parameterType="com.simlect.entity.query.OrderCouponRelQuery">
+		 UPDATE order_coupon_rel o
+		 <set>
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.userCouponId != null">
+				 user_coupon_id = #{bean.userCouponId},
+			</if>
+			<if test="bean.couponId != null">
+				 coupon_id = #{bean.couponId},
+			</if>
+			<if test="bean.discountAmount != null">
+				 discount_amount = #{bean.discountAmount},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+		 </set>
+		 where id=#{id}
+	</update>
+	<delete id="deleteById">
+		delete from order_coupon_rel where id=#{id}
+	</delete>
+	<select id="selectById" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from order_coupon_rel o where id=#{id}
+	</select>
+
+</mapper>

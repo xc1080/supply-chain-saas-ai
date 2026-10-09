@@ -1,0 +1,147 @@
+@use './variables' as *;
+
+@mixin pc-embed-overrides {
+  .pc-page-embed {
+    font-size: 14px;
+    line-height: 1.5;
+    color: $color-text-body;
+
+    .el-tabs__item {
+      font-size: 14px !important;
+      height: 40px !important;
+      line-height: 40px !important;
+      padding: 0 16px !important;
+    }
+
+    .toolbar-chip,
+    .tab-btn {
+      font-size: 13px !important;
+      padding: 6px 14px !important;
+      line-height: 1.3 !important;
+      min-height: 32px;
+      max-height: none;
+    }
+
+    .el-input__inner,
+    .el-textarea__inner,
+    .el-button {
+      font-size: 14px !important;
+    }
+
+    .el-empty__description {
+      font-size: 14px !important;
+    }
+
+    .orders-page,
+    .my-coupons-page,
+    .sign-page,
+    .address-page {
+      min-height: auto !important;
+      max-height: none !important;
+    }
+
+    .coupons-page {
+      min-height: calc(100vh - 260px) !important;
+      max-height: none !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    .orders-body,
+    .coupon-scroll {
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    .coupon-list-scroll {
+      flex: 1 1 0 !important;
+      min-height: 420px !important;
+      max-height: none !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .user-coupon-card .main-value {
+      font-size: 18px !important;
+    }
+
+    .coupon-card .value,
+    .coupon-card .amount {
+      font-size: 20px !important;
+    }
+
+    .stat-card .stat-value {
+      font-size: 22px !important;
+    }
+
+    .stat-card .stat-label {
+      font-size: 12px !important;
+      writing-mode: horizontal-tb !important;
+      white-space: nowrap;
+    }
+
+    .address-page .page-toolbar {
+      flex-direction: row;
+      align-items: center;
+
+      .toolbar-tip {
+        font-size: 13px !important;
+        line-height: 1.5;
+        word-break: normal;
+      }
+    }
+
+    .profile-page .hero .nick {
+      font-size: 18px !important;
+    }
+
+    .manage-page .menu-item {
+      font-size: 14px !important;
+      padding: 12px 0 !important;
+    }
+
+    .wishlist-head .title,
+    .footprint-head .title {
+      display: none;
+    }
+
+    .coupons-page .page-title {
+      font-size: 16px !important;
+      text-align: left !important;
+    }
+
+    .coupons-page .notice-text {
+      font-size: 13px !important;
+    }
+
+    &.pc-cart-embed {
+      .cart-page {
+        min-height: auto !important;
+        padding-bottom: 16px !important;
+      }
+
+      .cart-empty .el-empty__description {
+        font-size: 14px !important;
+      }
+
+      .cart-empty .el-button {
+        font-size: 14px !important;
+        height: 40px;
+        padding: 0 24px;
+      }
+
+      .cart-bar {
+        position: sticky;
+        margin-top: 16px;
+      }
+    }
+  }
+}
+
+html[data-platform='desktop'] {
+  @include pc-embed-overrides;
+}
+
+@media (min-width: 768px) {
+  @include pc-embed-overrides;
+}

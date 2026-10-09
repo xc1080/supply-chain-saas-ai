@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title"><title id="title">智能安防，演示商品示意图</title><rect width="600" height="600" fill="#e7eff7"/><g transform="translate(-35 15) scale(.90)">
+<ellipse cx="310" cy="484" rx="113" ry="18" fill="#d7e0e9"/>
+<rect x="230" y="79" width="129" height="395" rx="30" fill="#263d54"/>
+<rect x="222" y="72" width="125" height="395" rx="30" fill="#405b76" stroke="#253b51" stroke-width="3"/>
+<rect x="237" y="93" width="96" height="145" rx="18" fill="#20374d"/>
+<g fill="#8dabca"><circle cx="257" cy="123" r="5"/><circle cx="284" cy="123" r="5"/><circle cx="311" cy="123" r="5"/><circle cx="257" cy="152" r="5"/><circle cx="284" cy="152" r="5"/><circle cx="311" cy="152" r="5"/><circle cx="257" cy="181" r="5"/><circle cx="284" cy="181" r="5"/><circle cx="311" cy="181" r="5"/></g>
+<circle cx="285" cy="281" r="31" fill="#273f56" stroke="#87a5c2" stroke-width="3"/>
+<path d="M277 287C274 271 297 272 294 287M272 293C265 266 305 263 302 289M283 288V301" fill="none" stroke="#a8bfd3" stroke-width="3" stroke-linecap="round"/>
+<path d="M278 268H402Q420 268 420 284V293Q420 309 402 309H278Z" fill="#617e99" stroke="#334d65" stroke-width="3"/>
+<path fill="none" d="M326 277H402" stroke="#8fa8bf" stroke-width="4" stroke-linecap="round"/>
+<circle cx="284" cy="395" r="15" fill="#233a50" stroke="#829db5" stroke-width="2"/>
+<path fill="none" d="M284 390V401" stroke="#9cb4c9" stroke-width="3"/>
+</g><g transform="translate(280 267) scale(.40)">
+<ellipse cx="300" cy="470" rx="159" ry="22" fill="#d7e0e9"/>
+<rect x="145" y="134" width="326" height="326" rx="38" fill="#becbd8"/>
+<rect x="130" y="119" width="326" height="326" rx="38" fill="#fff" stroke="#c5d1dc" stroke-width="3"/>
+<rect x="168" y="157" width="250" height="250" rx="12" fill="#e7edf3"/>
+<path d="M176 166H411V304L176 330Z" fill="#fafcfd" stroke="#d2dde7" stroke-width="2"/>
+<path d="M176 330L411 304V397H176Z" fill="#fff" stroke="#d2dde7" stroke-width="2"/>
+<rect x="268" y="353" width="51" height="4" rx="2" fill="#437abb"/>
+<path fill="none" d="M192 183H393" stroke="#fff" stroke-width="4"/>
+</g><text x="30" y="566" fill="#70869c" font-size="18" font-family="Microsoft YaHei, PingFang SC, sans-serif">商品示意</text></svg>

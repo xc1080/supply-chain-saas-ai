@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title"><title id="title">WiFi智能台灯，演示商品示意图</title><rect width="600" height="600" fill="#edf2f7"/>
+<ellipse cx="300" cy="470" rx="146" ry="21" fill="#d7e0e9"/>
+<ellipse cx="306" cy="446" rx="122" ry="24" fill="#bdcad7"/>
+<path d="M184 438C184 420 427 420 427 438V449C427 477 184 477 184 449Z" fill="#f9fbfd" stroke="#c5d1dc" stroke-width="3"/>
+<ellipse cx="306" cy="438" rx="121" ry="22" fill="#fff"/>
+<path d="M306 431V303L230 195" fill="none" stroke="#becbd7" stroke-width="23" stroke-linejoin="round"/>
+<path d="M306 427V303L230 195" fill="none" stroke="#fff" stroke-width="14" stroke-linejoin="round"/>
+<circle cx="306" cy="303" r="20" fill="#f7fafc" stroke="#c5d1dc" stroke-width="3"/>
+<circle cx="306" cy="303" r="7" fill="#437abb"/>
+<path d="M155 172L345 148L373 205L173 231Z" fill="#fff" stroke="#c5d1dc" stroke-width="3"/>
+<path d="M175 222L371 196L373 209L179 238Z" fill="#f5d995"/>
+<path fill="none" d="M282 441H331" stroke="#a9bacb" stroke-width="3" stroke-linecap="round"/>
+<circle cx="351" cy="437" r="5" fill="#437abb"/>
+<text x="30" y="566" fill="#70869c" font-size="18" font-family="Microsoft YaHei, PingFang SC, sans-serif">商品示意</text></svg>

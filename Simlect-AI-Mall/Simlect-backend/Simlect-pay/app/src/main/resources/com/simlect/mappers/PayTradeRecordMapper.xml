@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.PayTradeRecordMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.PayTradeRecord">
+		<id column="trade_id" property="tradeId"  />
+		<result column="order_id" property="orderId"  />
+		<result column="user_id" property="userId"  />
+		<result column="pay_order_id" property="payOrderId"  />
+		<result column="channel_order_id" property="channelOrderId"  />
+		<result column="pay_channel" property="payChannel"  />
+		<result column="pay_amount" property="payAmount"  />
+		<result column="trade_status" property="tradeStatus"  />
+		<result column="pay_time" property="payTime"  />
+		<result column="create_time" property="createTime"  />
+	</resultMap>
+
+	<sql id="base_column_list">
+		 p.trade_id,p.order_id,p.user_id,p.pay_order_id,p.channel_order_id,p.pay_channel,p.pay_amount,p.trade_status,p.pay_time,p.create_time
+	</sql>
+
+	<sql id="base_condition_filed">
+<if test="query.tradeId != null and query.tradeId!=''">
+				 and  p.trade_id = #{query.tradeId}
+			</if>
+<if test="query.orderId != null and query.orderId!=''">
+				 and  p.order_id = #{query.orderId}
+			</if>
+<if test="query.userId != null and query.userId!=''">
+				 and  p.user_id = #{query.userId}
+			</if>
+<if test="query.payOrderId != null and query.payOrderId!=''">
+				 and  p.pay_order_id = #{query.payOrderId}
+			</if>
+<if test="query.channelOrderId != null and query.channelOrderId!=''">
+				 and  p.channel_order_id = #{query.channelOrderId}
+			</if>
+<if test="query.payChannel != null and query.payChannel!=''">
+				 and  p.pay_channel = #{query.payChannel}
+			</if>
+<if test="query.payAmount != null">
+				 and  p.pay_amount = #{query.payAmount}
+			</if>
+<if test="query.tradeStatus != null">
+				 and  p.trade_status = #{query.tradeStatus}
+			</if>
+<if test="query.payTime != null and query.payTime!=''">
+				 <![CDATA[ and  p.pay_time=str_to_date(#{query.payTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+<if test="query.createTime != null and query.createTime!=''">
+				 <![CDATA[ and  p.create_time=str_to_date(#{query.createTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+	</sql>
+
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+<if test="query.tradeIdFuzzy!= null  and query.tradeIdFuzzy!=''">
+				 and  p.trade_id like concat('%', #{query.tradeIdFuzzy}, '%')
+			</if>
+<if test="query.orderIdFuzzy!= null  and query.orderIdFuzzy!=''">
+				 and  p.order_id like concat('%', #{query.orderIdFuzzy}, '%')
+			</if>
+<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  p.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+<if test="query.payOrderIdFuzzy!= null  and query.payOrderIdFuzzy!=''">
+				 and  p.pay_order_id like concat('%', #{query.payOrderIdFuzzy}, '%')
+			</if>
+<if test="query.channelOrderIdFuzzy!= null  and query.channelOrderIdFuzzy!=''">
+				 and  p.channel_order_id like concat('%', #{query.channelOrderIdFuzzy}, '%')
+			</if>
+<if test="query.payChannelFuzzy!= null  and query.payChannelFuzzy!=''">
+				 and  p.pay_channel like concat('%', #{query.payChannelFuzzy}, '%')
+			</if>
+<if test="query.payTimeStart!= null and query.payTimeStart!=''">
+				 <![CDATA[ and  p.pay_time>=str_to_date(#{query.payTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+<if test="query.payTimeEnd!= null and query.payTimeEnd!=''">
+				 <![CDATA[ and  p.pay_time< date_sub(str_to_date(#{query.payTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+<if test="query.createTimeStart!= null and query.createTimeStart!=''">
+				 <![CDATA[ and  p.create_time>=str_to_date(#{query.createTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+<if test="query.createTimeEnd!= null and query.createTimeEnd!=''">
+				 <![CDATA[ and  p.create_time< date_sub(str_to_date(#{query.createTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM pay_trade_record p <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM pay_trade_record p <include refid="query_condition" />
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.PayTradeRecord">
+		 INSERT INTO pay_trade_record
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+<if test="bean.tradeId != null">
+				 trade_id,
+			</if>
+<if test="bean.orderId != null">
+				 order_id,
+			</if>
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.payOrderId != null">
+				 pay_order_id,
+			</if>
+<if test="bean.channelOrderId != null">
+				 channel_order_id,
+			</if>
+<if test="bean.payChannel != null">
+				 pay_channel,
+			</if>
+<if test="bean.payAmount != null">
+				 pay_amount,
+			</if>
+<if test="bean.tradeStatus != null">
+				 trade_status,
+			</if>
+<if test="bean.payTime != null">
+				 pay_time,
+			</if>
+<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+<if test="bean.tradeId!=null">
+				 #{bean.tradeId},
+			</if>
+<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.payOrderId!=null">
+				 #{bean.payOrderId},
+			</if>
+<if test="bean.channelOrderId!=null">
+				 #{bean.channelOrderId},
+			</if>
+<if test="bean.payChannel!=null">
+				 #{bean.payChannel},
+			</if>
+<if test="bean.payAmount!=null">
+				 #{bean.payAmount},
+			</if>
+<if test="bean.tradeStatus!=null">
+				 #{bean.tradeStatus},
+			</if>
+<if test="bean.payTime!=null">
+				 #{bean.payTime},
+			</if>
+<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.PayTradeRecord">
+		 INSERT INTO pay_trade_record
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+<if test="bean.tradeId != null">
+				 trade_id,
+			</if>
+<if test="bean.orderId != null">
+				 order_id,
+			</if>
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.payOrderId != null">
+				 pay_order_id,
+			</if>
+<if test="bean.channelOrderId != null">
+				 channel_order_id,
+			</if>
+<if test="bean.payChannel != null">
+				 pay_channel,
+			</if>
+<if test="bean.payAmount != null">
+				 pay_amount,
+			</if>
+<if test="bean.tradeStatus != null">
+				 trade_status,
+			</if>
+<if test="bean.payTime != null">
+				 pay_time,
+			</if>
+<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+<if test="bean.tradeId!=null">
+				 #{bean.tradeId},
+			</if>
+<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.payOrderId!=null">
+				 #{bean.payOrderId},
+			</if>
+<if test="bean.channelOrderId!=null">
+				 #{bean.channelOrderId},
+			</if>
+<if test="bean.payChannel!=null">
+				 #{bean.payChannel},
+			</if>
+<if test="bean.payAmount!=null">
+				 #{bean.payAmount},
+			</if>
+<if test="bean.tradeStatus!=null">
+				 #{bean.tradeStatus},
+			</if>
+<if test="bean.payTime!=null">
+				 #{bean.payTime},
+			</if>
+<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+		 on DUPLICATE key update
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.orderId!=null">
+				 order_id = VALUES(order_id),
+			</if>
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.payOrderId!=null">
+				 pay_order_id = VALUES(pay_order_id),
+			</if>
+			<if test="bean.channelOrderId!=null">
+				 channel_order_id = VALUES(channel_order_id),
+			</if>
+			<if test="bean.payChannel!=null">
+				 pay_channel = VALUES(pay_channel),
+			</if>
+			<if test="bean.payAmount!=null">
+				 pay_amount = VALUES(pay_amount),
+			</if>
+			<if test="bean.tradeStatus!=null">
+				 trade_status = VALUES(trade_status),
+			</if>
+			<if test="bean.payTime!=null">
+				 pay_time = VALUES(pay_time),
+			</if>
+			<if test="bean.createTime!=null">
+				 create_time = VALUES(create_time),
+			</if>
+		 </trim>
+	</insert>
+
+	<update id="updateByParam" parameterType="com.simlect.entity.query.PayTradeRecordQuery">
+		 UPDATE pay_trade_record p
+		 <set>
+			<if test="bean.tradeId != null">
+				 trade_id = #{bean.tradeId},
+			</if>
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.payOrderId != null">
+				 pay_order_id = #{bean.payOrderId},
+			</if>
+			<if test="bean.channelOrderId != null">
+				 channel_order_id = #{bean.channelOrderId},
+			</if>
+			<if test="bean.payChannel != null">
+				 pay_channel = #{bean.payChannel},
+			</if>
+			<if test="bean.payAmount != null">
+				 pay_amount = #{bean.payAmount},
+			</if>
+			<if test="bean.tradeStatus != null">
+				 trade_status = #{bean.tradeStatus},
+			</if>
+			<if test="bean.payTime != null">
+				 pay_time = #{bean.payTime},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+		 </set>
+		 <include refid="query_condition" />
+	</update>
+
+	<delete id="deleteByParam">
+		 delete p from pay_trade_record p
+		 <include refid="query_condition" />
+	</delete>
+
+	<update id="updateByTradeId" parameterType="com.simlect.entity.query.PayTradeRecordQuery">
+		 UPDATE pay_trade_record p
+		 <set>
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.payOrderId != null">
+				 pay_order_id = #{bean.payOrderId},
+			</if>
+			<if test="bean.channelOrderId != null">
+				 channel_order_id = #{bean.channelOrderId},
+			</if>
+			<if test="bean.payChannel != null">
+				 pay_channel = #{bean.payChannel},
+			</if>
+			<if test="bean.payAmount != null">
+				 pay_amount = #{bean.payAmount},
+			</if>
+			<if test="bean.tradeStatus != null">
+				 trade_status = #{bean.tradeStatus},
+			</if>
+			<if test="bean.payTime != null">
+				 pay_time = #{bean.payTime},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+		 </set>
+		 where trade_id=#{tradeId}
+	</update>
+	<delete id="deleteByTradeId">
+		delete from pay_trade_record where trade_id=#{tradeId}
+	</delete>
+	<select id="selectByTradeId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from pay_trade_record p where trade_id=#{tradeId}
+	</select>
+
+</mapper>

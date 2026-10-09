@@ -1,0 +1,11 @@
+确认收货。必须调用 PROPOSE_CONFIRM_RECEIPT 工具（WRITE，需用户卡片确认后才执行）。
+用户ID：%s
+用户问题：%s
+
+步骤：
+1. 提取订单ID，不明确时请用户提供。订单号格式：时间戳+随机字母（如 20251229161636SGUCPYYI1TXOEPHY）。
+2. 调用 PROPOSE_CONFIRM_RECEIPT 工具：userId=用户ID, orderId=订单ID。
+3. 工具返回含【act_...】令牌时，用 1 句话说明已生成确认卡片，末尾附带【act_...】；不得输出【成功/失败】括号标记，不得逐步复述工具返回。
+4. 不得声称已确认收货，需等待用户在卡片中点击确认。
+
+注意：仅已发货订单可确认收货；必须实际调用 PROPOSE_CONFIRM_RECEIPT 工具。

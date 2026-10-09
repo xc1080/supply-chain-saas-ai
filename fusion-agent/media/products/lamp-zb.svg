@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title"><title id="title">卧室柔光智能灯，演示商品示意图</title><rect width="600" height="600" fill="#edf2f7"/>
+<ellipse cx="300" cy="465" rx="126" ry="20" fill="#d7e0e9"/>
+<path d="M230 356C225 321 186 295 186 230C186 163 236 116 300 116S414 163 414 230C414 295 375 321 370 356Z" fill="#fff" stroke="#c5d1dc" stroke-width="3"/>
+<path d="M204 246C214 287 248 298 264 335H336C352 298 386 287 396 246Z" fill="#fae6b0"/>
+<path fill="none" d="M262 335V366M338 335V366" stroke="#d4b876" stroke-width="5"/>
+<rect x="230" y="357" width="140" height="26" rx="10" fill="#a8b7c5"/>
+<path d="M238 389H362L355 414H245Z" fill="#c4cfd9"/>
+<path d="M245 415H355L342 434H258Z" fill="#99aab9"/>
+<path d="M266 435H334L323 449H277Z" fill="#344c64"/>
+<path fill="none" d="M232 179C246 154 269 142 295 140" stroke="#eaf0f5" stroke-width="10" stroke-linecap="round"/>
+<path fill="none" d="M134 218H110M155 145L138 128M446 145L463 128M466 218H490" stroke="#e7c876" stroke-width="5" stroke-linecap="round"/>
+<text x="30" y="566" fill="#70869c" font-size="18" font-family="Microsoft YaHei, PingFang SC, sans-serif">商品示意</text></svg>

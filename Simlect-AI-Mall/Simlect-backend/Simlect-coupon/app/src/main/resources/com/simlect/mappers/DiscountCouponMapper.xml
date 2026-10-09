@@ -1,0 +1,687 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.DiscountCouponMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.DiscountCoupon">
+		<!--优惠券ID，如CP20260527001-->
+		<result column="coupon_id" property="couponId"  />
+		<!--优惠券名称，如"618满减券"-->
+		<result column="coupon_name" property="couponName"  />
+		<!--优惠券类型 1:满减券 2:折扣券 3:无门槛券-->
+		<result column="coupon_type" property="couponType"  />
+		<!--使用门槛金额，0表示无门槛-->
+		<result column="threshold_amount" property="thresholdAmount"  />
+		<!--优惠金额（满减/无门槛时填写）-->
+		<result column="discount_amount" property="discountAmount"  />
+		<!--折扣率（折扣券时填写，如0.85表示85折）-->
+		<result column="discount_rate" property="discountRate"  />
+		<!--发放总量，0表示不限量-->
+		<result column="total_count" property="totalCount"  />
+		<!--剩余数量-->
+		<result column="remain_count" property="remainCount"  />
+		<!--有效期开始时间-->
+		<result column="valid_start_time" property="validStartTime"  />
+		<!--有效期结束时间-->
+		<result column="valid_end_time" property="validEndTime"  />
+		<!--状态 0:已停用 1:进行中 2:已过期 3:已发完-->
+		<result column="status" property="status"  />
+		<!--是否秒杀优惠卷 0:否 1:是-->
+		<result column="rushingStatus" property="rushingstatus"  />
+		<!--秒杀开始时间-->
+		<result column="rushing_start_time" property="rushingStartTime"  />
+		<!--秒杀结束时间-->
+		<result column="rushing_end_time" property="rushingEndTime"  />
+		<!--创建时间-->
+		<result column="create_time" property="createTime"  />
+		<!--更新时间-->
+		<result column="update_time" property="updateTime"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 d.coupon_id,d.coupon_name,d.coupon_type,d.threshold_amount,d.discount_amount,
+		 d.discount_rate,d.total_count,d.remain_count,d.valid_start_time,d.valid_end_time,
+		 d.status,d.rushingStatus,d.rushing_start_time,d.rushing_end_time,d.create_time,
+		 d.update_time
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.couponId != null and query.couponId!=''">
+				 and  d.coupon_id = #{query.couponId}
+			</if>
+			<if test="query.couponName != null and query.couponName!=''">
+				 and  d.coupon_name = #{query.couponName}
+			</if>
+			<if test="query.couponType != null">
+				 and  d.coupon_type = #{query.couponType}
+			</if>
+			<if test="query.thresholdAmount != null">
+				 and  d.threshold_amount = #{query.thresholdAmount}
+			</if>
+			<if test="query.discountAmount != null">
+				 and  d.discount_amount = #{query.discountAmount}
+			</if>
+			<if test="query.discountRate != null">
+				 and  d.discount_rate = #{query.discountRate}
+			</if>
+			<if test="query.totalCount != null">
+				 and  d.total_count = #{query.totalCount}
+			</if>
+			<if test="query.remainCount != null">
+				 and  d.remain_count = #{query.remainCount}
+			</if>
+			<if test="query.validStartTime != null and query.validStartTime!=''">
+				 <![CDATA[ and  d.valid_start_time=str_to_date(#{query.validStartTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.validEndTime != null and query.validEndTime!=''">
+				 <![CDATA[ and  d.valid_end_time=str_to_date(#{query.validEndTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.status != null">
+				 and  d.status = #{query.status}
+			</if>
+			<if test="query.rushingstatus != null">
+				 and  d.rushingStatus = #{query.rushingstatus}
+			</if>
+			<if test="query.rushingStartTime != null and query.rushingStartTime!=''">
+				 <![CDATA[ and  d.rushing_start_time=str_to_date(#{query.rushingStartTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.rushingEndTime != null and query.rushingEndTime!=''">
+				 <![CDATA[ and  d.rushing_end_time=str_to_date(#{query.rushingEndTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.createTime != null and query.createTime!=''">
+				 <![CDATA[ and  d.create_time=str_to_date(#{query.createTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.updateTime != null and query.updateTime!=''">
+				 <![CDATA[ and  d.update_time=str_to_date(#{query.updateTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+		<where>
+			<include refid="base_condition_filed" />
+
+			<!-- 优惠券ID模糊查询 -->
+			<if test="query.couponIdFuzzy != null and query.couponIdFuzzy != ''">
+				and d.coupon_id like concat('%', #{query.couponIdFuzzy}, '%')
+			</if>
+
+			<!-- 优惠券名称模糊查询 -->
+			<if test="query.couponNameFuzzy != null and query.couponNameFuzzy != ''">
+				and d.coupon_name like concat('%', #{query.couponNameFuzzy}, '%')
+			</if>
+
+			<!-- ==================== valid_start_time 有效期开始时间 ==================== -->
+			<if test="query.validStartTimeStart != null and query.validStartTimeStart != ''">
+				<![CDATA[ and d.valid_start_time < str_to_date(#{query.validStartTimeStart}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.validStartTimeEnd != null and query.validStartTimeEnd != ''">
+				<![CDATA[ and d.valid_start_time >= str_to_date(#{query.validStartTimeEnd}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+
+			<!-- ==================== valid_end_time 有效期结束时间 ==================== -->
+			<if test="query.validEndTimeStart != null and query.validEndTimeStart != ''">
+				<![CDATA[ and d.valid_end_time < str_to_date(#{query.validEndTimeStart}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.validEndTimeEnd != null and query.validEndTimeEnd != ''">
+				<![CDATA[ and d.valid_end_time >= str_to_date(#{query.validEndTimeEnd}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+
+			<!-- ==================== rushing_start_time 秒杀开始时间 ==================== -->
+			<if test="query.rushingStartTimeStart != null and query.rushingStartTimeStart != ''">
+				<![CDATA[ and d.rushing_start_time < str_to_date(#{query.rushingStartTimeStart}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.rushingStartTimeEnd != null and query.rushingStartTimeEnd != ''">
+				<![CDATA[ and d.rushing_start_time >= str_to_date(#{query.rushingStartTimeEnd}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+
+			<!-- ==================== rushing_end_time 秒杀结束时间 ==================== -->
+			<if test="query.rushingEndTimeStart != null and query.rushingEndTimeStart != ''">
+				<![CDATA[ and d.rushing_end_time < str_to_date(#{query.rushingEndTimeStart}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.rushingEndTimeEnd != null and query.rushingEndTimeEnd != ''">
+				<![CDATA[ and d.rushing_end_time >= str_to_date(#{query.rushingEndTimeEnd}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+
+			<!-- ==================== create_time 创建时间 ==================== -->
+			<if test="query.createTimeStart != null and query.createTimeStart != ''">
+				<![CDATA[ and d.create_time < str_to_date(#{query.createTimeStart}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.createTimeEnd != null and query.createTimeEnd != ''">
+				<![CDATA[ and d.create_time >= str_to_date(#{query.createTimeEnd}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<!-- ==================== update_time 创建时间 ==================== -->
+			<if test="query.updateTimeStart != null and query.updateTimeStart != ''">
+				<![CDATA[ and d.update_time < str_to_date(#{query.updateTimeStart}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.updateTimeEnd != null and query.updateTimeEnd != ''">
+				<![CDATA[ and d.update_time >= str_to_date(#{query.updateTimeEnd}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+		</where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM discount_coupon d <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM discount_coupon d <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.DiscountCoupon">
+		 INSERT INTO discount_coupon
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.couponId != null">
+				 coupon_id,
+			</if>
+			<if test="bean.couponName != null">
+				 coupon_name,
+			</if>
+			<if test="bean.couponType != null">
+				 coupon_type,
+			</if>
+			<if test="bean.thresholdAmount != null">
+				 threshold_amount,
+			</if>
+			<if test="bean.discountAmount != null">
+				 discount_amount,
+			</if>
+			<if test="bean.discountRate != null">
+				 discount_rate,
+			</if>
+			<if test="bean.totalCount != null">
+				 total_count,
+			</if>
+			<if test="bean.remainCount != null">
+				 remain_count,
+			</if>
+			<if test="bean.validStartTime != null">
+				 valid_start_time,
+			</if>
+			<if test="bean.validEndTime != null">
+				 valid_end_time,
+			</if>
+			<if test="bean.status != null">
+				 status,
+			</if>
+			<if test="bean.rushingstatus != null">
+				 rushingStatus,
+			</if>
+			<if test="bean.rushingStartTime != null">
+				 rushing_start_time,
+			</if>
+			<if test="bean.rushingEndTime != null">
+				 rushing_end_time,
+			</if>
+			<if test="bean.createTime != null">
+				 create_time,
+			</if>
+			<if test="bean.updateTime != null">
+				 update_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.couponId!=null">
+				 #{bean.couponId},
+			</if>
+			<if test="bean.couponName!=null">
+				 #{bean.couponName},
+			</if>
+			<if test="bean.couponType!=null">
+				 #{bean.couponType},
+			</if>
+			<if test="bean.thresholdAmount!=null">
+				 #{bean.thresholdAmount},
+			</if>
+			<if test="bean.discountAmount!=null">
+				 #{bean.discountAmount},
+			</if>
+			<if test="bean.discountRate!=null">
+				 #{bean.discountRate},
+			</if>
+			<if test="bean.totalCount!=null">
+				 #{bean.totalCount},
+			</if>
+			<if test="bean.remainCount!=null">
+				 #{bean.remainCount},
+			</if>
+			<if test="bean.validStartTime!=null">
+				 #{bean.validStartTime},
+			</if>
+			<if test="bean.validEndTime!=null">
+				 #{bean.validEndTime},
+			</if>
+			<if test="bean.status!=null">
+				 #{bean.status},
+			</if>
+			<if test="bean.rushingstatus!=null">
+				 #{bean.rushingstatus},
+			</if>
+			<if test="bean.rushingStartTime!=null">
+				 #{bean.rushingStartTime},
+			</if>
+			<if test="bean.rushingEndTime!=null">
+				 #{bean.rushingEndTime},
+			</if>
+			<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+			<if test="bean.updateTime!=null">
+				 #{bean.updateTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.DiscountCoupon">
+		 INSERT INTO discount_coupon
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.couponId != null">
+				 coupon_id,
+			</if>
+			<if test="bean.couponName != null">
+				 coupon_name,
+			</if>
+			<if test="bean.couponType != null">
+				 coupon_type,
+			</if>
+			<if test="bean.thresholdAmount != null">
+				 threshold_amount,
+			</if>
+			<if test="bean.discountAmount != null">
+				 discount_amount,
+			</if>
+			<if test="bean.discountRate != null">
+				 discount_rate,
+			</if>
+			<if test="bean.totalCount != null">
+				 total_count,
+			</if>
+			<if test="bean.remainCount != null">
+				 remain_count,
+			</if>
+			<if test="bean.validStartTime != null">
+				 valid_start_time,
+			</if>
+			<if test="bean.validEndTime != null">
+				 valid_end_time,
+			</if>
+			<if test="bean.status != null">
+				 status,
+			</if>
+			<if test="bean.rushingstatus != null">
+				 rushingStatus,
+			</if>
+			<if test="bean.rushingStartTime != null">
+				 rushing_start_time,
+			</if>
+			<if test="bean.rushingEndTime != null">
+				 rushing_end_time,
+			</if>
+			<if test="bean.createTime != null">
+				 create_time,
+			</if>
+			<if test="bean.updateTime != null">
+				 update_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.couponId!=null">
+				 #{bean.couponId},
+			</if>
+			<if test="bean.couponName!=null">
+				 #{bean.couponName},
+			</if>
+			<if test="bean.couponType!=null">
+				 #{bean.couponType},
+			</if>
+			<if test="bean.thresholdAmount!=null">
+				 #{bean.thresholdAmount},
+			</if>
+			<if test="bean.discountAmount!=null">
+				 #{bean.discountAmount},
+			</if>
+			<if test="bean.discountRate!=null">
+				 #{bean.discountRate},
+			</if>
+			<if test="bean.totalCount!=null">
+				 #{bean.totalCount},
+			</if>
+			<if test="bean.remainCount!=null">
+				 #{bean.remainCount},
+			</if>
+			<if test="bean.validStartTime!=null">
+				 #{bean.validStartTime},
+			</if>
+			<if test="bean.validEndTime!=null">
+				 #{bean.validEndTime},
+			</if>
+			<if test="bean.status!=null">
+				 #{bean.status},
+			</if>
+			<if test="bean.rushingstatus!=null">
+				 #{bean.rushingstatus},
+			</if>
+			<if test="bean.rushingStartTime!=null">
+				 #{bean.rushingStartTime},
+			</if>
+			<if test="bean.rushingEndTime!=null">
+				 #{bean.rushingEndTime},
+			</if>
+			<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+			<if test="bean.updateTime!=null">
+				 #{bean.updateTime},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.couponId!=null">
+				 coupon_id = VALUES(coupon_id),
+			</if>
+			<if test="bean.couponName!=null">
+				 coupon_name = VALUES(coupon_name),
+			</if>
+			<if test="bean.couponType!=null">
+				 coupon_type = VALUES(coupon_type),
+			</if>
+			<if test="bean.thresholdAmount!=null">
+				 threshold_amount = VALUES(threshold_amount),
+			</if>
+			<if test="bean.discountAmount!=null">
+				 discount_amount = VALUES(discount_amount),
+			</if>
+			<if test="bean.discountRate!=null">
+				 discount_rate = VALUES(discount_rate),
+			</if>
+			<if test="bean.totalCount!=null">
+				 total_count = VALUES(total_count),
+			</if>
+			<if test="bean.remainCount!=null">
+				 remain_count = VALUES(remain_count),
+			</if>
+			<if test="bean.validStartTime!=null">
+				 valid_start_time = VALUES(valid_start_time),
+			</if>
+			<if test="bean.validEndTime!=null">
+				 valid_end_time = VALUES(valid_end_time),
+			</if>
+			<if test="bean.status!=null">
+				 status = VALUES(status),
+			</if>
+			<if test="bean.rushingstatus!=null">
+				 rushingStatus = VALUES(rushingStatus),
+			</if>
+			<if test="bean.rushingStartTime!=null">
+				 rushing_start_time = VALUES(rushing_start_time),
+			</if>
+			<if test="bean.rushingEndTime!=null">
+				 rushing_end_time = VALUES(rushing_end_time),
+			</if>
+			<if test="bean.createTime!=null">
+				 create_time = VALUES(create_time),
+			</if>
+			<if test="bean.updateTime!=null">
+				 update_time = VALUES(update_time),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.DiscountCoupon">
+		 INSERT INTO discount_coupon(
+			 coupon_id,
+			 coupon_name,
+			 coupon_type,
+			 threshold_amount,
+			 discount_amount,
+			 discount_rate,
+			 total_count,
+			 remain_count,
+			 valid_start_time,
+			 valid_end_time,
+			 status,
+			 rushingStatus,
+			 rushing_start_time,
+			 rushing_end_time,
+			 create_time,
+			 update_time
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.couponId},
+				 #{item.couponName},
+				 #{item.couponType},
+				 #{item.thresholdAmount},
+				 #{item.discountAmount},
+				 #{item.discountRate},
+				 #{item.totalCount},
+				 #{item.remainCount},
+				 #{item.validStartTime},
+				 #{item.validEndTime},
+				 #{item.status},
+				 #{item.rushingstatus},
+				 #{item.rushingStartTime},
+				 #{item.rushingEndTime},
+				 #{item.createTime},
+				 #{item.updateTime}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.DiscountCoupon">
+		 INSERT INTO discount_coupon(
+			 coupon_id,
+			 coupon_name,
+			 coupon_type,
+			 threshold_amount,
+			 discount_amount,
+			 discount_rate,
+			 total_count,
+			 remain_count,
+			 valid_start_time,
+			 valid_end_time,
+			 status,
+			 rushingStatus,
+			 rushing_start_time,
+			 rushing_end_time,
+			 create_time,
+			 update_time
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.couponId},
+				 #{item.couponName},
+				 #{item.couponType},
+				 #{item.thresholdAmount},
+				 #{item.discountAmount},
+				 #{item.discountRate},
+				 #{item.totalCount},
+				 #{item.remainCount},
+				 #{item.validStartTime},
+				 #{item.validEndTime},
+				 #{item.status},
+				 #{item.rushingstatus},
+				 #{item.rushingStartTime},
+				 #{item.rushingEndTime},
+				 #{item.createTime},
+				 #{item.updateTime}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			coupon_id = VALUES(coupon_id),
+			coupon_name = VALUES(coupon_name),
+			coupon_type = VALUES(coupon_type),
+			threshold_amount = VALUES(threshold_amount),
+			discount_amount = VALUES(discount_amount),
+			discount_rate = VALUES(discount_rate),
+			total_count = VALUES(total_count),
+			remain_count = VALUES(remain_count),
+			valid_start_time = VALUES(valid_start_time),
+			valid_end_time = VALUES(valid_end_time),
+			status = VALUES(status),
+			rushingStatus = VALUES(rushingStatus),
+			rushing_start_time = VALUES(rushing_start_time),
+			rushing_end_time = VALUES(rushing_end_time),
+			create_time = VALUES(create_time),
+			update_time = VALUES(update_time)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.DiscountCouponQuery">
+		 UPDATE discount_coupon d
+ 		 <set> 
+			<if test="bean.couponId != null">
+				 coupon_id = #{bean.couponId},
+			</if>
+			<if test="bean.couponName != null">
+				 coupon_name = #{bean.couponName},
+			</if>
+			<if test="bean.couponType != null">
+				 coupon_type = #{bean.couponType},
+			</if>
+			<if test="bean.thresholdAmount != null">
+				 threshold_amount = #{bean.thresholdAmount},
+			</if>
+			<if test="bean.discountAmount != null">
+				 discount_amount = #{bean.discountAmount},
+			</if>
+			<if test="bean.discountRate != null">
+				 discount_rate = #{bean.discountRate},
+			</if>
+			<if test="bean.totalCount != null">
+				 total_count = #{bean.totalCount},
+			</if>
+			<if test="bean.remainCount != null">
+				 remain_count = #{bean.remainCount},
+			</if>
+			<if test="bean.validStartTime != null">
+				 valid_start_time = #{bean.validStartTime},
+			</if>
+			<if test="bean.validEndTime != null">
+				 valid_end_time = #{bean.validEndTime},
+			</if>
+			<if test="bean.status != null">
+				 status = #{bean.status},
+			</if>
+			<if test="bean.rushingstatus != null">
+				 rushingStatus = #{bean.rushingstatus},
+			</if>
+			<if test="bean.rushingStartTime != null">
+				 rushing_start_time = #{bean.rushingStartTime},
+			</if>
+			<if test="bean.rushingEndTime != null">
+				 rushing_end_time = #{bean.rushingEndTime},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+			<if test="bean.updateTime != null">
+				 update_time = #{bean.updateTime},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete d from discount_coupon d
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据CouponId修改-->
+	<update id="updateByCouponId" parameterType="com.simlect.entity.po.DiscountCoupon">
+		 UPDATE discount_coupon
+ 		 <set> 
+			<if test="bean.couponName != null">
+				 coupon_name = #{bean.couponName},
+			</if>
+			<if test="bean.couponType != null">
+				 coupon_type = #{bean.couponType},
+			</if>
+			<if test="bean.thresholdAmount != null">
+				 threshold_amount = #{bean.thresholdAmount},
+			</if>
+			<if test="bean.discountAmount != null">
+				 discount_amount = #{bean.discountAmount},
+			</if>
+			<if test="bean.discountRate != null">
+				 discount_rate = #{bean.discountRate},
+			</if>
+			<if test="bean.totalCount != null">
+				 total_count = #{bean.totalCount},
+			</if>
+			<if test="bean.remainCount != null">
+				 remain_count = #{bean.remainCount},
+			</if>
+			<if test="bean.validStartTime != null">
+				 valid_start_time = #{bean.validStartTime},
+			</if>
+			<if test="bean.validEndTime != null">
+				 valid_end_time = #{bean.validEndTime},
+			</if>
+			<if test="bean.status != null">
+				 status = #{bean.status},
+			</if>
+			<if test="bean.rushingstatus != null">
+				 rushingStatus = #{bean.rushingstatus},
+			</if>
+			<if test="bean.rushingStartTime != null">
+				 rushing_start_time = #{bean.rushingStartTime},
+			</if>
+			<if test="bean.rushingEndTime != null">
+				 rushing_end_time = #{bean.rushingEndTime},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+			<if test="bean.updateTime != null">
+				 update_time = #{bean.updateTime},
+			</if>
+ 		 </set>
+ 		 where coupon_id=#{couponId}
+	</update>
+
+	<!-- 根据CouponId删除-->
+	<delete id="deleteByCouponId">
+		delete from discount_coupon where coupon_id=#{couponId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByCouponId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from discount_coupon d where coupon_id=#{couponId}
+	</select>
+
+	<select id="selectByCouponIdForUpdate" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from discount_coupon d where coupon_id=#{couponId} for update
+	</select>
+	<!-- 扣减库存 -->
+	<update id="deductStock">
+		UPDATE discount_coupon
+		SET remain_count = CASE WHEN total_count = 0 THEN remain_count ELSE remain_count - 1 END
+		WHERE coupon_id = #{couponId}
+		  AND (total_count = 0 OR remain_count > 0)
+	</update>
+
+	<!-- 回补库存：不得超过 total_count，防止重复回补导致可售份数虚高 -->
+	<update id="addStock">
+		UPDATE discount_coupon
+		SET remain_count = remain_count + 1
+		WHERE coupon_id = #{couponId}
+		  AND (total_count IS NULL OR remain_count &lt; total_count)
+	</update>
+</mapper>

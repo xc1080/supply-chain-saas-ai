@@ -1,0 +1,157 @@
+@use './variables' as *;
+
+
+html[data-platform='desktop'] {
+  .pc-layout.ignore,
+  .pc-sub-layout.ignore {
+    background: $color-bg-subtle;
+  }
+
+  .pc-main,
+  .pc-sub-main {
+    background: $color-bg-subtle;
+  }
+
+  .pc-page-container,
+  .pc-sub-container {
+    padding-top: 12px;
+    padding-bottom: 24px;
+  }
+
+  
+  .pc-layout.ignore .pc-nav {
+    background: $color-card;
+    border-bottom: 1px solid $color-border-light;
+    box-shadow: none;
+  }
+
+  .pc-layout.ignore .pc-nav-link {
+    font-weight: 500;
+    color: $color-text-body;
+    border-radius: $radius-xs;
+    margin: 4px 2px;
+
+    &.active {
+      color: $color-primary;
+      background: $color-primary-soft;
+      font-weight: 600;
+    }
+
+    &:hover:not(.active) {
+      color: $color-text-title;
+      background: $color-bg-subtle;
+    }
+  }
+
+  
+  .home-page.ignore .home-desktop {
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .pc-cat-aside.ignore,
+  .pc-home-aside.ignore {
+    background: $color-card;
+    border: 1px solid $color-border-light;
+    border-radius: $radius-card;
+    box-shadow: none;
+  }
+
+  .pc-home-block,
+  .desktop-shortcuts {
+    background: $color-card;
+    border: 1px solid $color-border-light;
+    border-radius: $radius-card;
+    box-shadow: none;
+  }
+
+  .desktop-shortcut-card {
+    border: 1px solid $color-border-light;
+    border-radius: $radius-card;
+    background: $color-bg-subtle;
+    transition: border-color $transition-fast, background $transition-fast;
+
+    &:hover {
+      border-color: $color-border-gray;
+      background: $color-card;
+    }
+
+    .ds-icon {
+      color: $color-text-title;
+    }
+  }
+
+  .pc-hot-item,
+  .pc-home__tile,
+  .pc-product-tile,
+  .product-card.is-compact.ignore {
+    border: 1px solid $color-border-light;
+    box-shadow: none;
+    transition: border-color $transition-fast, transform $transition-fast;
+
+    &:hover {
+      border-color: $color-border-gray;
+      box-shadow: $shadow-card;
+      transform: translateY(-2px);
+    }
+  }
+
+  
+  .pc-user-sidebar.ignore {
+    background: $color-card;
+    border: 1px solid $color-border-light;
+    border-radius: $radius-card;
+    box-shadow: none;
+  }
+
+  .user-center-content {
+    border: 1px solid $color-border-light;
+    box-shadow: none;
+  }
+
+  
+  .pc-float-toolbar.ignore {
+    background: $color-card;
+    border: 1px solid $color-border-light;
+    border-radius: $radius-card;
+    box-shadow: $shadow-float;
+
+    .float-item {
+      color: $color-text-body;
+
+      &:hover {
+        color: $color-primary;
+        background: $color-bg-subtle;
+      }
+    }
+  }
+
+  
+  .app-footer.ignore {
+    background: $color-card;
+    border-top: 1px solid $color-border-light;
+    margin-top: 24px;
+  }
+
+  
+  .pc-auth-shell.ignore {
+    background: $color-bg-subtle;
+
+    .auth-card {
+      border: 1px solid $color-border-light;
+      border-radius: $radius-card;
+      box-shadow: $shadow-card;
+    }
+
+    .auth-brand {
+      background: $color-card;
+      border-bottom: 1px solid $color-border-light;
+    }
+
+    .submit-btn {
+      background: $color-primary;
+      border-color: $color-primary;
+      border-radius: $radius-btn;
+    }
+  }
+}

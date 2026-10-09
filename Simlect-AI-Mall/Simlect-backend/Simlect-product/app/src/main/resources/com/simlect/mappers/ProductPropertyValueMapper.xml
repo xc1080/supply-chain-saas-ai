@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.ProductPropertyValueMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.ProductPropertyValue">
+		<!--商品ID-->
+		<result column="product_id" property="productId"  />
+		<!--属性ID-->
+		<result column="property_id" property="propertyId"  />
+		<!--属性名称-->
+		<result column="property_name" property="propertyName"  />
+		<!--属性排序-->
+		<result column="property_sort" property="propertySort"  />
+		<!--0:无需传封面 1:需传封面-->
+		<result column="cover_type" property="coverType"  />
+		<!---->
+		<result column="property_value_id" property="propertyValueId"  />
+		<!--属性封面-->
+		<result column="property_cover" property="propertyCover"  />
+		<!--属性值-->
+		<result column="property_value" property="propertyValue"  />
+		<!--备注-->
+		<result column="property_remark" property="propertyRemark"  />
+		<!--属性值排序-->
+		<result column="sort" property="sort"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 p.product_id,p.property_id,p.property_name,p.property_sort,p.cover_type,
+		 p.property_value_id,p.property_cover,p.property_value,p.property_remark,p.sort
+		 
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.productId != null and query.productId!=''">
+				 and  p.product_id = #{query.productId}
+			</if>
+			<if test="query.propertyId != null and query.propertyId!=''">
+				 and  p.property_id = #{query.propertyId}
+			</if>
+			<if test="query.propertyName != null and query.propertyName!=''">
+				 and  p.property_name = #{query.propertyName}
+			</if>
+			<if test="query.propertySort != null">
+				 and  p.property_sort = #{query.propertySort}
+			</if>
+			<if test="query.coverType != null">
+				 and  p.cover_type = #{query.coverType}
+			</if>
+			<if test="query.propertyValueId != null and query.propertyValueId!=''">
+				 and  p.property_value_id = #{query.propertyValueId}
+			</if>
+			<if test="query.propertyCover != null and query.propertyCover!=''">
+				 and  p.property_cover = #{query.propertyCover}
+			</if>
+			<if test="query.propertyValue != null and query.propertyValue!=''">
+				 and  p.property_value = #{query.propertyValue}
+			</if>
+			<if test="query.propertyRemark != null and query.propertyRemark!=''">
+				 and  p.property_remark = #{query.propertyRemark}
+			</if>
+			<if test="query.sort != null">
+				 and  p.sort = #{query.sort}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.productIdFuzzy!= null  and query.productIdFuzzy!=''">
+				 and  p.product_id like concat('%', #{query.productIdFuzzy}, '%')
+			</if>
+			<if test="query.propertyIdFuzzy!= null  and query.propertyIdFuzzy!=''">
+				 and  p.property_id like concat('%', #{query.propertyIdFuzzy}, '%')
+			</if>
+			<if test="query.propertyNameFuzzy!= null  and query.propertyNameFuzzy!=''">
+				 and  p.property_name like concat('%', #{query.propertyNameFuzzy}, '%')
+			</if>
+			<if test="query.propertyValueIdFuzzy!= null  and query.propertyValueIdFuzzy!=''">
+				 and  p.property_value_id like concat('%', #{query.propertyValueIdFuzzy}, '%')
+			</if>
+			<if test="query.propertyCoverFuzzy!= null  and query.propertyCoverFuzzy!=''">
+				 and  p.property_cover like concat('%', #{query.propertyCoverFuzzy}, '%')
+			</if>
+			<if test="query.propertyValueFuzzy!= null  and query.propertyValueFuzzy!=''">
+				 and  p.property_value like concat('%', #{query.propertyValueFuzzy}, '%')
+			</if>
+			<if test="query.propertyRemarkFuzzy!= null  and query.propertyRemarkFuzzy!=''">
+				 and  p.property_remark like concat('%', #{query.propertyRemarkFuzzy}, '%')
+			</if>
+		 <if test="query.productIdList != null and query.productIdList.size() > 0">
+			 and p.product_id in
+			 <foreach item="item" index="index" collection="query.productIdList" separator="," open="(" close=")">
+				 #{item}
+			 </foreach>
+		 </if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM product_property_value p <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM product_property_value p <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.ProductPropertyValue">
+		 INSERT INTO product_property_value
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.propertyId != null">
+				 property_id,
+			</if>
+			<if test="bean.propertyName != null">
+				 property_name,
+			</if>
+			<if test="bean.propertySort != null">
+				 property_sort,
+			</if>
+			<if test="bean.coverType != null">
+				 cover_type,
+			</if>
+			<if test="bean.propertyValueId != null">
+				 property_value_id,
+			</if>
+			<if test="bean.propertyCover != null">
+				 property_cover,
+			</if>
+			<if test="bean.propertyValue != null">
+				 property_value,
+			</if>
+			<if test="bean.propertyRemark != null">
+				 property_remark,
+			</if>
+			<if test="bean.sort != null">
+				 sort,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.propertyId!=null">
+				 #{bean.propertyId},
+			</if>
+			<if test="bean.propertyName!=null">
+				 #{bean.propertyName},
+			</if>
+			<if test="bean.propertySort!=null">
+				 #{bean.propertySort},
+			</if>
+			<if test="bean.coverType!=null">
+				 #{bean.coverType},
+			</if>
+			<if test="bean.propertyValueId!=null">
+				 #{bean.propertyValueId},
+			</if>
+			<if test="bean.propertyCover!=null">
+				 #{bean.propertyCover},
+			</if>
+			<if test="bean.propertyValue!=null">
+				 #{bean.propertyValue},
+			</if>
+			<if test="bean.propertyRemark!=null">
+				 #{bean.propertyRemark},
+			</if>
+			<if test="bean.sort!=null">
+				 #{bean.sort},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.ProductPropertyValue">
+		 INSERT INTO product_property_value
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.propertyId != null">
+				 property_id,
+			</if>
+			<if test="bean.propertyName != null">
+				 property_name,
+			</if>
+			<if test="bean.propertySort != null">
+				 property_sort,
+			</if>
+			<if test="bean.coverType != null">
+				 cover_type,
+			</if>
+			<if test="bean.propertyValueId != null">
+				 property_value_id,
+			</if>
+			<if test="bean.propertyCover != null">
+				 property_cover,
+			</if>
+			<if test="bean.propertyValue != null">
+				 property_value,
+			</if>
+			<if test="bean.propertyRemark != null">
+				 property_remark,
+			</if>
+			<if test="bean.sort != null">
+				 sort,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.propertyId!=null">
+				 #{bean.propertyId},
+			</if>
+			<if test="bean.propertyName!=null">
+				 #{bean.propertyName},
+			</if>
+			<if test="bean.propertySort!=null">
+				 #{bean.propertySort},
+			</if>
+			<if test="bean.coverType!=null">
+				 #{bean.coverType},
+			</if>
+			<if test="bean.propertyValueId!=null">
+				 #{bean.propertyValueId},
+			</if>
+			<if test="bean.propertyCover!=null">
+				 #{bean.propertyCover},
+			</if>
+			<if test="bean.propertyValue!=null">
+				 #{bean.propertyValue},
+			</if>
+			<if test="bean.propertyRemark!=null">
+				 #{bean.propertyRemark},
+			</if>
+			<if test="bean.sort!=null">
+				 #{bean.sort},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.productId!=null">
+				 product_id = VALUES(product_id),
+			</if>
+			<if test="bean.propertyId!=null">
+				 property_id = VALUES(property_id),
+			</if>
+			<if test="bean.propertyName!=null">
+				 property_name = VALUES(property_name),
+			</if>
+			<if test="bean.propertySort!=null">
+				 property_sort = VALUES(property_sort),
+			</if>
+			<if test="bean.coverType!=null">
+				 cover_type = VALUES(cover_type),
+			</if>
+			<if test="bean.propertyValueId!=null">
+				 property_value_id = VALUES(property_value_id),
+			</if>
+			<if test="bean.propertyCover!=null">
+				 property_cover = VALUES(property_cover),
+			</if>
+			<if test="bean.propertyValue!=null">
+				 property_value = VALUES(property_value),
+			</if>
+			<if test="bean.propertyRemark!=null">
+				 property_remark = VALUES(property_remark),
+			</if>
+			<if test="bean.sort!=null">
+				 sort = VALUES(sort),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.ProductPropertyValue">
+		 INSERT INTO product_property_value(
+			 product_id,
+			 property_id,
+			 property_name,
+			 property_sort,
+			 cover_type,
+			 property_value_id,
+			 property_cover,
+			 property_value,
+			 property_remark,
+			 sort
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.productId},
+				 #{item.propertyId},
+				 #{item.propertyName},
+				 #{item.propertySort},
+				 #{item.coverType},
+				 #{item.propertyValueId},
+				 #{item.propertyCover},
+				 #{item.propertyValue},
+				 #{item.propertyRemark},
+				 #{item.sort}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.ProductPropertyValue">
+		 INSERT INTO product_property_value(
+			 product_id,
+			 property_id,
+			 property_name,
+			 property_sort,
+			 cover_type,
+			 property_value_id,
+			 property_cover,
+			 property_value,
+			 property_remark,
+			 sort
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.productId},
+				 #{item.propertyId},
+				 #{item.propertyName},
+				 #{item.propertySort},
+				 #{item.coverType},
+				 #{item.propertyValueId},
+				 #{item.propertyCover},
+				 #{item.propertyValue},
+				 #{item.propertyRemark},
+				 #{item.sort}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			product_id = VALUES(product_id),
+			property_id = VALUES(property_id),
+			property_name = VALUES(property_name),
+			property_sort = VALUES(property_sort),
+			cover_type = VALUES(cover_type),
+			property_value_id = VALUES(property_value_id),
+			property_cover = VALUES(property_cover),
+			property_value = VALUES(property_value),
+			property_remark = VALUES(property_remark),
+			sort = VALUES(sort)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.ProductPropertyValueQuery">
+		 UPDATE product_property_value p
+ 		 <set> 
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.propertyId != null">
+				 property_id = #{bean.propertyId},
+			</if>
+			<if test="bean.propertyName != null">
+				 property_name = #{bean.propertyName},
+			</if>
+			<if test="bean.propertySort != null">
+				 property_sort = #{bean.propertySort},
+			</if>
+			<if test="bean.coverType != null">
+				 cover_type = #{bean.coverType},
+			</if>
+			<if test="bean.propertyValueId != null">
+				 property_value_id = #{bean.propertyValueId},
+			</if>
+			<if test="bean.propertyCover != null">
+				 property_cover = #{bean.propertyCover},
+			</if>
+			<if test="bean.propertyValue != null">
+				 property_value = #{bean.propertyValue},
+			</if>
+			<if test="bean.propertyRemark != null">
+				 property_remark = #{bean.propertyRemark},
+			</if>
+			<if test="bean.sort != null">
+				 sort = #{bean.sort},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete p from product_property_value p
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据ProductIdAndPropertyValueId修改-->
+	<update id="updateByProductIdAndPropertyValueId" parameterType="com.simlect.entity.po.ProductPropertyValue">
+		 UPDATE product_property_value
+ 		 <set> 
+			<if test="bean.propertyId != null">
+				 property_id = #{bean.propertyId},
+			</if>
+			<if test="bean.propertyName != null">
+				 property_name = #{bean.propertyName},
+			</if>
+			<if test="bean.propertySort != null">
+				 property_sort = #{bean.propertySort},
+			</if>
+			<if test="bean.coverType != null">
+				 cover_type = #{bean.coverType},
+			</if>
+			<if test="bean.propertyCover != null">
+				 property_cover = #{bean.propertyCover},
+			</if>
+			<if test="bean.propertyValue != null">
+				 property_value = #{bean.propertyValue},
+			</if>
+			<if test="bean.propertyRemark != null">
+				 property_remark = #{bean.propertyRemark},
+			</if>
+			<if test="bean.sort != null">
+				 sort = #{bean.sort},
+			</if>
+ 		 </set>
+ 		 where product_id=#{productId} and property_value_id=#{propertyValueId}
+	</update>
+
+	<!-- 根据ProductIdAndPropertyValueId删除-->
+	<delete id="deleteByProductIdAndPropertyValueId">
+		delete from product_property_value where product_id=#{productId} and property_value_id=#{propertyValueId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByProductIdAndPropertyValueId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from product_property_value p where product_id=#{productId} and property_value_id=#{propertyValueId}
+	</select>
+<!--	根据ProductId查询列表-->
+	<select id="selectListByProductId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from product_property_value p where product_id=#{productId}
+	</select>
+
+<!--	传入productId和List<ProductPropertyValue>：updateList，批量更新数据:updateBatch-->
+	<update id="updateBatch">
+			<foreach collection="updateList" item="item" separator=";">
+				update product_property_value <set>
+					<if test="item.propertyName != null">
+						property_name = #{item.propertyName},
+					</if>
+				<if test="item.propertyCover != null">
+					property_cover = #{item.propertyCover},
+				</if>
+				<if test="item.propertyValue != null">
+					property_value = #{item.propertyValue},
+				</if>
+				<if test="item.propertyRemark != null">
+					property_remark = #{item.propertyRemark}
+				</if></set>
+							where product_id = #{productId} and property_value_id = #{item.propertyValueId}
+			</foreach>
+	</update>
+	<!--	传入productId和List<ProductPropertyValue>：deleteList，批量删除数据:deleteBatch-->
+	<delete id="deleteBatch">
+		delete from product_property_value where product_id = #{productId} and property_value_id in
+		<foreach collection="deleteList" item="item" separator="," open="(" close=")">
+				#{item.propertyValueId}
+			</foreach>
+	</delete>
+</mapper>

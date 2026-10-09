@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.SysCategoryMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.SysCategory">
+		<!---->
+		<result column="category_id" property="categoryId"  />
+		<!---->
+		<result column="category_name" property="categoryName"  />
+		<!---->
+		<result column="p_category_id" property="pCategoryId"  />
+		<!---->
+		<result column="sort" property="sort"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 s.category_id,s.category_name,s.p_category_id,s.sort
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.categoryId != null and query.categoryId!=''">
+				 and  s.category_id = #{query.categoryId}
+			</if>
+			<if test="query.categoryName != null and query.categoryName!=''">
+				 and  s.category_name = #{query.categoryName}
+			</if>
+			<if test="query.pCategoryId != null and query.pCategoryId!=''">
+				 and  s.p_category_id = #{query.pCategoryId}
+			</if>
+			<if test="query.sort != null">
+				 and  s.sort = #{query.sort}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.categoryIdFuzzy!= null  and query.categoryIdFuzzy!=''">
+				 and  s.category_id like concat('%', #{query.categoryIdFuzzy}, '%')
+			</if>
+			<if test="query.categoryNameFuzzy!= null  and query.categoryNameFuzzy!=''">
+				 and  s.category_name like concat('%', #{query.categoryNameFuzzy}, '%')
+			</if>
+			<if test="query.pCategoryIdFuzzy!= null  and query.pCategoryIdFuzzy!=''">
+				 and  s.p_category_id like concat('%', #{query.pCategoryIdFuzzy}, '%')
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM sys_category s <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM sys_category s <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.SysCategory">
+		 INSERT INTO sys_category
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.categoryId != null">
+				 category_id,
+			</if>
+			<if test="bean.categoryName != null">
+				 category_name,
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id,
+			</if>
+			<if test="bean.sort != null">
+				 sort,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.categoryId!=null">
+				 #{bean.categoryId},
+			</if>
+			<if test="bean.categoryName!=null">
+				 #{bean.categoryName},
+			</if>
+			<if test="bean.pCategoryId!=null">
+				 #{bean.pCategoryId},
+			</if>
+			<if test="bean.sort!=null">
+				 #{bean.sort},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.SysCategory">
+		 INSERT INTO sys_category
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.categoryId != null">
+				 category_id,
+			</if>
+			<if test="bean.categoryName != null">
+				 category_name,
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id,
+			</if>
+			<if test="bean.sort != null">
+				 sort,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.categoryId!=null">
+				 #{bean.categoryId},
+			</if>
+			<if test="bean.categoryName!=null">
+				 #{bean.categoryName},
+			</if>
+			<if test="bean.pCategoryId!=null">
+				 #{bean.pCategoryId},
+			</if>
+			<if test="bean.sort!=null">
+				 #{bean.sort},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.categoryId!=null">
+				 category_id = VALUES(category_id),
+			</if>
+			<if test="bean.categoryName!=null">
+				 category_name = VALUES(category_name),
+			</if>
+			<if test="bean.pCategoryId!=null">
+				 p_category_id = VALUES(p_category_id),
+			</if>
+			<if test="bean.sort!=null">
+				 sort = VALUES(sort),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.SysCategory">
+		 INSERT INTO sys_category(
+			 category_id,
+			 category_name,
+			 p_category_id,
+			 sort
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.categoryId},
+				 #{item.categoryName},
+				 #{item.pCategoryId},
+				 #{item.sort}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.SysCategory">
+		 INSERT INTO sys_category(
+			 category_id,
+			 category_name,
+			 p_category_id,
+			 sort
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.categoryId},
+				 #{item.categoryName},
+				 #{item.pCategoryId},
+				 #{item.sort}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			category_id = VALUES(category_id),
+			category_name = VALUES(category_name),
+			p_category_id = VALUES(p_category_id),
+			sort = VALUES(sort)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.SysCategoryQuery">
+		 UPDATE sys_category s
+ 		 <set> 
+			<if test="bean.categoryId != null">
+				 category_id = #{bean.categoryId},
+			</if>
+			<if test="bean.categoryName != null">
+				 category_name = #{bean.categoryName},
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id = #{bean.pCategoryId},
+			</if>
+			<if test="bean.sort != null">
+				 sort = #{bean.sort},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete s from sys_category s
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据CategoryId修改-->
+	<update id="updateByCategoryId" parameterType="com.simlect.entity.po.SysCategory">
+		 UPDATE sys_category
+ 		 <set> 
+			<if test="bean.categoryName != null">
+				 category_name = #{bean.categoryName},
+			</if>
+			<if test="bean.pCategoryId != null">
+				 p_category_id = #{bean.pCategoryId},
+			</if>
+			<if test="bean.sort != null">
+				 sort = #{bean.sort},
+			</if>
+ 		 </set>
+ 		 where category_id=#{categoryId}
+	</update>
+
+	<!-- 根据CategoryId删除-->
+	<delete id="deleteByCategoryId">
+		delete from sys_category where category_id=#{categoryId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByCategoryId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from sys_category s where category_id=#{categoryId}
+	</select>
+
+
+	<!-- 根据父分类ID查询子分类列表（按sort升序）-->
+	<select id="selectByPCategoryId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from sys_category s where p_category_id=#{pCategoryId} order by sort asc
+	</select>
+
+	<select id="selectMaxSort" resultMap="base_result_map" >
+			select max(sort) from sys_category s where p_category_id= #{pCategoryId}
+	</select>
+
+	<!-- 批量更新分类 -->
+	<update id="updateBatch">
+		UPDATE sys_category
+		<trim prefix="SET" suffixOverrides=",">
+			<trim prefix="category_name = CASE" suffix="END,">
+				<foreach collection="categoryList" item="item">
+					WHEN category_id = #{item.categoryId} THEN #{item.categoryName}
+				</foreach>
+			</trim>
+			<trim prefix="p_category_id = CASE" suffix="END,">
+				<foreach collection="categoryList" item="item">
+					WHEN category_id = #{item.categoryId} THEN #{item.pCategoryId}
+				</foreach>
+			</trim>
+			<trim prefix="sort = CASE" suffix="END,">
+				<foreach collection="categoryList" item="item">
+					WHEN category_id = #{item.categoryId} THEN #{item.sort}
+				</foreach>
+			</trim>
+		</trim>
+		WHERE category_id IN
+		<foreach collection="categoryList" item="item" open="(" separator="," close=")">
+			#{item.categoryId}
+		</foreach>
+	</update>
+
+<!--	根据categoryId查询分类名称：selectNameByCategoryId-->
+	<select id="selectNameByCategoryId" resultType="java.lang.String">
+		select category_name from sys_category where category_id = #{categoryId}
+	</select>
+</mapper>

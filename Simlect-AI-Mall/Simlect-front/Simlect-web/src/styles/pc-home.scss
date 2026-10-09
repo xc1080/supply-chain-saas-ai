@@ -1,0 +1,76 @@
+@use './variables' as *;
+
+html[data-platform='desktop'] {
+  .home-page.ignore {
+    background: transparent;
+
+    .home-desktop {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .home-desktop-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .desktop-shortcuts {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      padding: 14px 16px;
+    }
+
+    .desktop-shortcut-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 72px;
+      padding: 12px 8px;
+      border: 1px solid $color-border-light;
+      border-radius: $radius-card;
+      background: $color-bg-subtle;
+      cursor: pointer;
+      transition: border-color $transition-fast, background $transition-fast;
+
+      &:hover {
+        border-color: $color-border-gray;
+        background: $color-card;
+      }
+
+      .ds-icon {
+        color: $color-text-title;
+      }
+
+      .ds-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: $color-text-body;
+      }
+    }
+
+    .pc-home-block {
+      padding: 16px 18px 18px;
+    }
+
+    .pc-section-title {
+      margin: 0 0 14px;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: $color-text-title;
+    }
+
+    .pc-hot-price {
+      color: $color-price;
+      font-weight: 600;
+    }
+  }
+}

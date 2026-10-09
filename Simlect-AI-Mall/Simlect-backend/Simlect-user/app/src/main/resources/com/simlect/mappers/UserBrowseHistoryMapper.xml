@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.UserBrowseHistoryMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.UserBrowseHistory">
+		<id column="history_id" property="historyId"  />
+		<result column="user_id" property="userId"  />
+		<result column="product_id" property="productId"  />
+		<result column="browse_time" property="browseTime"  />
+	</resultMap>
+
+	<sql id="base_column_list">
+		 u.history_id,u.user_id,u.product_id,u.browse_time
+	</sql>
+
+	<sql id="base_condition_filed">
+<if test="query.historyId != null">
+				 and  u.history_id = #{query.historyId}
+			</if>
+<if test="query.userId != null and query.userId!=''">
+				 and  u.user_id = #{query.userId}
+			</if>
+<if test="query.productId != null and query.productId!=''">
+				 and  u.product_id = #{query.productId}
+			</if>
+<if test="query.browseTime != null and query.browseTime!=''">
+				 <![CDATA[ and  u.browse_time=str_to_date(#{query.browseTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+	</sql>
+
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  u.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+<if test="query.productIdFuzzy!= null  and query.productIdFuzzy!=''">
+				 and  u.product_id like concat('%', #{query.productIdFuzzy}, '%')
+			</if>
+<if test="query.browseTimeStart!= null and query.browseTimeStart!=''">
+				 <![CDATA[ and  u.browse_time>=str_to_date(#{query.browseTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+<if test="query.browseTimeEnd!= null and query.browseTimeEnd!=''">
+				 <![CDATA[ and  u.browse_time< date_sub(str_to_date(#{query.browseTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM user_browse_history u <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM user_browse_history u <include refid="query_condition" />
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.UserBrowseHistory">
+		<selectKey keyProperty="bean.historyId" resultType="Long" order="AFTER">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		 INSERT INTO user_browse_history
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+<if test="bean.historyId != null">
+				 history_id,
+			</if>
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.productId != null">
+				 product_id,
+			</if>
+<if test="bean.browseTime != null">
+				 browse_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+<if test="bean.historyId!=null">
+				 #{bean.historyId},
+			</if>
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+<if test="bean.browseTime!=null">
+				 #{bean.browseTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.UserBrowseHistory">
+		 INSERT INTO user_browse_history
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+<if test="bean.historyId != null">
+				 history_id,
+			</if>
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.productId != null">
+				 product_id,
+			</if>
+<if test="bean.browseTime != null">
+				 browse_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+<if test="bean.historyId!=null">
+				 #{bean.historyId},
+			</if>
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+<if test="bean.browseTime!=null">
+				 #{bean.browseTime},
+			</if>
+		 </trim>
+		 on DUPLICATE key update
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.productId!=null">
+				 product_id = VALUES(product_id),
+			</if>
+			<if test="bean.browseTime!=null">
+				 browse_time = VALUES(browse_time),
+			</if>
+		 </trim>
+	</insert>
+
+	<update id="updateByParam" parameterType="com.simlect.entity.query.UserBrowseHistoryQuery">
+		 UPDATE user_browse_history u
+		 <set>
+			<if test="bean.historyId != null">
+				 history_id = #{bean.historyId},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.browseTime != null">
+				 browse_time = #{bean.browseTime},
+			</if>
+		 </set>
+		 <include refid="query_condition" />
+	</update>
+
+	<delete id="deleteByParam">
+		 delete u from user_browse_history u
+		 <include refid="query_condition" />
+	</delete>
+
+	<update id="updateByHistoryId" parameterType="com.simlect.entity.query.UserBrowseHistoryQuery">
+		 UPDATE user_browse_history u
+		 <set>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.browseTime != null">
+				 browse_time = #{bean.browseTime},
+			</if>
+		 </set>
+		 where history_id=#{historyId}
+	</update>
+	<delete id="deleteByHistoryId">
+		delete from user_browse_history where history_id=#{historyId}
+	</delete>
+	<select id="selectByHistoryId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from user_browse_history u where history_id=#{historyId}
+	</select>
+
+</mapper>

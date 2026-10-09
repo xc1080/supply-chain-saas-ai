@@ -1,0 +1,19 @@
+runtime/
+logs/
+*.log
+
+# Local environments, dependencies, and build output
+**/.venv/
+**/node_modules/
+**/target/
+**/dist/
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local tours and generated media
+**/.tours/
+**/public/demo-media/
+
+# Preserve nested repository metadata outside the public source tree
+**/.git-preserved/

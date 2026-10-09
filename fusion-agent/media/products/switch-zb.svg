@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title"><title id="title">Zigbee智能开关，演示商品示意图</title><rect width="600" height="600" fill="#edf2f7"/>
+<ellipse cx="300" cy="470" rx="159" ry="22" fill="#d7e0e9"/>
+<rect x="145" y="134" width="326" height="326" rx="38" fill="#becbd8"/>
+<rect x="130" y="119" width="326" height="326" rx="38" fill="#fff" stroke="#c5d1dc" stroke-width="3"/>
+<rect x="168" y="157" width="250" height="250" rx="12" fill="#e7edf3"/>
+<path d="M176 166H411V304L176 330Z" fill="#fafcfd" stroke="#d2dde7" stroke-width="2"/>
+<path d="M176 330L411 304V397H176Z" fill="#fff" stroke="#d2dde7" stroke-width="2"/>
+<rect x="268" y="353" width="51" height="4" rx="2" fill="#437abb"/>
+<path fill="none" d="M192 183H393" stroke="#fff" stroke-width="4"/>
+<text x="30" y="566" fill="#70869c" font-size="18" font-family="Microsoft YaHei, PingFang SC, sans-serif">商品示意</text></svg>

@@ -1,0 +1,246 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  config:
+    import: optional:classpath:simlect-common.yml
+  application:
+    name: simlect-gateway
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  cloud:
+    openfeign:
+      sentinel:
+        enabled: true
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        prefer-ip-address: true
+        heart-beat-interval: 5
+        heart-beat-timeout: 15
+        ip-delete-timeout: 30
+    loadbalancer:
+      cache:
+        enabled: true
+        ttl: 10s
+        capacity: 256
+      retry:
+        enabled: true
+        max-retries-on-same-service-instance: 0
+        max-retries-on-next-service-instance: 1
+        retry-on-all-operations: false
+        avoid-previous-instance: true
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+      eager: true
+      scg:
+        fallback:
+          mode: response
+          response-status: 429
+          response-body: '{"status":"error","code":429,"info":"请求过于频繁，请稍后再试","data":null}'
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
+          global-filter:
+            websocket-routing:
+              enabled: true
+          httpclient:
+            connect-timeout: 3000
+            response-timeout: 15s
+            websocket:
+              proxy-ping: true
+          default-filters:
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                methods: GET
+                exceptions: java.io.IOException,java.util.concurrent.TimeoutException
+                backoff:
+                  firstBackoff: 50ms
+                  maxBackoff: 300ms
+                  factor: 2
+                  basedOnPreviousValue: false
+          routes:
+            - id: agent-http
+              uri: http://${AGENT_HOST:127.0.0.1}:${AGENT_PORT:7050}
+              predicates:
+                - Path=/api/agent/**
+            - id: agent-ws
+              uri: ws://${AGENT_HOST:127.0.0.1}:${AGENT_PORT:7050}
+              predicates:
+                - Path=/ws/**
+            - id: internal-order
+              uri: lb://simlect-order
+              predicates:
+                - Path=/internal/order/**
+            - id: internal-product
+              uri: lb://simlect-product
+              predicates:
+                - Path=/internal/product/**
+            - id: internal-coupon
+              uri: lb://simlect-coupon
+              predicates:
+                - Path=/internal/coupon/**
+            - id: internal-user
+              uri: lb://simlect-user
+              predicates:
+                - Path=/internal/user/**
+            - id: admin-user
+              uri: lb://simlect-user
+              predicates:
+                - Path=/admin-api/account/**,/admin-api/user/**,/admin-api/userInfo/**,/admin-api/userAddress/**,/admin-api/file/**,/admin-api/signRecord/**,/admin-api/signRewardConfig/**,/admin-api/memberLevelRewardConfig/**,/admin-api/imageModeration/**
+              filters:
+                - RewritePath=/admin-api/(?<segment>.*), /admin/$\{segment}
+            - id: admin-product
+              uri: lb://simlect-product
+              predicates:
+                - Path=/admin-api/productInfo/**,/admin-api/productSku/**,/admin-api/productPropertyValue/**,/admin-api/sysCategory/**,/admin-api/sysProductProperty/**
+              filters:
+                - RewritePath=/admin-api/(?<segment>.*), /admin/$\{segment}
+            - id: admin-order
+              uri: lb://simlect-order
+              predicates:
+                - Path=/admin-api/order/**,/admin-api/orderInfo/**,/admin-api/orderItem/**,/admin-api/orderComment/**,/admin-api/commentReport/**
+              filters:
+                - RewritePath=/admin-api/(?<segment>.*), /admin/$\{segment}
+            - id: admin-coupon
+              uri: lb://simlect-coupon
+              predicates:
+                - Path=/admin-api/discountCoupon/**
+              filters:
+                - RewritePath=/admin-api/(?<segment>.*), /admin/$\{segment}
+            - id: admin-cart
+              uri: lb://simlect-cart
+              predicates:
+                - Path=/admin-api/productCart/**
+              filters:
+                - RewritePath=/admin-api/(?<segment>.*), /admin/$\{segment}
+            - id: admin-logistics
+              uri: lb://simlect-order
+              predicates:
+                - Path=/admin-api/orderLogisticsInfo/**,/admin-api/orderLogisticsInfoRecord/**
+              filters:
+                - RewritePath=/admin-api/(?<segment>.*), /admin/$\{segment}
+            - id: admin-search
+              uri: lb://simlect-search
+              predicates:
+                - Path=/admin-api/rag/**,/admin-api/ragQuestion/**,/admin-api/ragSyncFailure/**,/admin-api/searchHotKeyword/**
+              filters:
+                - RewritePath=/admin-api/(?<segment>.*), /admin/$\{segment}
+            - id: admin-bff
+              uri: lb://simlect-admin
+              predicates:
+                - Path=/admin-api/**
+              filters:
+                - RewritePath=/admin-api/(?<segment>.*), /admin/$\{segment}
+            - id: user
+              uri: lb://simlect-user
+              predicates:
+                - Path=/api/account/**,/api/sign/**,/api/captcha/**,/api/userAddress/**,/api/userBrowse/**,/api/browseHistory/**,/api/userFavorite/**,/api/userMember/**,/api/userNotification/**,/api/location/**,/api/file/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - id: product
+              uri: lb://simlect-product
+              predicates:
+                - Path=/api/product/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - id: cart
+              uri: lb://simlect-cart
+              predicates:
+                - Path=/api/productCart/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - id: order
+              uri: lb://simlect-order
+              predicates:
+                - Path=/api/order/**,/api/orderComment/**,/api/commentReport/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - id: pay
+              uri: lb://simlect-pay
+              predicates:
+                - Path=/api/pay/**,/api/payNotify/**,/api/payTrade/**,/api/notify/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - id: coupon
+              uri: lb://simlect-coupon
+              predicates:
+                - Path=/api/discountCoupon/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - id: search
+              uri: lb://simlect-search
+              predicates:
+                - Path=/api/search/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - id: stock
+              uri: lb://simlect-stock
+              predicates:
+                - Path=/api/stock/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - id: logistics
+              uri: lb://simlect-order
+              predicates:
+                - Path=/api/logistics/**,/api/orderLogisticsInfo/**,/api/orderLogisticsInfoRecord/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+simlect:
+  production-ready: ${SIMLECT_PRODUCTION_READY:false}
+  internal:
+    token: ${SIMLECT_INTERNAL_TOKEN:}
+    auth-enabled: true
+  feign:
+    connect-timeout-ms: 3000
+    read-timeout-ms: 10000
+  gateway:
+    auth:
+      enabled: true
+      web-exclude-paths:
+        - /api/account/autoLogin
+        - /api/account/checkCode
+        - /api/account/register
+        - /api/account/login
+        - /api/account/logout
+        - /api/account/getEmailCode
+        - /api/account/forgetPassword
+        - /api/captcha/**
+        - /api/product/**
+        - /api/discountCoupon/getDiscountCouponDetail
+        - /api/discountCoupon/loadDiscountCoupon
+        - /api/order/comment/loadComment
+        - /api/order/comment/getProductCommentStats
+        - /api/search/loadHotKeywords
+        - /api/file/getResource
+        - /api/userMember/getLevelBadge
+        - /api/notify/alipayNotify
+      admin-exclude-paths:
+        - /admin-api/account/**
+        - /admin-api/file/getResource
+        - /admin-api/file/getResource/**
+    rate-limit:
+      enabled: true
+      default-qps: 200
+      auth-qps: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,0 +1,8 @@
+@use './variables' as *;
+
+html[data-platform='desktop'] {
+  .home-page.ignore .product-grid {
+    align-items: start;
+    gap: 10px;
+  }
+}

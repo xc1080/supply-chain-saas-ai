@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.SensitiveWordMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.SensitiveWord">
+		<id column="id" property="id" />
+		<result column="word" property="word" />
+		<result column="replace_word" property="replaceWord" />
+		<result column="status" property="status" />
+		<result column="create_time" property="createTime" />
+		<result column="update_time" property="updateTime" />
+	</resultMap>
+
+	<sql id="base_column_list">
+		 id,word,replace_word,status,create_time,update_time
+	</sql>
+
+	<sql id="base_condition_filed">
+		<if test="query.id != null">
+			 and  id = #{query.id}
+		</if>
+		<if test="query.word != null and query.word!=''">
+			 and  word = #{query.word}
+		</if>
+		<if test="query.replaceWord != null and query.replaceWord!=''">
+			 and  replace_word = #{query.replaceWord}
+		</if>
+		<if test="query.status != null">
+			 and  status = #{query.status}
+		</if>
+	</sql>
+
+	<sql id="query_condition">
+		 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.wordFuzzy!= null  and query.wordFuzzy!=''">
+				 and  word like concat('%', #{query.wordFuzzy}, '%')
+			</if>
+			<if test="query.createTimeStart != null">
+				 <![CDATA[ and  create_time >= #{query.createTimeStart} ]]>
+			</if>
+			<if test="query.createTimeEnd != null">
+				 <![CDATA[ and  create_time <= #{query.createTimeEnd} ]]>
+			</if>
+		 </where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM sensitive_word u <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM sensitive_word u <include refid="query_condition" />
+	</select>
+
+	<select id="selectByWord" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from sensitive_word u where word=#{word}
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.SensitiveWord">
+		INSERT INTO sensitive_word
+		<trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.word != null">
+				word,
+			</if>
+			<if test="bean.replaceWord != null">
+				replace_word,
+			</if>
+			<if test="bean.status != null">
+				status,
+			</if>
+			<if test="bean.createTime != null">
+				create_time,
+			</if>
+			<if test="bean.updateTime != null">
+				update_time,
+			</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.word!=null">
+				#{bean.word},
+			</if>
+			<if test="bean.replaceWord!=null">
+				#{bean.replaceWord},
+			</if>
+			<if test="bean.status!=null">
+				#{bean.status},
+			</if>
+			<if test="bean.createTime!=null">
+				#{bean.createTime},
+			</if>
+			<if test="bean.updateTime!=null">
+				#{bean.updateTime},
+			</if>
+		</trim>
+	</insert>
+
+	<update id="updateByParam" parameterType="com.simlect.entity.query.SensitiveWordQuery">
+		UPDATE sensitive_word u
+		<set>
+			<if test="bean.word != null">
+				word = #{bean.word},
+			</if>
+			<if test="bean.replaceWord != null">
+				replace_word = #{bean.replaceWord},
+			</if>
+			<if test="bean.status != null">
+				status = #{bean.status},
+			</if>
+			<if test="bean.updateTime != null">
+				update_time = #{bean.updateTime},
+			</if>
+		</set>
+		<include refid="query_condition" />
+	</update>
+
+	<delete id="deleteById">
+		 delete from sensitive_word where id=#{id}
+	</delete>
+
+</mapper>

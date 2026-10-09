@@ -1,0 +1,180 @@
+@use './variables' as *;
+
+:root {
+  --eshop-primary: #{$color-primary};
+  --eshop-primary-hover: #{$color-primary-hover};
+  --eshop-price: #{$color-price};
+  --eshop-bg: #{$color-bg};
+  --eshop-card: #{$color-card};
+  --eshop-radius: #{$radius-card};
+  --eshop-shadow: #{$shadow-card};
+
+  --el-color-primary: #{$color-primary};
+  --el-color-primary-light-3: #5A5A5E;
+  --el-color-primary-light-5: #8E8E93;
+  --el-color-primary-light-7: #B0B0B5;
+  --el-color-primary-light-8: #C7C7CC;
+  --el-color-primary-light-9: #E8E8ED;
+  --el-color-primary-dark-2: #{$color-primary-active};
+
+  --el-color-success: #{$color-success};
+  --el-color-warning: #{$color-warning};
+  --el-color-danger: #{$color-error};
+  --el-color-error: #{$color-error};
+
+  --el-border-radius-base: #{$radius-btn};
+  --el-border-radius-small: #{$radius-xs};
+  --el-border-radius-round: #{$radius-pill};
+
+  --el-bg-color: #{$color-bg};
+  --el-bg-color-page: #{$color-bg-subtle};
+  --el-fill-color-blank: #{$color-card};
+  --el-fill-color-light: #{$color-bg-subtle};
+
+  --el-text-color-primary: #{$color-text-title};
+  --el-text-color-regular: #{$color-text-body};
+  --el-text-color-secondary: #{$color-text-muted};
+  --el-text-color-placeholder: #{$color-text-disabled};
+
+  --el-border-color: #{$color-border};
+  --el-border-color-light: #{$color-border-light};
+  --el-border-color-lighter: #{$color-border-light};
+
+  --el-box-shadow: #{$shadow-card};
+  --el-box-shadow-light: #{$shadow-xs};
+
+  --el-font-family: #{$font-family};
+  --el-font-size-base: 14px;
+}
+
+html,
+body,
+.el-popper,
+.el-message,
+.el-message-box,
+.el-notification,
+.el-dialog,
+.el-drawer {
+  font-family: $font-family;
+}
+
+.el-button {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border-radius: #{$radius-btn};
+  transition: background $transition-fast, border-color $transition-fast, opacity $transition-fast, transform 0.15s ease, box-shadow $transition-fast, filter $transition-fast;
+
+  &:not(.is-disabled):active {
+    opacity: 0.85;
+  }
+}
+
+.el-button--large {
+  border-radius: #{$radius-btn};
+  height: 44px;
+  font-size: 15px;
+}
+
+.el-button--small {
+  border-radius: #{$radius-xs};
+}
+
+.el-button--warning,
+.el-button--primary {
+  --el-button-bg-color: #{$color-primary};
+  --el-button-border-color: #{$color-primary};
+  --el-button-hover-bg-color: #{$color-primary-hover};
+  --el-button-hover-border-color: #{$color-primary-hover};
+  --el-button-active-bg-color: #{$color-primary-active};
+  --el-button-active-border-color: #{$color-primary-active};
+}
+
+.el-button--danger {
+  --el-button-bg-color: #{$color-error};
+  --el-button-border-color: #{$color-error};
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: #{$radius-btn} !important;
+  box-shadow: 0 0 0 1px #{$color-border} inset !important;
+  transition: box-shadow $transition-fast !important;
+
+  &:hover {
+    box-shadow: 0 0 0 1px #{rgba($color-primary, 0.35)} inset !important;
+  }
+
+  &.is-focus,
+  &:focus-within {
+    box-shadow: 0 0 0 1px #{$color-primary} inset, 0 0 0 3px #{$color-primary-muted} !important;
+  }
+}
+
+.el-card {
+  border: 1px solid #{$color-border-light};
+  border-radius: #{$radius-card};
+  box-shadow: none;
+}
+
+.el-empty__description {
+  color: #{$color-text-muted};
+}
+
+.el-empty {
+  padding: 40px 0;
+
+  .el-empty__image {
+    opacity: 0.9;
+  }
+
+  .el-empty__description p {
+    font-size: 13px;
+    letter-spacing: 0.01em;
+  }
+}
+
+.el-skeleton__item {
+  border-radius: #{$radius-xs};
+}
+
+.el-dialog {
+  border-radius: #{$radius-card};
+  overflow: hidden;
+}
+
+.el-drawer {
+  border-radius: #{$radius-card} 0 0 #{$radius-card};
+}
+
+.el-badge__content {
+  border: 2px solid #{$color-card};
+  background: #{$color-primary};
+}
+
+.el-tabs__active-bar {
+  height: 2px;
+  border-radius: #{$radius-pill};
+  background: #{$color-primary};
+}
+
+.el-tabs__item.is-active {
+  font-weight: 600;
+  color: #{$color-primary};
+}
+
+.el-checkbox__input.is-checked .el-checkbox__inner,
+.el-radio__input.is-checked .el-radio__inner {
+  background-color: #{$color-primary};
+  border-color: #{$color-primary};
+}
+
+.el-pagination.is-background .el-pager li.is-active {
+  background-color: #{$color-primary};
+}
+
+.el-tag--warning {
+  --el-tag-bg-color: #{$color-gold-soft};
+  --el-tag-border-color: #{$color-gold-muted};
+  --el-tag-text-color: #{$color-gold};
+}

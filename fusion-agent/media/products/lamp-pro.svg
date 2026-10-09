@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title"><title id="title">客厅智能吸顶灯，演示商品示意图</title><rect width="600" height="600" fill="#edf2f7"/>
+<ellipse cx="300" cy="444" rx="183" ry="23" fill="#d7e0e9"/>
+<ellipse cx="300" cy="257" rx="192" ry="62" fill="#b5c4d1"/>
+<path d="M108 257V323C108 413 492 413 492 323V257" fill="#fff" stroke="#c5d1dc" stroke-width="3"/>
+<ellipse cx="300" cy="258" rx="192" ry="60" fill="#eef3f7" stroke="#c5d1dc" stroke-width="3"/>
+<ellipse cx="300" cy="328" rx="175" ry="54" fill="#fbebc1"/>
+<path d="M137 323C177 370 423 370 463 323" fill="none" stroke="#eed49d" stroke-width="3"/>
+<ellipse cx="300" cy="259" rx="151" ry="44" fill="#fff"/>
+<path fill="none" d="M260 233H340" stroke="#e5edf4" stroke-width="3"/>
+<text x="30" y="566" fill="#70869c" font-size="18" font-family="Microsoft YaHei, PingFang SC, sans-serif">商品示意</text></svg>

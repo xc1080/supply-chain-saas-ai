@@ -1,0 +1,284 @@
+@use './variables' as *;
+
+@mixin pc-agent-layout {
+  .pc-sub-container.is-agent-pc {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 200px);
+
+    .plain-page-head {
+      flex-shrink: 0;
+      margin-bottom: 12px;
+    }
+
+    .pull-refresh-host {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pc-plain-body.is-agent-pc {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      background: transparent;
+    }
+  }
+
+  .pc-agent-page,
+  .pc-agent-page.agent-page {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    min-height: 480px;
+    height: calc(100vh - 260px);
+    max-height: 720px;
+    border: 1px solid $color-border-gray;
+    border-radius: $radius-card;
+    background: $color-card;
+    box-shadow: $shadow-card;
+    overflow: hidden;
+
+    .chat-scroll {
+      flex: 1 1 0;
+      min-height: 0;
+      width: 100%;
+      padding-bottom: 12px !important;
+      background: #fafafa;
+    }
+
+    .chat-scroll-inner {
+      padding: 12px 16px;
+      min-height: 0;
+    }
+
+    .agent-composer-stack {
+      position: static !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      z-index: 1 !important;
+      flex-shrink: 0;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      pointer-events: auto !important;
+      gap: 0 !important;
+    }
+
+    .consult-product-float {
+      margin: 0;
+      border-radius: 0;
+      border-bottom: 1px solid $color-border-light;
+      box-shadow: none;
+    }
+
+    .agent-composer-dock {
+      border-top: 1px solid $color-border-gray;
+      box-shadow: none;
+    }
+
+    .quick-tips {
+      padding: 8px 12px;
+    }
+
+    .tips-scroll {
+      padding-right: 12px;
+    }
+
+    .chat-input-bar {
+      padding: 10px 12px;
+      align-items: flex-end;
+    }
+
+    .agent-chat-textarea {
+      font-size: 14px !important;
+      min-height: 40px !important;
+      max-height: 100px !important;
+      padding: 8px 10px !important;
+    }
+
+    .btn-send-native {
+      font-size: 14px !important;
+      height: 40px;
+      min-width: 72px;
+      padding: 0 16px;
+    }
+
+    .tip-chip {
+      font-size: 12px !important;
+      padding: 5px 10px !important;
+    }
+
+    .bubble {
+      font-size: 13px;
+      max-width: min(85%, 640px);
+    }
+
+    .ai-bubble.is-wide {
+      max-width: calc(100% - 40px);
+    }
+
+    .consult-product-card.is-bubble {
+      max-width: min(100%, 360px);
+      width: 100%;
+    }
+
+    .consult-product-card .cover-wrap {
+      flex: 0 0 48px;
+      width: 48px;
+      height: 48px;
+    }
+
+    .agent-products {
+      gap: 8px;
+      max-height: 260px;
+    }
+
+    .product-link .product-image {
+      width: 56px !important;
+      height: 56px !important;
+      margin: 0 auto;
+    }
+
+    .msg-group {
+      margin-bottom: 12px;
+    }
+  }
+}
+
+@mixin pc-agent-float-panel {
+  .pc-agent-float-panel.agent-page {
+    flex: 0 0 auto;
+    align-self: center;
+    width: min(420px, calc(100vw - 48px));
+    height: min(680px, calc(100vh - 80px));
+    min-height: 520px;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    .chat-scroll {
+      flex: 1 1 0;
+      min-height: 0;
+      width: 100%;
+      padding-bottom: 12px !important;
+      background: #fafafa;
+    }
+
+    .chat-scroll-inner {
+      padding: 12px 14px;
+      min-height: 0;
+    }
+
+    .agent-composer-stack {
+      position: static !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      z-index: 1 !important;
+      flex-shrink: 0;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      pointer-events: auto !important;
+      gap: 0 !important;
+    }
+
+    .consult-product-float {
+      margin: 0;
+      border-radius: 0;
+      border-bottom: 1px solid $color-border-light;
+      box-shadow: none;
+    }
+
+    .agent-composer-dock {
+      border-top: 1px solid $color-border-gray;
+      box-shadow: none;
+    }
+
+    .quick-tips {
+      padding: 8px 10px;
+    }
+
+    .chat-input-bar {
+      padding: 8px 10px;
+      align-items: flex-end;
+    }
+
+    .agent-chat-textarea {
+      font-size: 13px !important;
+      min-height: 36px !important;
+      max-height: 88px !important;
+      padding: 6px 8px !important;
+    }
+
+    .btn-send-native {
+      font-size: 13px !important;
+      height: 36px;
+      min-width: 64px;
+      padding: 0 12px;
+    }
+
+    .tip-chip {
+      font-size: 11px !important;
+      padding: 4px 8px !important;
+    }
+
+    .bubble {
+      font-size: 13px;
+      max-width: min(88%, 320px);
+    }
+
+    .ai-bubble.is-wide {
+      max-width: calc(100% - 24px);
+    }
+
+    .consult-product-card.is-bubble {
+      max-width: min(100%, 280px);
+      width: 100%;
+    }
+
+    .consult-product-card .cover-wrap {
+      flex: 0 0 44px;
+      width: 44px;
+      height: 44px;
+    }
+
+    .agent-products {
+      gap: 8px;
+      max-height: 220px;
+    }
+
+    .product-link .product-image {
+      width: 52px !important;
+      height: 52px !important;
+      margin: 0 auto;
+    }
+
+    .msg-group {
+      margin-bottom: 10px;
+    }
+  }
+}
+
+html[data-platform='desktop'] {
+  @include pc-agent-layout;
+  @include pc-agent-float-panel;
+}
+
+@media (min-width: 768px) {
+  @include pc-agent-layout;
+  @include pc-agent-float-panel;
+}

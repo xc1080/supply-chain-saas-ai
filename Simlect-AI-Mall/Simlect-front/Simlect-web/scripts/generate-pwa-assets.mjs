@@ -1,0 +1,154 @@
+
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const outDir = path.resolve(__dirname, '../public/pwa');
+const publicDir = path.resolve(__dirname, '../public');
+
+const LOGO = {
+  cx: 16,
+  cy: 16,
+  width: 20,
+  height: 22
+};
+
+const LOGO_PATHS = `
+  <path fill="none" stroke="#1d1d1f" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" d="M20.5 8.5c-3.2 0-5.2 1.8-5.2 4.6 0 3.4 5.2 3.2 5.2 7.2 0 2.6-2.2 4.4-5.4 4.4-2.2 0-4-.8-5.1-2.1"/>
+  <path fill="none" stroke="#1d1d1f" stroke-width="1.85" stroke-linecap="round" d="M11.5 8.5v14.6"/>
+`;
+
+
+const logoMarkSvg = (size, logoScale = 0.62) => {
+  const scale = (size * logoScale) / LOGO.width;
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  <rect width="${size}" height="${size}" fill="#ffffff"/>
+  <g transform="translate(${size / 2} ${size / 2}) scale(${scale}) translate(${-LOGO.cx} ${-LOGO.cy})">
+    ${LOGO_PATHS}
+  </g>
+</svg>`;
+};
+
+
+const splashSvg = (width, height) => {
+  const logoSize = Math.round(Math.min(width, height) * 0.22);
+  const scale = (logoSize / LOGO.width).toFixed(4);
+  const cx = width / 2;
+  const cy = height * 0.46;
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="${width}" height="${height}" fill="#ffffff"/>
+  <g transform="translate(${cx} ${cy}) scale(${scale}) translate(${-LOGO.cx} ${-LOGO.cy})">
+    ${LOGO_PATHS}
+  </g>
+</svg>`;
+};
+
+const SPLASH_SIZES = [
+  { name: 'iphone-se', width: 750, height: 1334 },
+  { name: 'iphone-12-13-14', width: 1170, height: 2532 },
+  { name: 'iphone-14-pro', width: 1179, height: 2556 },
+  { name: 'iphone-14-pro-max', width: 1290, height: 2796 },
+  { name: 'iphone-16-pro', width: 1206, height: 2622 },
+  { name: 'iphone-16-pro-max', width: 1320, height: 2868 }
+];
+
+const STARTUP_LINKS = [
+  {
+    href: '/pwa/splash-iphone-se.png',
+    media:
+      '(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)'
+  },
+  {
+    href: '/pwa/splash-iphone-12-13-14.png',
+    media:
+      '(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)'
+  },
+  {
+    href: '/pwa/splash-iphone-14-pro.png',
+    media:
+      '(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)'
+  },
+  {
+    href: '/pwa/splash-iphone-14-pro-max.png',
+    media:
+      '(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)'
+  },
+  {
+    href: '/pwa/splash-iphone-16-pro.png',
+    media:
+      '(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)'
+  },
+  {
+    href: '/pwa/splash-iphone-16-pro-max.png',
+    media:
+      '(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)'
+  }
+];
+
+async function writePngFromSvg(file, svg, width, height) {
+  await sharp(Buffer.from(svg), { density: 300 })
+    .resize(width, height, { kernel: sharp.kernel.lanczos3 })
+    .png({ compressionLevel: 9 })
+    .toFile(file);
+  console.log('wrote', file);
+}
+
+async function writeIconPng(name, width, height) {
+  const master = 1024;
+  const masterSvg = logoMarkSvg(master, 0.62);
+  const file = path.join(outDir, name);
+  await sharp(Buffer.from(masterSvg), { density: 300 })
+    .resize(width, height, { kernel: sharp.kernel.lanczos3 })
+    .png({ compressionLevel: 9 })
+    .toFile(file);
+  console.log('wrote', file);
+}
+
+async function main() {
+  await mkdir(outDir, { recursive: true });
+
+  await writeIconPng('apple-touch-icon.png', 180, 180);
+  await writeIconPng('apple-touch-icon-1024.png', 1024, 1024);
+  await writeIconPng('icon-192.png', 192, 192);
+  await writeIconPng('icon-512.png', 512, 512);
+
+  
+  await copyFile(
+    path.join(outDir, 'apple-touch-icon.png'),
+    path.join(publicDir, 'apple-touch-icon.png')
+  );
+  console.log('wrote', path.join(publicDir, 'apple-touch-icon.png'));
+
+  for (const item of SPLASH_SIZES) {
+    await writePngFromSvg(
+      path.join(outDir, `splash-${item.name}.png`),
+      splashSvg(item.width, item.height),
+      item.width,
+      item.height
+    );
+  }
+
+  const linksSnippet = [
+    ...STARTUP_LINKS.map(
+      (item) =>
+        `    <link rel="apple-touch-startup-image" media="${item.media}" href="${item.href}" />`
+    ),
+    '    <link rel="apple-touch-startup-image" href="/pwa/splash-iphone-16-pro-max.png" />'
+  ].join('\n');
+
+  await writeFile(
+    path.join(outDir, 'startup-links.html'),
+    `<!-- generated by scripts/generate-pwa-assets.mjs -->\n${linksSnippet}\n`
+  );
+
+  console.log('Done.');
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

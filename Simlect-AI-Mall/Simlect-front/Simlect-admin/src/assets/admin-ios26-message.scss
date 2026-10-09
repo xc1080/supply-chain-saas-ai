@@ -1,0 +1,145 @@
+
+:root {
+  --ios26-alert-bg: rgba(255, 255, 255, 0.88);
+  --ios26-alert-radius: 36px;
+  --ios26-alert-title: #1d1d1f;
+  --ios26-alert-body: #3c3c43;
+  --ios26-alert-blue: #0071e3;
+  --ios26-alert-blue-hover: #0077ed;
+}
+
+.el-overlay.is-message-box {
+  background-color: rgba(0, 0, 0, 0.35);
+}
+
+.el-message-box {
+  --el-messagebox-width: min(320px, calc(100vw - 40px));
+  --el-bg-color: transparent;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: var(--ios26-alert-radius);
+  background: var(--ios26-alert-bg) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+
+  .el-message-box__header {
+    padding: 22px 20px 0;
+    margin-right: 0;
+    background: transparent;
+
+    .el-message-box__title {
+      display: flex;
+      justify-content: center;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--ios26-alert-title);
+      line-height: 1.3;
+    }
+
+    .el-message-box__headerbtn {
+      display: none;
+    }
+  }
+
+  .el-message-box__content {
+    padding: 10px 20px 20px;
+    background: transparent;
+
+    .el-message-box__container {
+      justify-content: center;
+      gap: 0;
+    }
+
+    .el-message-box__status,
+    .el-message-box__icon {
+      display: none !important;
+    }
+
+    .el-message-box__message {
+      width: 100%;
+      padding: 0;
+
+      p {
+        margin: 0;
+        text-align: center;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--ios26-alert-body);
+        letter-spacing: -0.01em;
+      }
+    }
+  }
+
+  .el-message-box__btns {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 0 18px 18px;
+    border-top: none;
+    background: transparent;
+
+    .el-button {
+      flex: 1;
+      min-width: 108px;
+      max-width: 132px;
+      margin: 0 !important;
+      height: 36px;
+      padding: 0 20px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      box-shadow: none;
+    }
+
+    .el-button--default {
+      background: #ffffff;
+      border: 1px solid rgba(60, 60, 67, 0.14);
+      color: var(--ios26-alert-title);
+
+      &:hover,
+      &:focus {
+        background: #f9f9fb;
+        border-color: rgba(60, 60, 67, 0.2);
+        color: var(--ios26-alert-title);
+      }
+
+      &:active {
+        background: #f2f2f5;
+      }
+    }
+
+    .el-button--primary {
+      background: var(--ios26-alert-blue);
+      border: 1px solid var(--ios26-alert-blue);
+      color: #ffffff;
+      font-weight: 600;
+
+      &:hover,
+      &:focus {
+        background: var(--ios26-alert-blue-hover);
+        border-color: var(--ios26-alert-blue-hover);
+        color: #ffffff;
+      }
+
+      &:active {
+        background: #0068d1;
+        border-color: #0068d1;
+      }
+    }
+
+    .el-button + .el-button {
+      margin-left: 0 !important;
+    }
+  }
+
+  .el-message-box__btns .el-button:only-child {
+    flex: 1;
+    max-width: 160px;
+  }
+}

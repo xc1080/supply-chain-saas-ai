@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.UserSearchKeywordMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.UserSearchKeyword">
+		<id column="id" property="id"  />
+		<result column="user_id" property="userId"  />
+		<result column="keyword" property="keyword"  />
+		<result column="search_time" property="searchTime"  />
+	</resultMap>
+
+	<sql id="base_column_list">
+		 u.id,u.user_id,u.keyword,u.search_time
+	</sql>
+
+	<sql id="base_condition_filed">
+<if test="query.id != null">
+				 and  u.id = #{query.id}
+			</if>
+<if test="query.userId != null and query.userId!=''">
+				 and  u.user_id = #{query.userId}
+			</if>
+<if test="query.keyword != null and query.keyword!=''">
+				 and  u.keyword = #{query.keyword}
+			</if>
+<if test="query.searchTime != null and query.searchTime!=''">
+				 <![CDATA[ and  u.search_time=str_to_date(#{query.searchTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+	</sql>
+
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+	 </where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM user_search_keyword u <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM user_search_keyword u <include refid="query_condition" />
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.UserSearchKeyword">
+		<selectKey keyProperty="bean.id" resultType="Long" order="AFTER">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		 INSERT INTO user_search_keyword
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+<if test="bean.id != null">
+				 id,
+			</if>
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.keyword != null">
+				 keyword,
+			</if>
+<if test="bean.searchTime != null">
+				 search_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+<if test="bean.id!=null">
+				 #{bean.id},
+			</if>
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.keyword!=null">
+				 #{bean.keyword},
+			</if>
+<if test="bean.searchTime!=null">
+				 #{bean.searchTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.UserSearchKeyword">
+		 INSERT INTO user_search_keyword
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+<if test="bean.id != null">
+				 id,
+			</if>
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.keyword != null">
+				 keyword,
+			</if>
+<if test="bean.searchTime != null">
+				 search_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+<if test="bean.id!=null">
+				 #{bean.id},
+			</if>
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.keyword!=null">
+				 #{bean.keyword},
+			</if>
+<if test="bean.searchTime!=null">
+				 #{bean.searchTime},
+			</if>
+		 </trim>
+		 on DUPLICATE key update
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.keyword!=null">
+				 keyword = VALUES(keyword),
+			</if>
+			<if test="bean.searchTime!=null">
+				 search_time = VALUES(search_time),
+			</if>
+		 </trim>
+	</insert>
+
+	<update id="updateByParam" parameterType="com.simlect.entity.query.UserSearchKeywordQuery">
+		 UPDATE user_search_keyword u
+		 <set>
+			<if test="bean.id != null">
+				 id = #{bean.id},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.keyword != null">
+				 keyword = #{bean.keyword},
+			</if>
+			<if test="bean.searchTime != null">
+				 search_time = #{bean.searchTime},
+			</if>
+		 </set>
+		 <include refid="query_condition" />
+	</update>
+
+	<delete id="deleteByParam">
+		 delete u from user_search_keyword u
+		 <include refid="query_condition" />
+	</delete>
+
+	<delete id="deleteById">
+		delete from user_search_keyword where id=#{id}
+	</delete>
+
+</mapper>

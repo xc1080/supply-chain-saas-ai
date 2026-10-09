@@ -1,0 +1,10 @@
+查询订单评价信息。必须调用 QUERY_COMMENT 工具（READ-只读）。
+用户ID：%s
+用户问题：%s
+
+步骤：
+1. 从用户消息中提取订单ID，不明确时请用户提供。
+2. 调用 QUERY_COMMENT 工具：userId=用户ID, orderId=订单ID。
+3. 根据工具返回结果告知用户评价内容。
+
+注意：必须实际调用 QUERY_COMMENT 工具。

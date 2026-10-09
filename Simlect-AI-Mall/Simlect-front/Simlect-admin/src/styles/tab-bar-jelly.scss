@@ -1,0 +1,78 @@
+@keyframes tab-bar-pop {
+  0% {
+    transform: scale(1);
+  }
+  58% {
+    transform: scale(1.052);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes tab-glass-pop {
+  0% {
+    transform: translateX(calc(var(--active-index) * 100%)) scale(1);
+  }
+  50% {
+    transform: translateX(calc(var(--active-index) * 100%)) scale(1.32, 1.38);
+  }
+  100% {
+    transform: translateX(calc(var(--active-index) * 100%)) scale(1);
+  }
+}
+
+$jelly-ease: cubic-bezier(0.28, 0.82, 0.38, 1);
+$jelly-ease-glass: cubic-bezier(0.24, 1.08, 0.34, 1);
+$jelly-bar-duration: 0.44s;
+$jelly-glass-duration: 0.5s;
+
+@mixin tab-bar-jelly-host {
+  transform-origin: center bottom;
+  overflow: visible;
+  will-change: transform;
+
+  &.is-jelly {
+    animation: tab-bar-pop $jelly-bar-duration $jelly-ease both;
+  }
+}
+
+@mixin tab-bar-jelly-glass {
+  transform-origin: center center;
+  z-index: 0;
+  transition: transform 0.36s $jelly-ease;
+
+  &.is-jelly {
+    transition: none;
+    animation: tab-glass-pop $jelly-glass-duration $jelly-ease-glass both;
+
+    :deep(.liquid-glass-surface__tint) {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    :deep(.liquid-glass-surface__shine) {
+      opacity: 0.72;
+    }
+  }
+}
+
+@mixin tab-bar-jelly-shell {
+  overflow: visible !important;
+
+  :deep(.liquid-glass-surface__content) {
+    overflow: visible;
+  }
+}
+
+@mixin tab-bar-jelly-items {
+  position: relative;
+  z-index: 2;
+
+  .icon-wrap,
+  .label,
+  .m-tab-icon,
+  .m-tab-label {
+    position: relative;
+    z-index: 1;
+  }
+}

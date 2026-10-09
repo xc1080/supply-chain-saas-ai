@@ -1,0 +1,39 @@
+# Web
+fastapi>=0.115.0,<0.116
+uvicorn[standard]>=0.32.0,<0.33
+python-multipart>=0.0.12
+websockets>=13.0
+
+# LangChain / LangGraph
+langchain>=0.3.14,<0.4
+langchain-openai>=0.3.0,<0.4
+langchain-community>=0.3.14,<0.4
+langgraph>=0.2.60,<0.3
+langgraph-checkpoint-redis>=0.0.2
+
+# Data & Infra
+redis>=5.2.0
+aiomysql>=0.2.0
+sqlalchemy[asyncio]>=2.0.36
+elasticsearch[async]>=8.17.0
+aio-pika>=9.4.0
+httpx>=0.28.0
+
+# Resilience
+tenacity>=9.0.0
+slowapi>=0.1.9
+
+# Config & Utils
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+python-dotenv>=1.0.1
+structlog>=24.4.0
+prometheus-client>=0.21.0
+
+# Harness Engineering (可选)
+# harness-evals[llm]>=0.1.0
+
+# Dev
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+ruff>=0.8.0

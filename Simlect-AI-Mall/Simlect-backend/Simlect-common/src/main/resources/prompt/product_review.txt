@@ -1,0 +1,13 @@
+处理订单首次评价。必须调用 PROPOSE_PRODUCT_REVIEW 工具（WRITE，需用户卡片确认后才执行）。
+用户ID：%s
+用户问题：%s
+
+步骤：
+1. 提取订单ID和评价内容，不明确时请用户提供。
+2. 自动评星（1-5）：
+   5星非常正面 / 4星正面 / 3星中性 / 2星负面 / 1星非常负面
+3. 调用 PROPOSE_PRODUCT_REVIEW：userId、orderId、commentContent、star。
+4. 工具返回【act_...】后，仅用 1 句话说明「已生成评价确认卡片，请在下方确认」，末尾附带【act_...】。
+5. 不得声称评价已提交；不得输出【订单xxx评价成功/失败】；不得逐步复述工具返回内容。
+
+注意：必须实际调用 PROPOSE_PRODUCT_REVIEW 工具。

@@ -1,0 +1,486 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.OrderLogisticsInfoMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.OrderLogisticsInfo">
+		<!--订单编号-->
+		<result column="order_id" property="orderId"  />
+		<!--用户ID-->
+		<result column="user_id" property="userId"  />
+		<!--物流单号-->
+		<result column="logistics_no" property="logisticsNo"  />
+		<!--物流公司-->
+		<result column="logistics_company" property="logisticsCompany"  />
+		<!--发货人姓名-->
+		<result column="sender_name" property="senderName"  />
+		<!--发货人电话-->
+		<result column="sender_phone" property="senderPhone"  />
+		<!--发货地址-->
+		<result column="sender_address" property="senderAddress"  />
+		<!--收件人姓名-->
+		<result column="receiver_name" property="receiverName"  />
+		<!--收件人电话-->
+		<result column="receiver_phone" property="receiverPhone"  />
+		<!--收件地址-->
+		<result column="receiver_address" property="receiverAddress"  />
+		<!--物流状态：0待发货 1运输中 2已送达 3订单取消-->
+		<result column="logistics_status" property="logisticsStatus"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 o.order_id,o.user_id,o.logistics_no,o.logistics_company,o.sender_name,
+		 o.sender_phone,o.sender_address,o.receiver_name,o.receiver_phone,o.receiver_address,
+		 o.logistics_status
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.orderId != null and query.orderId!=''">
+				 and  o.order_id = #{query.orderId}
+			</if>
+			<if test="query.userId != null and query.userId!=''">
+				 and  o.user_id = #{query.userId}
+			</if>
+			<if test="query.logisticsNo != null and query.logisticsNo!=''">
+				 and  o.logistics_no = #{query.logisticsNo}
+			</if>
+			<if test="query.logisticsCompany != null and query.logisticsCompany!=''">
+				 and  o.logistics_company = #{query.logisticsCompany}
+			</if>
+			<if test="query.senderName != null and query.senderName!=''">
+				 and  o.sender_name = #{query.senderName}
+			</if>
+			<if test="query.senderPhone != null and query.senderPhone!=''">
+				 and  o.sender_phone = #{query.senderPhone}
+			</if>
+			<if test="query.senderAddress != null and query.senderAddress!=''">
+				 and  o.sender_address = #{query.senderAddress}
+			</if>
+			<if test="query.receiverName != null and query.receiverName!=''">
+				 and  o.receiver_name = #{query.receiverName}
+			</if>
+			<if test="query.receiverPhone != null and query.receiverPhone!=''">
+				 and  o.receiver_phone = #{query.receiverPhone}
+			</if>
+			<if test="query.receiverAddress != null and query.receiverAddress!=''">
+				 and  o.receiver_address = #{query.receiverAddress}
+			</if>
+			<if test="query.logisticsStatus != null">
+				 and  o.logistics_status = #{query.logisticsStatus}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.orderIdFuzzy!= null  and query.orderIdFuzzy!=''">
+				 and  o.order_id like concat('%', #{query.orderIdFuzzy}, '%')
+			</if>
+			<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  o.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+			<if test="query.logisticsNoFuzzy!= null  and query.logisticsNoFuzzy!=''">
+				 and  o.logistics_no like concat('%', #{query.logisticsNoFuzzy}, '%')
+			</if>
+			<if test="query.logisticsCompanyFuzzy!= null  and query.logisticsCompanyFuzzy!=''">
+				 and  o.logistics_company like concat('%', #{query.logisticsCompanyFuzzy}, '%')
+			</if>
+			<if test="query.senderNameFuzzy!= null  and query.senderNameFuzzy!=''">
+				 and  o.sender_name like concat('%', #{query.senderNameFuzzy}, '%')
+			</if>
+			<if test="query.senderPhoneFuzzy!= null  and query.senderPhoneFuzzy!=''">
+				 and  o.sender_phone like concat('%', #{query.senderPhoneFuzzy}, '%')
+			</if>
+			<if test="query.senderAddressFuzzy!= null  and query.senderAddressFuzzy!=''">
+				 and  o.sender_address like concat('%', #{query.senderAddressFuzzy}, '%')
+			</if>
+			<if test="query.receiverNameFuzzy!= null  and query.receiverNameFuzzy!=''">
+				 and  o.receiver_name like concat('%', #{query.receiverNameFuzzy}, '%')
+			</if>
+			<if test="query.receiverPhoneFuzzy!= null  and query.receiverPhoneFuzzy!=''">
+				 and  o.receiver_phone like concat('%', #{query.receiverPhoneFuzzy}, '%')
+			</if>
+			<if test="query.receiverAddressFuzzy!= null  and query.receiverAddressFuzzy!=''">
+				 and  o.receiver_address like concat('%', #{query.receiverAddressFuzzy}, '%')
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM order_logistics_info o <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM order_logistics_info o <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.OrderLogisticsInfo">
+		 INSERT INTO order_logistics_info
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.logisticsNo != null">
+				 logistics_no,
+			</if>
+			<if test="bean.logisticsCompany != null">
+				 logistics_company,
+			</if>
+			<if test="bean.senderName != null">
+				 sender_name,
+			</if>
+			<if test="bean.senderPhone != null">
+				 sender_phone,
+			</if>
+			<if test="bean.senderAddress != null">
+				 sender_address,
+			</if>
+			<if test="bean.receiverName != null">
+				 receiver_name,
+			</if>
+			<if test="bean.receiverPhone != null">
+				 receiver_phone,
+			</if>
+			<if test="bean.receiverAddress != null">
+				 receiver_address,
+			</if>
+			<if test="bean.logisticsStatus != null">
+				 logistics_status,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.logisticsNo!=null">
+				 #{bean.logisticsNo},
+			</if>
+			<if test="bean.logisticsCompany!=null">
+				 #{bean.logisticsCompany},
+			</if>
+			<if test="bean.senderName!=null">
+				 #{bean.senderName},
+			</if>
+			<if test="bean.senderPhone!=null">
+				 #{bean.senderPhone},
+			</if>
+			<if test="bean.senderAddress!=null">
+				 #{bean.senderAddress},
+			</if>
+			<if test="bean.receiverName!=null">
+				 #{bean.receiverName},
+			</if>
+			<if test="bean.receiverPhone!=null">
+				 #{bean.receiverPhone},
+			</if>
+			<if test="bean.receiverAddress!=null">
+				 #{bean.receiverAddress},
+			</if>
+			<if test="bean.logisticsStatus!=null">
+				 #{bean.logisticsStatus},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.OrderLogisticsInfo">
+		 INSERT INTO order_logistics_info
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.logisticsNo != null">
+				 logistics_no,
+			</if>
+			<if test="bean.logisticsCompany != null">
+				 logistics_company,
+			</if>
+			<if test="bean.senderName != null">
+				 sender_name,
+			</if>
+			<if test="bean.senderPhone != null">
+				 sender_phone,
+			</if>
+			<if test="bean.senderAddress != null">
+				 sender_address,
+			</if>
+			<if test="bean.receiverName != null">
+				 receiver_name,
+			</if>
+			<if test="bean.receiverPhone != null">
+				 receiver_phone,
+			</if>
+			<if test="bean.receiverAddress != null">
+				 receiver_address,
+			</if>
+			<if test="bean.logisticsStatus != null">
+				 logistics_status,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.logisticsNo!=null">
+				 #{bean.logisticsNo},
+			</if>
+			<if test="bean.logisticsCompany!=null">
+				 #{bean.logisticsCompany},
+			</if>
+			<if test="bean.senderName!=null">
+				 #{bean.senderName},
+			</if>
+			<if test="bean.senderPhone!=null">
+				 #{bean.senderPhone},
+			</if>
+			<if test="bean.senderAddress!=null">
+				 #{bean.senderAddress},
+			</if>
+			<if test="bean.receiverName!=null">
+				 #{bean.receiverName},
+			</if>
+			<if test="bean.receiverPhone!=null">
+				 #{bean.receiverPhone},
+			</if>
+			<if test="bean.receiverAddress!=null">
+				 #{bean.receiverAddress},
+			</if>
+			<if test="bean.logisticsStatus!=null">
+				 #{bean.logisticsStatus},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.orderId!=null">
+				 order_id = VALUES(order_id),
+			</if>
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.logisticsNo!=null">
+				 logistics_no = VALUES(logistics_no),
+			</if>
+			<if test="bean.logisticsCompany!=null">
+				 logistics_company = VALUES(logistics_company),
+			</if>
+			<if test="bean.senderName!=null">
+				 sender_name = VALUES(sender_name),
+			</if>
+			<if test="bean.senderPhone!=null">
+				 sender_phone = VALUES(sender_phone),
+			</if>
+			<if test="bean.senderAddress!=null">
+				 sender_address = VALUES(sender_address),
+			</if>
+			<if test="bean.receiverName!=null">
+				 receiver_name = VALUES(receiver_name),
+			</if>
+			<if test="bean.receiverPhone!=null">
+				 receiver_phone = VALUES(receiver_phone),
+			</if>
+			<if test="bean.receiverAddress!=null">
+				 receiver_address = VALUES(receiver_address),
+			</if>
+			<if test="bean.logisticsStatus!=null">
+				 logistics_status = VALUES(logistics_status),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.OrderLogisticsInfo">
+		 INSERT INTO order_logistics_info(
+			 order_id,
+			 user_id,
+			 logistics_no,
+			 logistics_company,
+			 sender_name,
+			 sender_phone,
+			 sender_address,
+			 receiver_name,
+			 receiver_phone,
+			 receiver_address,
+			 logistics_status
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderId},
+				 #{item.userId},
+				 #{item.logisticsNo},
+				 #{item.logisticsCompany},
+				 #{item.senderName},
+				 #{item.senderPhone},
+				 #{item.senderAddress},
+				 #{item.receiverName},
+				 #{item.receiverPhone},
+				 #{item.receiverAddress},
+				 #{item.logisticsStatus}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.OrderLogisticsInfo">
+		 INSERT INTO order_logistics_info(
+			 order_id,
+			 user_id,
+			 logistics_no,
+			 logistics_company,
+			 sender_name,
+			 sender_phone,
+			 sender_address,
+			 receiver_name,
+			 receiver_phone,
+			 receiver_address,
+			 logistics_status
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderId},
+				 #{item.userId},
+				 #{item.logisticsNo},
+				 #{item.logisticsCompany},
+				 #{item.senderName},
+				 #{item.senderPhone},
+				 #{item.senderAddress},
+				 #{item.receiverName},
+				 #{item.receiverPhone},
+				 #{item.receiverAddress},
+				 #{item.logisticsStatus}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			order_id = VALUES(order_id),
+			user_id = VALUES(user_id),
+			logistics_no = VALUES(logistics_no),
+			logistics_company = VALUES(logistics_company),
+			sender_name = VALUES(sender_name),
+			sender_phone = VALUES(sender_phone),
+			sender_address = VALUES(sender_address),
+			receiver_name = VALUES(receiver_name),
+			receiver_phone = VALUES(receiver_phone),
+			receiver_address = VALUES(receiver_address),
+			logistics_status = VALUES(logistics_status)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.OrderLogisticsInfoQuery">
+		 UPDATE order_logistics_info o
+ 		 <set> 
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.logisticsNo != null">
+				 logistics_no = #{bean.logisticsNo},
+			</if>
+			<if test="bean.logisticsCompany != null">
+				 logistics_company = #{bean.logisticsCompany},
+			</if>
+			<if test="bean.senderName != null">
+				 sender_name = #{bean.senderName},
+			</if>
+			<if test="bean.senderPhone != null">
+				 sender_phone = #{bean.senderPhone},
+			</if>
+			<if test="bean.senderAddress != null">
+				 sender_address = #{bean.senderAddress},
+			</if>
+			<if test="bean.receiverName != null">
+				 receiver_name = #{bean.receiverName},
+			</if>
+			<if test="bean.receiverPhone != null">
+				 receiver_phone = #{bean.receiverPhone},
+			</if>
+			<if test="bean.receiverAddress != null">
+				 receiver_address = #{bean.receiverAddress},
+			</if>
+			<if test="bean.logisticsStatus != null">
+				 logistics_status = #{bean.logisticsStatus},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete o from order_logistics_info o
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据OrderId修改-->
+	<update id="updateByOrderId" parameterType="com.simlect.entity.po.OrderLogisticsInfo">
+		 UPDATE order_logistics_info
+ 		 <set> 
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.logisticsNo != null">
+				 logistics_no = #{bean.logisticsNo},
+			</if>
+			<if test="bean.logisticsCompany != null">
+				 logistics_company = #{bean.logisticsCompany},
+			</if>
+			<if test="bean.senderName != null">
+				 sender_name = #{bean.senderName},
+			</if>
+			<if test="bean.senderPhone != null">
+				 sender_phone = #{bean.senderPhone},
+			</if>
+			<if test="bean.senderAddress != null">
+				 sender_address = #{bean.senderAddress},
+			</if>
+			<if test="bean.receiverName != null">
+				 receiver_name = #{bean.receiverName},
+			</if>
+			<if test="bean.receiverPhone != null">
+				 receiver_phone = #{bean.receiverPhone},
+			</if>
+			<if test="bean.receiverAddress != null">
+				 receiver_address = #{bean.receiverAddress},
+			</if>
+			<if test="bean.logisticsStatus != null">
+				 logistics_status = #{bean.logisticsStatus},
+			</if>
+ 		 </set>
+ 		 where order_id=#{orderId}
+	</update>
+
+	<!-- 根据OrderId删除-->
+	<delete id="deleteByOrderId">
+		delete from order_logistics_info where order_id=#{orderId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByOrderId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from order_logistics_info o where order_id=#{orderId}
+	</select>
+
+</mapper>

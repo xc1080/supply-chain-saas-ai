@@ -1,0 +1,113 @@
+@use './variables' as *;
+
+.card,
+.card-flat,
+.app-surface {
+  background: $color-card;
+  border: 1px solid $color-border-light;
+  border-radius: $radius-card;
+  box-shadow: none;
+}
+
+.card-flat {
+  padding: 16px;
+  margin-bottom: 10px;
+}
+
+.card-section-title {
+  margin: 0 0 14px;
+  padding-bottom: 0;
+  border-bottom: none;
+
+  h2,
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    padding-left: 0;
+
+    &::before {
+      display: none;
+    }
+  }
+
+  .more-link {
+    font-size: 13px;
+    font-weight: 500;
+    color: $color-info;
+    background: transparent;
+
+    &:hover {
+      color: $color-info;
+      background: transparent;
+      text-decoration: underline;
+    }
+  }
+}
+
+.app-section-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.app-section-more {
+  font-weight: 500;
+  color: $color-info;
+
+  &:active {
+    color: $color-info;
+    background: transparent;
+  }
+}
+
+.toolbar-row,
+.toolbar-chip-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.toolbar-chip {
+  padding: 6px 14px !important;
+  border-radius: $radius-pill !important;
+  border: 1px solid $color-border !important;
+  background: $color-card !important;
+  color: $color-text-body !important;
+  font-weight: 500 !important;
+
+  &.active,
+  &.is-active {
+    background: $color-primary !important;
+    border-color: $color-primary !important;
+    color: #fff !important;
+  }
+}
+
+.page-empty {
+  padding: 48px 20px;
+  text-align: center;
+  color: $color-text-muted;
+}
+
+.list-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: $color-card;
+  border-bottom: 1px solid $color-border-light;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.simlect-page {
+  min-height: 100%;
+  background: $color-bg-subtle;
+}

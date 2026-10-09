@@ -1,0 +1,129 @@
+
+$color-primary: #1D1D1F;
+$color-primary-hover: #2D2D2D;
+$color-primary-active: #3D3D3D;
+$color-primary-soft: #F5F5F7;
+$color-primary-muted: rgba(29, 29, 31, 0.06);
+
+$color-gold: #D4A24E;
+$color-gold-soft: #FDF6EC;
+$color-gold-muted: rgba(212, 162, 78, 0.18);
+$color-silver: #A8A8AD;
+$color-silver-soft: #F8F8F8;
+$color-accent-gradient: linear-gradient(135deg, #1D1D1F 0%, #3D3D3D 100%);
+$color-accent-gradient-gold: linear-gradient(to right, #E0B86C 0%, #D4A24E 100%);
+
+$color-emphasis: #1D1D1F;
+$color-price: #D4A24E;
+$color-price-soft: #FDF6EC;
+
+$color-success: #52C41A;
+$color-success-soft: #F6FFED;
+$color-success-border: rgba(82, 196, 26, 0.28);
+
+$color-error: #FF4D4F;
+$color-error-soft: #FFF1F0;
+$color-error-border: rgba(255, 77, 79, 0.25);
+
+$color-warning: #FAAD14;
+$color-warning-soft: #FFFBE6;
+$color-warning-border: rgba(250, 173, 20, 0.28);
+
+$color-info: #8E8E93;
+$color-info-soft: #F5F5F7;
+$color-info-border: rgba(142, 142, 147, 0.22);
+
+$color-bg: #F5F5F5;
+$color-bg-pink: #FDF6EC;
+$color-bg-subtle: #F5F5F5;
+$color-cat-hover-bg: #F5F5F7;
+$color-border-gray: #DDDDDD;
+$color-text-primary: #333333;
+$color-primary-hover-bright: #D4A24E;
+$color-topbar-start: #FAFAFA;
+$color-topbar-end: #FAFAFA;
+$color-card: #FFFFFF;
+$color-elevated: #FFFFFF;
+$color-surface-inset: #F5F5F5;
+
+$color-text-title: #333333;
+$color-text-body: #666666;
+$color-text-muted: #999999;
+$color-text-secondary: $color-text-muted;
+$color-text-disabled: #CCCCCC;
+$color-border: #EEEEEE;
+$color-border-light: #F5F5F5;
+$color-footer-bg: #F5F5F5;
+$color-tab-inactive: #999999;
+
+$radius-xs: 10px;
+$radius-sm: 12px;
+$radius-card: 16px;
+$radius-btn: 12px;
+$radius-tag: 10px;
+$radius-search: 12px;
+$radius-pill: 999px;
+$radius-app-shell: 0;
+
+$shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.04);
+$shadow-card: 0 2px 16px rgba(0, 0, 0, 0.05);
+$shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.08);
+$shadow-nav: 0 1px 0 rgba(0, 0, 0, 0.05);
+$shadow-float: 0 6px 28px rgba(0, 0, 0, 0.09);
+$shadow-app-bar: none;
+$shadow-tab-bar: 0 -1px 0 rgba(0, 0, 0, 0.05);
+
+$header-height: 64px;
+$pc-topbar-height: 32px;
+$pc-search-row-height: 88px;
+$tab-header-height: 48px;
+$home-search-bar-height: 86px;
+$content-max-width: 1190px;
+$content-width-percent: 100%;
+$content-width: $content-max-width;
+$pc-product-columns: 5;
+$pc-product-tile-min-width: 200px;
+$pc-aside-left-width: 200px;
+$pc-aside-right-width: 180px;
+$pc-layout-min-width: 1200px;
+$pc-breakpoint-hide-right-aside: 1320px;
+$pc-breakpoint-hide-left-aside: 1120px;
+$pc-breakpoint-hide-hot-words: 1280px;
+$pc-breakpoint-hide-brand-text: 1080px;
+$pc-breakpoint-hide-header-icon-label: 1180px;
+$pc-breakpoint-hide-header-message: 1080px;
+$pc-breakpoint-hide-header-user-name: 1020px;
+$pc-breakpoint-hide-header-cart-icon: 960px;
+$pc-breakpoint-hide-search-category: 920px;
+$pc-breakpoint-hide-float-toolbar: 1000px;
+$pc-breakpoint-hide-nav-label: 900px;
+$pc-breakpoint-hide-topbar-extra: 1100px;
+$pc-breakpoint-hide-header-actions: 880px;
+$pc-search-min-width: 360px;
+$pc-detail-gallery-width: 480px;
+$pc-detail-info-min-width: 400px;
+$pc-home-main-max-width: 1190px;
+$footer-height: 80px;
+$mobile-tab-height: 62px;
+$mobile-tab-reserved: 8px;
+$z-index-float-agent: 10000;
+$z-index-agent-composer: 1200;
+
+$font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+  'Helvetica Neue', 'Microsoft YaHei', system-ui, sans-serif;
+
+$letter-spacing-display: -0.02em;
+$letter-spacing-heading: -0.01em;
+$letter-spacing-body: 0.01em;
+$letter-spacing-label: 0.04em;
+
+$transition-fast: 0.2s ease;
+$transition-normal: 0.3s ease;
+$transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+$breakpoint-tablet: 1199px;
+$breakpoint-mobile: 768px;
+
+$app-page-gutter: 12px;
+$mobile-page-bg: #F5F5F5;
+$mobile-section-radius: 16px;

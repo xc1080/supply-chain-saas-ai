@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.UserSignRecordMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.UserSignRecord">
+		<result column="user_id" property="userId"  />
+		<result column="continuous_days" property="continuousDays"  />
+		<result column="total_sign_days" property="totalSignDays"  />
+		<result column="used_count" property="usedCount"  />
+	</resultMap>
+
+	<sql id="base_column_list">
+		 u.user_id,u.continuous_days,u.total_sign_days,u.used_count
+	</sql>
+
+	<sql id="base_condition_filed">
+<if test="query.userId != null and query.userId!=''">
+				 and  u.user_id = #{query.userId}
+			</if>
+<if test="query.continuousDays != null">
+				 and  u.continuous_days = #{query.continuousDays}
+			</if>
+<if test="query.totalSignDays != null">
+				 and  u.total_sign_days = #{query.totalSignDays}
+			</if>
+<if test="query.usedCount != null">
+				 and  u.used_count = #{query.usedCount}
+			</if>
+	</sql>
+
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  u.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+	 </where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM user_sign_record u <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM user_sign_record u <include refid="query_condition" />
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.UserSignRecord">
+		 INSERT INTO user_sign_record
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.continuousDays != null">
+				 continuous_days,
+			</if>
+<if test="bean.totalSignDays != null">
+				 total_sign_days,
+			</if>
+<if test="bean.usedCount != null">
+				 used_count,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.continuousDays!=null">
+				 #{bean.continuousDays},
+			</if>
+<if test="bean.totalSignDays!=null">
+				 #{bean.totalSignDays},
+			</if>
+<if test="bean.usedCount!=null">
+				 #{bean.usedCount},
+			</if>
+		 </trim>
+	</insert>
+
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.UserSignRecord">
+		 INSERT INTO user_sign_record
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.continuousDays != null">
+				 continuous_days,
+			</if>
+<if test="bean.totalSignDays != null">
+				 total_sign_days,
+			</if>
+<if test="bean.usedCount != null">
+				 used_count,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.continuousDays!=null">
+				 #{bean.continuousDays},
+			</if>
+<if test="bean.totalSignDays!=null">
+				 #{bean.totalSignDays},
+			</if>
+<if test="bean.usedCount!=null">
+				 #{bean.usedCount},
+			</if>
+		 </trim>
+		 on DUPLICATE key update
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.continuousDays!=null">
+				 continuous_days = VALUES(continuous_days),
+			</if>
+			<if test="bean.totalSignDays!=null">
+				 total_sign_days = VALUES(total_sign_days),
+			</if>
+			<if test="bean.usedCount!=null">
+				 used_count = VALUES(used_count),
+			</if>
+		 </trim>
+	</insert>
+
+	<update id="updateByParam" parameterType="com.simlect.entity.query.UserSignRecordQuery">
+		 UPDATE user_sign_record u
+		 <set>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.continuousDays != null">
+				 continuous_days = #{bean.continuousDays},
+			</if>
+			<if test="bean.totalSignDays != null">
+				 total_sign_days = #{bean.totalSignDays},
+			</if>
+			<if test="bean.usedCount != null">
+				 used_count = #{bean.usedCount},
+			</if>
+		 </set>
+		 <include refid="query_condition" />
+	</update>
+
+	<delete id="deleteByParam">
+		 delete u from user_sign_record u
+		 <include refid="query_condition" />
+	</delete>
+
+	<select id="selectByUserId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from user_sign_record u where user_id=#{userId}
+	</select>
+
+	<update id="updateByUserId">
+		update user_sign_record set 
+			continuous_days = #{continuousDays},
+			total_sign_days = #{totalSignDays},
+			used_count = #{usedCount}
+		where user_id = #{userId}
+	</update>
+
+</mapper>

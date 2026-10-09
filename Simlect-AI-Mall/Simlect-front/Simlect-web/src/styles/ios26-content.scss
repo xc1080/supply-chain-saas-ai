@@ -1,0 +1,203 @@
+@use './variables' as *;
+
+:root {
+  --ios-surface-bg: #ffffff;
+  --ios-surface-border: rgba(0, 0, 0, 0.045);
+  --ios-surface-shadow:
+    0 0.5px 0 rgba(255, 255, 255, 0.9) inset,
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 4px 14px rgba(0, 0, 0, 0.035);
+  --ios-surface-radius: 16px;
+  --ios-surface-radius-sm: 12px;
+  --ios-fill-muted: #f5f5f7;
+  --ios-fill-elevated: #ffffff;
+  --ios-separator: rgba(60, 60, 67, 0.1);
+  --ios-hero-bg: linear-gradient(165deg, #3a3a3c 0%, #2c2c2e 42%, #1d1d1f 100%);
+  --ios-page-bg:
+    radial-gradient(120% 80% at 12% -10%, rgba(201, 169, 98, 0.18), transparent 60%),
+    radial-gradient(120% 90% at 100% 0%, rgba(0, 113, 227, 0.12), transparent 55%),
+    linear-gradient(180deg, #eef0f5 0%, #e7e9f0 100%);
+}
+
+@mixin ios-surface-card {
+  position: relative;
+  background: var(--ios-surface-bg);
+  border: 1px solid var(--ios-surface-border);
+  border-radius: var(--ios-surface-radius);
+  box-shadow: var(--ios-surface-shadow);
+  overflow: hidden;
+}
+
+@mixin ios-surface-list-item {
+  background: var(--ios-surface-bg);
+  border: 1px solid var(--ios-surface-border);
+  border-radius: var(--ios-surface-radius);
+  box-shadow: var(--ios-surface-shadow);
+}
+
+$ios-content-selectors: (
+  '.app-surface',
+  '.card-flat',
+  '.card',
+  '.order-card',
+  '.menu-card',
+  '.block',
+  '.shortcut-nav',
+  '.home-section',
+  '.feed-section',
+  '.detail-block',
+  '.info-section',
+  '.info-card',
+  '.address-card',
+  '.coupon-item',
+  '.order-detail-card',
+  '.product-section',
+  '.search-portal .card-flat',
+  '.search-portal .card',
+  '.search-result-page .card-flat',
+  '.search-result-page .card',
+  '.orders-page .card-flat',
+  '.orders-page .card',
+  '.orders-page .order-card',
+  '.orders-page .order-detail-card',
+  '.coupons-page .card-flat',
+  '.coupons-page .card',
+  '.wishlist-page .card-flat',
+  '.wishlist-page .card',
+  '.footprint-page .card-flat',
+  '.footprint-page .card',
+  '.cart-page .card-flat',
+  '.cart-page .card',
+  '.checkout-page .card-flat',
+  '.checkout-page .card',
+  '.notifications-page .card-flat',
+  '.notifications-page .card',
+  '.member-center-page .card-flat',
+  '.member-center-page .card',
+  '.member-center-page .info-card',
+  '.sign-page .card-flat',
+  '.sign-page .card',
+  '.address-page .card-flat',
+  '.address-page .card',
+  '.address-page .address-card',
+  '.pay-record-page .card-flat',
+  '.pay-record-page .card',
+  '.detail-simlect .block',
+  '.product-detail-page .block',
+  '.order-detail-page .block'
+);
+
+@media (max-width: $breakpoint-mobile) {
+  body,
+  .main-layout.is-mobile,
+  .sub-page-layout,
+  .layout {
+    background: transparent;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--ios-page-bg);
+  }
+
+  @each $sel in $ios-content-selectors {
+    #{$sel} {
+      @include ios-surface-card;
+      margin-bottom: 10px;
+
+      &::before,
+      &::after {
+        display: none !important;
+      }
+    }
+  }
+
+  .product-card:not(.ignore) {
+    @include ios-surface-card;
+    border-radius: var(--ios-surface-radius);
+
+    &::before,
+    &::after {
+      display: none !important;
+    }
+
+    .cart-float {
+      background: $color-primary;
+      color: #fff;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    }
+  }
+
+  .cart-page {
+    background: transparent !important;
+  }
+
+  .cart-page .cart-item {
+    @include ios-surface-list-item;
+    border-bottom: none;
+  }
+
+  .home-page.ignore .shortcut-icon,
+  .home-page.ignore .simlect-menu-icon,
+  .home-page.ignore .feature-icon {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .home-page.ignore .category-chip {
+    background: var(--ios-fill-muted);
+    border: 1px solid var(--ios-surface-border);
+    border-radius: var(--ios-surface-radius-sm);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  .account-page:not(.user-center-layout) .simlect-user-top {
+    background: var(--ios-hero-bg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  .account-page:not(.user-center-layout) .order-card,
+  .account-page:not(.user-center-layout) .menu-card,
+  .account-page:not(.user-center-layout) .discover-card {
+    border-radius: var(--ios-surface-radius);
+    background: var(--ios-surface-bg);
+    border: 1px solid var(--ios-surface-border);
+    box-shadow: var(--ios-surface-shadow);
+  }
+
+  .account-page:not(.user-center-layout) .discover-card .discover-tabs {
+    border-bottom: 1px solid var(--ios-separator);
+  }
+
+  .product-detail-page .desc-block,
+  .detail-simlect .desc-block {
+    background: var(--ios-surface-bg) !important;
+    border: 1px solid var(--ios-surface-border);
+    border-radius: var(--ios-surface-radius);
+    box-shadow: var(--ios-surface-shadow);
+  }
+
+  .auth-page.ignore .auth-card {
+    @include ios-surface-card;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+
+    &::before {
+      display: none !important;
+    }
+  }
+
+  .mobile-tab-bar.ignore .tab-item.active {
+    color: var(--m-gold, #d4a24e);
+  }
+}

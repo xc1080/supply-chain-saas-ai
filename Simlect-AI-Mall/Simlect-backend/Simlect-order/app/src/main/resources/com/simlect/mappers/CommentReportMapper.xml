@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.CommentReportMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.CommentReport">
+		<id column="report_id" property="reportId" />
+		<result column="order_id" property="orderId" />
+		<result column="product_id" property="productId" />
+		<result column="reporter_user_id" property="reporterUserId" />
+		<result column="reason" property="reason" />
+		<result column="detail" property="detail" />
+		<result column="comment_snapshot" property="commentSnapshot" />
+		<result column="status" property="status" />
+		<result column="report_time" property="reportTime" />
+		<result column="handle_time" property="handleTime" />
+		<result column="handle_remark" property="handleRemark" />
+	</resultMap>
+
+	<sql id="base_column_list">
+		 r.report_id,r.order_id,r.product_id,r.reporter_user_id,r.reason,r.detail,
+		 r.comment_snapshot,r.status,r.report_time,r.handle_time,r.handle_remark
+	</sql>
+
+	<sql id="base_condition_filed">
+		<if test="query.reportId != null">
+			 and  r.report_id = #{query.reportId}
+		</if>
+		<if test="query.orderId != null and query.orderId!=''">
+			 and  r.order_id = #{query.orderId}
+		</if>
+		<if test="query.productId != null and query.productId!=''">
+			 and  r.product_id = #{query.productId}
+		</if>
+		<if test="query.reporterUserId != null and query.reporterUserId!=''">
+			 and  r.reporter_user_id = #{query.reporterUserId}
+		</if>
+		<if test="query.reason != null and query.reason!=''">
+			 and  r.reason = #{query.reason}
+		</if>
+		<if test="query.status != null">
+			 and  r.status = #{query.status}
+		</if>
+	</sql>
+
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.orderIdFuzzy!= null and query.orderIdFuzzy!=''">
+				 and  r.order_id like concat('%', #{query.orderIdFuzzy}, '%')
+			</if>
+			<if test="query.productIdFuzzy!= null and query.productIdFuzzy!=''">
+				 and  r.product_id like concat('%', #{query.productIdFuzzy}, '%')
+			</if>
+			<if test="query.reporterUserIdFuzzy!= null and query.reporterUserIdFuzzy!=''">
+				 and  r.reporter_user_id like concat('%', #{query.reporterUserIdFuzzy}, '%')
+			</if>
+			<if test="query.reportTimeStart!= null and query.reportTimeStart!=''">
+				 <![CDATA[ and  r.report_time>=str_to_date(#{query.reportTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+			<if test="query.reportTimeEnd!= null and query.reportTimeEnd!=''">
+				 <![CDATA[ and  r.report_time< date_sub(str_to_date(#{query.reportTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map">
+		 SELECT <include refid="base_column_list" /> FROM comment_report r <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer">
+		 SELECT count(1) FROM comment_report r <include refid="query_condition" />
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.CommentReport">
+		<selectKey keyProperty="bean.reportId" resultType="Integer" order="AFTER">
+			SELECT LAST_INSERT_ID()
+		</selectKey>
+		 INSERT INTO comment_report
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId != null">order_id,</if>
+			<if test="bean.productId != null">product_id,</if>
+			<if test="bean.reporterUserId != null">reporter_user_id,</if>
+			<if test="bean.reason != null">reason,</if>
+			<if test="bean.detail != null">detail,</if>
+			<if test="bean.commentSnapshot != null">comment_snapshot,</if>
+			<if test="bean.status != null">status,</if>
+			<if test="bean.reportTime != null">report_time,</if>
+			<if test="bean.handleTime != null">handle_time,</if>
+			<if test="bean.handleRemark != null">handle_remark,</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId!=null">#{bean.orderId},</if>
+			<if test="bean.productId!=null">#{bean.productId},</if>
+			<if test="bean.reporterUserId!=null">#{bean.reporterUserId},</if>
+			<if test="bean.reason!=null">#{bean.reason},</if>
+			<if test="bean.detail!=null">#{bean.detail},</if>
+			<if test="bean.commentSnapshot!=null">#{bean.commentSnapshot},</if>
+			<if test="bean.status!=null">#{bean.status},</if>
+			<if test="bean.reportTime!=null">#{bean.reportTime},</if>
+			<if test="bean.handleTime!=null">#{bean.handleTime},</if>
+			<if test="bean.handleRemark!=null">#{bean.handleRemark},</if>
+		 </trim>
+	</insert>
+
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.CommentReport">
+		 INSERT INTO comment_report
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.reportId != null">report_id,</if>
+			<if test="bean.orderId != null">order_id,</if>
+			<if test="bean.productId != null">product_id,</if>
+			<if test="bean.reporterUserId != null">reporter_user_id,</if>
+			<if test="bean.reason != null">reason,</if>
+			<if test="bean.detail != null">detail,</if>
+			<if test="bean.commentSnapshot != null">comment_snapshot,</if>
+			<if test="bean.status != null">status,</if>
+			<if test="bean.reportTime != null">report_time,</if>
+			<if test="bean.handleTime != null">handle_time,</if>
+			<if test="bean.handleRemark != null">handle_remark,</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.reportId!=null">#{bean.reportId},</if>
+			<if test="bean.orderId!=null">#{bean.orderId},</if>
+			<if test="bean.productId!=null">#{bean.productId},</if>
+			<if test="bean.reporterUserId!=null">#{bean.reporterUserId},</if>
+			<if test="bean.reason!=null">#{bean.reason},</if>
+			<if test="bean.detail!=null">#{bean.detail},</if>
+			<if test="bean.commentSnapshot!=null">#{bean.commentSnapshot},</if>
+			<if test="bean.status!=null">#{bean.status},</if>
+			<if test="bean.reportTime!=null">#{bean.reportTime},</if>
+			<if test="bean.handleTime!=null">#{bean.handleTime},</if>
+			<if test="bean.handleRemark!=null">#{bean.handleRemark},</if>
+		 </trim>
+		 on DUPLICATE key update
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.status!=null">status = VALUES(status),</if>
+			<if test="bean.handleTime!=null">handle_time = VALUES(handle_time),</if>
+			<if test="bean.handleRemark!=null">handle_remark = VALUES(handle_remark),</if>
+		 </trim>
+	</insert>
+
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.CommentReport" useGeneratedKeys="true" keyProperty="reportId">
+		 INSERT INTO comment_report(
+			 order_id,product_id,reporter_user_id,reason,detail,comment_snapshot,status,report_time,handle_time,handle_remark
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (#{item.orderId},#{item.productId},#{item.reporterUserId},#{item.reason},#{item.detail},#{item.commentSnapshot},#{item.status},#{item.reportTime},#{item.handleTime},#{item.handleRemark})
+		 </foreach>
+	</insert>
+
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.CommentReport">
+		 INSERT INTO comment_report(
+			 order_id,product_id,reporter_user_id,reason,detail,comment_snapshot,status,report_time,handle_time,handle_remark
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (#{item.orderId},#{item.productId},#{item.reporterUserId},#{item.reason},#{item.detail},#{item.commentSnapshot},#{item.status},#{item.reportTime},#{item.handleTime},#{item.handleRemark})
+		 </foreach>
+		 on DUPLICATE key update
+			 status = VALUES(status),
+			 handle_time = VALUES(handle_time),
+			 handle_remark = VALUES(handle_remark)
+	</insert>
+
+	<update id="updateByParam" parameterType="com.simlect.entity.query.CommentReportQuery">
+		 UPDATE comment_report r
+		 <set>
+			<if test="bean.orderId != null">order_id = #{bean.orderId},</if>
+			<if test="bean.productId != null">product_id = #{bean.productId},</if>
+			<if test="bean.reporterUserId != null">reporter_user_id = #{bean.reporterUserId},</if>
+			<if test="bean.reason != null">reason = #{bean.reason},</if>
+			<if test="bean.detail != null">detail = #{bean.detail},</if>
+			<if test="bean.commentSnapshot != null">comment_snapshot = #{bean.commentSnapshot},</if>
+			<if test="bean.status != null">status = #{bean.status},</if>
+			<if test="bean.reportTime != null">report_time = #{bean.reportTime},</if>
+			<if test="bean.handleTime != null">handle_time = #{bean.handleTime},</if>
+			<if test="bean.handleRemark != null">handle_remark = #{bean.handleRemark},</if>
+		 </set>
+		 <include refid="query_condition" />
+	</update>
+
+	<delete id="deleteByParam">
+		 delete r from comment_report r
+		 <include refid="query_condition" />
+	</delete>
+
+	<update id="updateByReportId">
+		 UPDATE comment_report
+		 <set>
+			<if test="bean.orderId != null">order_id = #{bean.orderId},</if>
+			<if test="bean.productId != null">product_id = #{bean.productId},</if>
+			<if test="bean.reporterUserId != null">reporter_user_id = #{bean.reporterUserId},</if>
+			<if test="bean.reason != null">reason = #{bean.reason},</if>
+			<if test="bean.detail != null">detail = #{bean.detail},</if>
+			<if test="bean.commentSnapshot != null">comment_snapshot = #{bean.commentSnapshot},</if>
+			<if test="bean.status != null">status = #{bean.status},</if>
+			<if test="bean.handleTime != null">handle_time = #{bean.handleTime},</if>
+			<if test="bean.handleRemark != null">handle_remark = #{bean.handleRemark},</if>
+		 </set>
+		 where report_id = #{reportId}
+	</update>
+
+	<delete id="deleteByReportId">
+		delete from comment_report where report_id=#{reportId}
+	</delete>
+
+	<select id="selectByReportId" resultMap="base_result_map">
+		select <include refid="base_column_list" /> from comment_report r where r.report_id=#{reportId}
+	</select>
+
+</mapper>

@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.ProductSkuMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.ProductSku">
+		<!--商品ID-->
+		<result column="product_id" property="productId"  />
+		<!--属性值id组hash-->
+		<result column="property_value_id_hash" property="propertyValueIdHash"  />
+		<!--属性值id组-->
+		<result column="property_value_ids" property="propertyValueIds"  />
+		<!--价格-->
+		<result column="price" property="price"  />
+<!--排序-->
+		<result column="sort" property="sort"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 p.product_id,p.property_value_id_hash,p.property_value_ids,p.price,
+		 p.sort
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.productId != null and query.productId!=''">
+				 and  p.product_id = #{query.productId}
+			</if>
+			<if test="query.propertyValueIdHash != null and query.propertyValueIdHash!=''">
+				 and  p.property_value_id_hash = #{query.propertyValueIdHash}
+			</if>
+			<if test="query.propertyValueIds != null and query.propertyValueIds!=''">
+				 and  p.property_value_ids = #{query.propertyValueIds}
+			</if>
+			<if test="query.price != null">
+				 and  p.price = #{query.price}
+			</if>
+<if test="query.sort != null">
+				 and  p.sort = #{query.sort}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.productIdFuzzy!= null  and query.productIdFuzzy!=''">
+				 and  p.product_id like concat('%', #{query.productIdFuzzy}, '%')
+			</if>
+			<if test="query.propertyValueIdHashFuzzy!= null  and query.propertyValueIdHashFuzzy!=''">
+				 and  p.property_value_id_hash like concat('%', #{query.propertyValueIdHashFuzzy}, '%')
+			</if>
+			<if test="query.propertyValueIdsFuzzy!= null  and query.propertyValueIdsFuzzy!=''">
+				 and  p.property_value_ids like concat('%', #{query.propertyValueIdsFuzzy}, '%')
+			</if>
+		 <if test="query.productIdList != null and query.productIdList.size() > 0">
+			 and p.product_id in
+			 <foreach item="item" index="index" collection="query.productIdList" separator="," open="(" close=")">
+				 #{item}
+			 </foreach>
+		 </if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM product_sku p <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM product_sku p <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.ProductSku">
+		 INSERT INTO product_sku
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash,
+			</if>
+			<if test="bean.propertyValueIds != null">
+				 property_value_ids,
+			</if>
+			<if test="bean.price != null">
+				 price,
+			</if>
+<if test="bean.sort != null">
+				 sort,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.propertyValueIdHash!=null">
+				 #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.propertyValueIds!=null">
+				 #{bean.propertyValueIds},
+			</if>
+			<if test="bean.price!=null">
+				 #{bean.price},
+			</if>
+<if test="bean.sort!=null">
+				 #{bean.sort},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.ProductSku">
+		 INSERT INTO product_sku
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.productId != null">
+				 product_id,
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash,
+			</if>
+			<if test="bean.propertyValueIds != null">
+				 property_value_ids,
+			</if>
+			<if test="bean.price != null">
+				 price,
+			</if>
+<if test="bean.sort != null">
+				 sort,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+			<if test="bean.propertyValueIdHash!=null">
+				 #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.propertyValueIds!=null">
+				 #{bean.propertyValueIds},
+			</if>
+			<if test="bean.price!=null">
+				 #{bean.price},
+			</if>
+<if test="bean.sort!=null">
+				 #{bean.sort},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.productId!=null">
+				 product_id = VALUES(product_id),
+			</if>
+			<if test="bean.propertyValueIdHash!=null">
+				 property_value_id_hash = VALUES(property_value_id_hash),
+			</if>
+			<if test="bean.propertyValueIds!=null">
+				 property_value_ids = VALUES(property_value_ids),
+			</if>
+			<if test="bean.price!=null">
+				 price = VALUES(price),
+			</if>
+<if test="bean.sort!=null">
+				 sort = VALUES(sort),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.ProductSku">
+		 INSERT INTO product_sku(
+			 product_id,
+			 property_value_id_hash,
+			 property_value_ids,
+			 price,
+
+			 sort
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.productId},
+				 #{item.propertyValueIdHash},
+				 #{item.propertyValueIds},
+				 #{item.price},
+
+				 #{item.sort}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.ProductSku">
+		 INSERT INTO product_sku(
+			 product_id,
+			 property_value_id_hash,
+			 property_value_ids,
+			 price,
+
+			 sort
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.productId},
+				 #{item.propertyValueIdHash},
+				 #{item.propertyValueIds},
+				 #{item.price},
+
+				 #{item.sort}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			product_id = VALUES(product_id),
+			property_value_id_hash = VALUES(property_value_id_hash),
+			property_value_ids = VALUES(property_value_ids),
+			price = VALUES(price),
+
+			sort = VALUES(sort)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.ProductSkuQuery">
+		 UPDATE product_sku p
+ 		 <set> 
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				 property_value_id_hash = #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.propertyValueIds != null">
+				 property_value_ids = #{bean.propertyValueIds},
+			</if>
+			<if test="bean.price != null">
+				 price = #{bean.price},
+			</if>
+<if test="bean.sort != null">
+				 sort = #{bean.sort},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete p from product_sku p
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据ProductIdAndPropertyValueIdHash修改-->
+	<update id="updateByProductIdAndPropertyValueIdHash" parameterType="com.simlect.entity.po.ProductSku">
+		 UPDATE product_sku
+ 		 <set> 
+			<if test="bean.propertyValueIds != null">
+				 property_value_ids = #{bean.propertyValueIds},
+			</if>
+			<if test="bean.price != null">
+				 price = #{bean.price},
+			</if>
+<if test="bean.sort != null">
+				 sort = #{bean.sort},
+			</if>
+ 		 </set>
+ 		 where product_id=#{productId} and property_value_id_hash=#{propertyValueIdHash}
+	</update>
+
+	<!-- 根据ProductIdAndPropertyValueIdHash删除-->
+	<delete id="deleteByProductIdAndPropertyValueIdHash">
+		delete from product_sku where product_id=#{productId} and property_value_id_hash=#{propertyValueIdHash}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByProductIdAndPropertyValueIdHash" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from product_sku p where product_id=#{productId} and property_value_id_hash=#{propertyValueIdHash}
+	</select>
+
+	<select id="selectByProductIdAndPropertyValueIdHashForUpdate" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from product_sku p
+		where product_id=#{productId} and property_value_id_hash=#{propertyValueIdHash}
+		for update
+	</select>
+
+<!--	根据productId获取该商品的所有库存:selectTotalStockByProductId-->
+	<select id="selectTotalStockByProductId" resultType="java.lang.Integer">
+		<!-- stock moved to simlect_stock -->
+		select 0
+	</select>
+
+<!--	根据productId获取该商品skuCount：selectCountByProductId-->
+	<select id="selectCountByProductId" resultType="java.lang.Integer">
+		select count(1) from product_sku where product_id= #{productId}
+	</select>
+<!--	根据ProductId查询列表:selectListByProductId-->
+	<select id="selectListByProductId" resultMap="base_result_map">
+		select <include refid="base_column_list" /> from product_sku p where product_id= #{productId}
+	</select>
+	<!--	传入productId和List<ProductSku>：updateList，批量更新数据:updateBatch-->
+	<update id="updateBatch">
+		<foreach collection="updateList" item="item" separator=";">
+			update product_sku <set>
+			<if test="item.price != null">
+				price = #{item.price},
+			</if></set>
+			where product_id = #{productId} and property_value_id_hash = #{item.propertyValueIdHash}
+		</foreach>
+	</update>
+	<!--	传入productId和List<ProductSku>：deleteList，批量删除数据:deleteBatch-->
+	<delete id="deleteBatch">
+		delete from product_sku where product_id = #{productId} and property_value_id_hash in
+		<foreach collection="deleteList" item="item" separator="," open="(" close=")">
+			#{item.propertyValueIdHash}
+		</foreach>
+	</delete>
+<!--	根据skuId更新sku信息:updateBySkuId-->
+	<update id="updateBySkuId" parameterType="com.simlect.entity.po.ProductSku">
+		UPDATE product_sku
+		<set>
+			<if test="bean.productId != null">
+				product_id = #{bean.productId},
+			</if>
+			<if test="bean.propertyValueIdHash != null">
+				property_value_id_hash = #{bean.propertyValueIdHash},
+			</if>
+			<if test="bean.propertyValueIds != null">
+				property_value_ids = #{bean.propertyValueIds},
+			</if>
+			<if test="bean.price != null">
+				price = #{bean.price},
+			</if>
+<if test="bean.sort != null">
+				sort = #{bean.sort},
+			</if>
+		</set>
+		WHERE sku_id = #{skuId}
+	</update>
+
+	<update id="updateStockBatch">
+		<!-- stock moved to simlect_stock; keep id for compile compatibility -->
+		update product_sku p set p.sort = p.sort where 1 = 0
+	</update>
+</mapper>

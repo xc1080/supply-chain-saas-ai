@@ -1,0 +1,126 @@
+@use './variables' as *;
+
+html[data-platform='desktop'] {
+  .pc-layout.ignore,
+  .pc-sub-layout.ignore,
+  .pc-auth-shell.ignore {
+    background: $color-bg;
+  }
+
+  .user-center-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    width: 100%;
+  }
+
+  .user-center-content {
+    flex: 1;
+    min-width: 0;
+    background: $color-card;
+    border-radius: $radius-card;
+    box-shadow: $shadow-card;
+    padding: 16px 20px 20px;
+  }
+
+  .pc-auth-shell .auth-page {
+    min-height: auto;
+    padding: 0;
+    background: transparent;
+  }
+
+  .pc-auth-shell .auth-card {
+    width: 420px;
+    max-width: 100%;
+    border: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  }
+
+  .pc-auth-shell .auth-brand {
+    padding: 24px 28px 12px;
+    background: $color-card;
+    border-bottom: 1px solid $color-border-gray;
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+    }
+
+    h2 {
+      font-size: 18px;
+      color: $color-text-primary;
+    }
+
+    p {
+      color: $color-text-body;
+    }
+  }
+
+  .pc-auth-shell .submit-btn {
+    height: 42px;
+    font-size: 16px;
+    background: $color-primary;
+    border-color: $color-primary;
+
+    &:hover {
+      background: $color-primary-hover-bright;
+      border-color: $color-primary-hover-bright;
+    }
+  }
+
+  .user-center-content {
+    .orders-page,
+    .wishlist-page,
+    .footprint-page,
+    .my-coupons-page,
+    .address-page,
+    .sign-page,
+    .manage-page,
+    .profile-page,
+    .settings-page,
+    .password-page,
+    .order-detail-page,
+    .account-page {
+      background: transparent;
+      padding: 0;
+    }
+  }
+
+  .orders-page .order-card {
+    border: 1px solid $color-border-gray;
+    margin-bottom: 12px;
+  }
+
+  .orders-page .order-head {
+    background: #fafafa;
+    padding: 10px 14px;
+    border-bottom: 1px solid $color-border-gray;
+  }
+
+  .cart-page .cart-main {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .cart-page .cart-list-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .search-result-page .product-grid {
+    gap: 14px !important;
+  }
+
+  .product-detail-view,
+  .product-detail-page {
+    background: $color-card;
+    border-radius: $radius-card;
+    padding: 16px;
+  }
+
+  .account-dashboard .profile-card {
+    border-radius: $radius-card;
+    box-shadow: $shadow-card;
+  }
+}

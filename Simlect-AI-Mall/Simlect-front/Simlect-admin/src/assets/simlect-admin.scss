@@ -1,0 +1,49 @@
+
+
+.el-card {
+  border-radius: var(--card-radius) !important;
+  border: 1px solid var(--header-border) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.el-table {
+  --el-table-border-color: var(--header-border);
+  --el-table-header-bg-color: #fafafa;
+  font-size: 13px;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.el-pagination {
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+
+.el-dialog {
+  border-radius: 12px !important;
+}
+
+.el-form-item__label {
+  color: var(--text2);
+  font-weight: 500;
+}
+
+.search-panel {
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--header-border);
+  border-radius: var(--card-radius);
+}
+
+.table-panel .table-data-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.list-op-panel .el-button + .el-button {
+  margin-left: 0;
+}

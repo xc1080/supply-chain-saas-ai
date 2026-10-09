@@ -1,0 +1,494 @@
+@use './variables' as *;
+
+@mixin desktop-business-pages {
+  body {
+    font-size: 14px;
+  }
+
+  .pc-page-container,
+  .pc-sub-container,
+  .user-center-content,
+  .pc-plain-body {
+    font-size: 14px;
+    line-height: 1.5;
+    color: $color-text-body;
+  }
+
+  .pc-plain-body {
+    background: $color-card;
+    border: 1px solid $color-border-gray;
+    border-radius: $radius-card;
+    padding: 16px 20px 20px;
+    box-shadow: $shadow-card;
+
+    &.is-product-detail {
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      background: transparent;
+    }
+  }
+
+  .user-page-head,
+  .plain-page-head {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid $color-border-gray;
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: $color-text-primary;
+    }
+  }
+
+  .el-empty__description {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    margin-top: 12px !important;
+  }
+
+  .el-empty__image svg {
+    width: 120px;
+    height: 120px;
+  }
+
+  .el-button {
+    font-size: 14px;
+  }
+
+  .el-button--large {
+    height: 40px;
+    padding: 10px 24px;
+    font-size: 15px;
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    font-size: 14px !important;
+  }
+
+  .tabs-scroll-single .el-tabs__item,
+  .orders-page .el-tabs__item {
+    font-size: 14px !important;
+    height: 40px !important;
+    line-height: 40px !important;
+    padding: 0 16px !important;
+  }
+
+  .el-tabs__nav-wrap::after {
+    height: 1px;
+  }
+
+  .toolbar-chip,
+  .tab-btn {
+    font-size: 13px !important;
+    line-height: 1.3 !important;
+    padding: 6px 14px !important;
+    white-space: nowrap;
+  }
+
+  .page-empty {
+    padding: 40px 16px;
+  }
+
+  .card {
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+
+  .app-section-title {
+    font-size: 16px;
+  }
+
+  .sign-page,
+  .my-coupons-page,
+  .orders-page,
+  .footprint-page,
+  .wishlist-page,
+  .address-page,
+  .profile-page,
+  .manage-page,
+  .settings-page,
+  .password-page,
+  .coupons-page,
+  .search-result-page {
+    min-height: auto !important;
+    max-height: none !important;
+  }
+
+  .footprint-scroll,
+  .wishlist-scroll,
+  .coupon-scroll {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .user-center-content {
+    .footprint-head .title,
+    .wishlist-head .title {
+      display: none;
+    }
+
+    .footprint-head,
+    .wishlist-head {
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+  }
+
+  .orders-page {
+    .orders-tabs {
+      margin-bottom: 12px;
+      padding: 0 4px;
+    }
+
+    .orders-body {
+      min-height: 200px;
+    }
+
+    .order-head .order-no,
+    .order-head .order-time {
+      font-size: 12px;
+    }
+
+    .goods-name {
+      font-size: 13px;
+    }
+
+    .order-foot .amount {
+      font-size: 16px;
+    }
+  }
+
+  .my-coupons-page .status-tabs {
+    margin-bottom: 12px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+
+  .pc-plain-body .coupons-page .page-header .page-title {
+    display: none;
+  }
+
+  .coupons-page {
+    min-height: calc(100vh - 260px);
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+
+    .page-header {
+      margin-bottom: 12px;
+      padding: 0 0 12px;
+      border-bottom: 1px solid $color-border-gray;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .page-title {
+      margin: 0 0 8px;
+      font-size: 16px !important;
+      font-weight: 600;
+    }
+
+    .notice-text {
+      font-size: 13px !important;
+      line-height: 1.5;
+    }
+
+    .status-tabs {
+      margin-bottom: 12px;
+    }
+
+    .coupon-list-scroll {
+      flex: 1 1 0;
+      min-height: 420px;
+      overflow-y: auto;
+    }
+  }
+
+  .sign-page {
+    gap: 12px;
+
+    .sign-stats {
+      margin: 0 auto;
+      max-width: 480px;
+    }
+
+    .stats-row {
+      max-width: 420px;
+    }
+
+    .stat-card {
+      padding: 10px 8px;
+      max-width: 130px;
+    }
+
+    .stat-value {
+      font-size: 22px !important;
+    }
+
+    .stat-label {
+      font-size: 12px !important;
+    }
+
+    .day-cell {
+      height: 36px;
+    }
+
+    .sign-action .el-button {
+      max-width: 280px;
+    }
+  }
+
+  .footprint-page .list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .footprint-item {
+    border: 1px solid $color-border-gray;
+    border-radius: $radius-sm;
+    padding: 12px !important;
+    background: #fafafa;
+  }
+
+  .wishlist-page .grid {
+    gap: 10px !important;
+  }
+
+  .wishlist-page .fav-card .name {
+    font-size: 13px !important;
+  }
+
+  .wishlist-page .fav-card .price {
+    font-size: 14px !important;
+  }
+
+  .address-page .page-toolbar {
+    flex-direction: row;
+    align-items: center;
+
+    .toolbar-tip {
+      font-size: 13px !important;
+      line-height: 1.5;
+      word-break: normal;
+      white-space: normal;
+    }
+  }
+
+  .address-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .profile-page .hero {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    text-align: left;
+    padding: 16px 20px;
+
+    .nick {
+      font-size: 18px !important;
+      margin: 0 0 4px;
+    }
+
+    .sub {
+      font-size: 13px !important;
+    }
+  }
+
+  .manage-page .menu-item,
+  .settings-page .menu-item {
+    font-size: 14px !important;
+    padding: 12px 0 !important;
+  }
+
+  .search-result-page {
+    .filter-card {
+      margin-bottom: 12px;
+      padding: 12px 14px;
+    }
+
+    .card-section-title h3 {
+      font-size: 14px !important;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .search-row .el-button,
+    .search-row .el-input {
+      font-size: 14px !important;
+    }
+  }
+
+  .account-page.user-center-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    margin: 0;
+    padding: 0;
+    gap: 16px;
+    background: transparent;
+
+    .profile-card {
+      margin: 0;
+      padding: 0 0 16px;
+      box-shadow: none;
+      border-bottom: 1px solid $color-border-gray;
+    }
+
+    .profile-main .nick {
+      font-size: 18px;
+    }
+
+    .profile-info .account,
+    .profile-tip {
+      font-size: 13px;
+    }
+
+    .order-card .card-head h3,
+    .menu-title {
+      font-size: 15px;
+    }
+
+    .order-tab {
+      font-size: 12px;
+    }
+
+    .menu-item {
+      font-size: 13px;
+    }
+  }
+
+  .account-page.user-center-layout {
+    .pc-recommend-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+
+      .pc-product-tile {
+        min-width: 0 !important;
+        max-width: none !important;
+        width: auto !important;
+      }
+    }
+
+    .review-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
+    .review-grid .review-item {
+      border: 1px solid $color-border-gray;
+      border-bottom: 1px solid $color-border-gray;
+      border-radius: $radius-xs;
+      padding: 14px 16px;
+      background: $color-card;
+      transition: border-color $transition-fast, box-shadow $transition-fast;
+
+      &:hover {
+        border-color: rgba($color-primary, 0.4);
+        box-shadow: $shadow-card;
+      }
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .account-page.user-center-layout .pc-recommend-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+
+  .pc-cart-embed .cart-item {
+    padding: 16px 16px 16px 12px !important;
+    gap: 14px !important;
+  }
+  .pc-cart-embed .item-check {
+    margin-top: 28px !important;
+  }
+  .pc-cart-embed .item-cover-col {
+    flex: 0 0 100px !important;
+    width: 100px !important;
+    max-width: 100px !important;
+    border-radius: 14px !important;
+  }
+  .pc-cart-embed .item-name {
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+  }
+  .pc-cart-embed .item-sku {
+    margin-top: 8px !important;
+    font-size: 13px !important;
+  }
+  .pc-cart-embed .qty-stepper {
+    height: 34px !important;
+  }
+  .pc-cart-embed .qty-btn {
+    width: 36px !important;
+    font-size: 20px !important;
+  }
+  .pc-cart-embed .qty-input {
+    width: 44px !important;
+    font-size: 15px !important;
+  }
+  .pc-cart-embed .unit-price {
+    font-size: 18px !important;
+  }
+  .pc-cart-embed .line-total {
+    font-size: 13px !important;
+  }
+
+  .cart-page .pc-cart-recommend-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+
+    .pc-product-tile {
+      min-width: 0 !important;
+      max-width: none !important;
+      width: auto !important;
+      padding: 8px 8px 10px !important;
+
+      .pc-product-tile__cover {
+        margin-bottom: 6px !important;
+      }
+
+      .pc-product-tile__name {
+        font-size: 12px !important;
+        line-height: 1.35 !important;
+      }
+
+      .pc-product-tile__price {
+        font-size: 15px !important;
+
+        .sym {
+          font-size: 11px !important;
+        }
+      }
+    }
+  }
+
+  .product-card.ignore .name {
+    word-break: normal;
+    overflow-wrap: break-word;
+    line-break: auto;
+  }
+}
+
+html[data-platform='desktop'] {
+  @include desktop-business-pages;
+}
+
+@media (min-width: 768px) {
+  @include desktop-business-pages;
+}

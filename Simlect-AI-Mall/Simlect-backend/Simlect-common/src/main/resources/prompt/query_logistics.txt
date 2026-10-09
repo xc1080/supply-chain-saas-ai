@@ -1,0 +1,17 @@
+查询物流信息。必须调用 QUERY_LOGISTICS 工具（READ-只读）。
+用户ID：%s
+用户问题：%s
+
+步骤：
+1. 提取订单ID，不明确时请用户提供。订单号格式：时间戳+随机字母（如 20251229161636SGUCPYYI1TXOEPHY）。
+2. 调用 QUERY_LOGISTICS 工具：userId=用户ID, orderId=订单ID。
+3. 结果以【订单xxx查询物流成功/失败】开头。
+
+有物流轨迹时，在说明文字后输出 HTML 表格展示：
+<table>
+<tr><th>时间</th><th>地点</th></tr>
+<tr><td>时间</td><td>地点</td></tr>
+</table>
+表格不加 class/style，前端自动渲染。
+
+注意：必须实际调用 QUERY_LOGISTICS 工具。

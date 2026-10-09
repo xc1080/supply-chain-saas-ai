@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.UserAddressMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.UserAddress">
+		<!--地址ID-->
+		<result column="address_id" property="addressId"  />
+		<!--用户ID-->
+		<result column="user_id" property="userId"  />
+		<!--详细地址-->
+		<result column="address" property="address"  />
+		<!--收货人-->
+		<result column="addressee" property="addressee"  />
+		<!--手机号码-->
+		<result column="phone" property="phone"  />
+		<!--默认类型0:非默认  1:默认-->
+		<result column="default_type" property="defaultType"  />
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 u.address_id,u.user_id,u.address,u.addressee,u.phone,
+		 u.default_type
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.addressId != null and query.addressId!=''">
+				 and  u.address_id = #{query.addressId}
+			</if>
+			<if test="query.userId != null and query.userId!=''">
+				 and  u.user_id = #{query.userId}
+			</if>
+			<if test="query.address != null and query.address!=''">
+				 and  u.address = #{query.address}
+			</if>
+			<if test="query.addressee != null and query.addressee!=''">
+				 and  u.addressee = #{query.addressee}
+			</if>
+			<if test="query.phone != null and query.phone!=''">
+				 and  u.phone = #{query.phone}
+			</if>
+			<if test="query.defaultType != null">
+				 and  u.default_type = #{query.defaultType}
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.addressIdFuzzy!= null  and query.addressIdFuzzy!=''">
+				 and  u.address_id like concat('%', #{query.addressIdFuzzy}, '%')
+			</if>
+			<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  u.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+			<if test="query.addressFuzzy!= null  and query.addressFuzzy!=''">
+				 and  u.address like concat('%', #{query.addressFuzzy}, '%')
+			</if>
+			<if test="query.addresseeFuzzy!= null  and query.addresseeFuzzy!=''">
+				 and  u.addressee like concat('%', #{query.addresseeFuzzy}, '%')
+			</if>
+			<if test="query.phoneFuzzy!= null  and query.phoneFuzzy!=''">
+				 and  u.phone like concat('%', #{query.phoneFuzzy}, '%')
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM user_address u <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM user_address u <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.UserAddress">
+		 INSERT INTO user_address
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.addressId != null">
+				 address_id,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.address != null">
+				 address,
+			</if>
+			<if test="bean.addressee != null">
+				 addressee,
+			</if>
+			<if test="bean.phone != null">
+				 phone,
+			</if>
+			<if test="bean.defaultType != null">
+				 default_type,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.addressId!=null">
+				 #{bean.addressId},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.address!=null">
+				 #{bean.address},
+			</if>
+			<if test="bean.addressee!=null">
+				 #{bean.addressee},
+			</if>
+			<if test="bean.phone!=null">
+				 #{bean.phone},
+			</if>
+			<if test="bean.defaultType!=null">
+				 #{bean.defaultType},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.UserAddress">
+		 INSERT INTO user_address
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.addressId != null">
+				 address_id,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.address != null">
+				 address,
+			</if>
+			<if test="bean.addressee != null">
+				 addressee,
+			</if>
+			<if test="bean.phone != null">
+				 phone,
+			</if>
+			<if test="bean.defaultType != null">
+				 default_type,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.addressId!=null">
+				 #{bean.addressId},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.address!=null">
+				 #{bean.address},
+			</if>
+			<if test="bean.addressee!=null">
+				 #{bean.addressee},
+			</if>
+			<if test="bean.phone!=null">
+				 #{bean.phone},
+			</if>
+			<if test="bean.defaultType!=null">
+				 #{bean.defaultType},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.addressId!=null">
+				 address_id = VALUES(address_id),
+			</if>
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.address!=null">
+				 address = VALUES(address),
+			</if>
+			<if test="bean.addressee!=null">
+				 addressee = VALUES(addressee),
+			</if>
+			<if test="bean.phone!=null">
+				 phone = VALUES(phone),
+			</if>
+			<if test="bean.defaultType!=null">
+				 default_type = VALUES(default_type),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.UserAddress">
+		 INSERT INTO user_address(
+			 address_id,
+			 user_id,
+			 address,
+			 addressee,
+			 phone,
+			 default_type
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.addressId},
+				 #{item.userId},
+				 #{item.address},
+				 #{item.addressee},
+				 #{item.phone},
+				 #{item.defaultType}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.UserAddress">
+		 INSERT INTO user_address(
+			 address_id,
+			 user_id,
+			 address,
+			 addressee,
+			 phone,
+			 default_type
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.addressId},
+				 #{item.userId},
+				 #{item.address},
+				 #{item.addressee},
+				 #{item.phone},
+				 #{item.defaultType}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			address_id = VALUES(address_id),
+			user_id = VALUES(user_id),
+			address = VALUES(address),
+			addressee = VALUES(addressee),
+			phone = VALUES(phone),
+			default_type = VALUES(default_type)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.UserAddressQuery">
+		 UPDATE user_address u
+ 		 <set> 
+			<if test="bean.addressId != null">
+				 address_id = #{bean.addressId},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.address != null">
+				 address = #{bean.address},
+			</if>
+			<if test="bean.addressee != null">
+				 addressee = #{bean.addressee},
+			</if>
+			<if test="bean.phone != null">
+				 phone = #{bean.phone},
+			</if>
+			<if test="bean.defaultType != null">
+				 default_type = #{bean.defaultType},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete u from user_address u
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据AddressId修改-->
+	<update id="updateByAddressId" parameterType="com.simlect.entity.po.UserAddress">
+		 UPDATE user_address
+ 		 <set> 
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.address != null">
+				 address = #{bean.address},
+			</if>
+			<if test="bean.addressee != null">
+				 addressee = #{bean.addressee},
+			</if>
+			<if test="bean.phone != null">
+				 phone = #{bean.phone},
+			</if>
+			<if test="bean.defaultType != null">
+				 default_type = #{bean.defaultType},
+			</if>
+ 		 </set>
+ 		 where address_id=#{addressId}
+	</update>
+
+	<!-- 根据AddressId删除-->
+	<delete id="deleteByAddressId">
+		delete from user_address where address_id=#{addressId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByAddressId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from user_address u where address_id=#{addressId}
+	</select>
+
+<!--	cleanAllDefaultType:将所有userId=#{userId}的default_type改为0-->
+	<update id="cleanAllDefaultType">
+		update user_address set default_type=0 where user_id=#{userId}
+	</update>
+
+<!--	updateDefaultType：把当前addressId=#{addressId}的default_type改为1-->
+	<update id="updateDefaultType">
+		update user_address set default_type=1 where address_id= #{addressId}
+	</update>
+</mapper>

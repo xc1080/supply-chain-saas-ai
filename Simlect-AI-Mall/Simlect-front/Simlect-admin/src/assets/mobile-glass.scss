@@ -1,0 +1,78 @@
+
+:root {
+  --m-radius-lg: 22px;
+  --m-radius: 16px;
+  --m-radius-sm: 12px;
+  --m-gold: #c9a962;
+  --m-gold-soft: rgba(201, 169, 98, 0.16);
+  --m-ink: #1d1d1f;
+  --m-ink-2: #4b4b4f;
+  --m-ink-3: #8a8a8f;
+  --m-danger: #ff3b30;
+  --m-green: #34c759;
+  --m-blue: #0071e3;
+
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-shadow: 0 8px 30px rgba(17, 23, 41, 0.12);
+  --glass-blur: saturate(180%) blur(20px);
+
+  --m-page-bg:
+    radial-gradient(120% 80% at 12% -10%, rgba(201, 169, 98, 0.18), transparent 60%),
+    radial-gradient(120% 90% at 100% 0%, rgba(0, 113, 227, 0.12), transparent 55%),
+    linear-gradient(180deg, #eef0f5 0%, #e7e9f0 100%);
+}
+
+[data-admin-platform='mobile'] {
+
+  .admin-mobile-root {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: transparent;
+    color: var(--m-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--m-page-bg);
+  }
+
+  .glass-card {
+    position: relative;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--m-radius);
+    box-shadow: var(--glass-shadow);
+    overflow: hidden;
+  }
+
+  .glass-card::before {
+
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
+    pointer-events: none;
+  }
+
+  .glass-strong {
+    background: var(--glass-bg-strong);
+  }
+
+  .admin-mobile-root,
+  .admin-mobile-root button,
+  .admin-mobile-root input,
+  .admin-mobile-root textarea,
+  .admin-mobile-root select {
+    font-family: var(--el-font-family);
+  }
+}

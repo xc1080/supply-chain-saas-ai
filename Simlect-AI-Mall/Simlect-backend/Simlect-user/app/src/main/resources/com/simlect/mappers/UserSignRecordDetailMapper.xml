@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.UserSignRecordDetailMapper">
+
+    <resultMap id="base_result_map" type="com.simlect.entity.po.UserSignRecordDetail">
+        <result column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="sign_date" property="signDate"/>
+        <result column="sign_type" property="signType"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <sql id="base_column_list">
+        d.id,d.user_id,d.sign_date,d.sign_type,d.create_time
+    </sql>
+
+    <sql id="base_condition_filed">
+        <if test="query.userId != null and query.userId != ''">
+            and d.user_id = #{query.userId}
+        </if>
+        <if test="query.signDate != null and query.signDate != ''">
+            and d.sign_date = #{query.signDate}
+        </if>
+        <if test="query.signDateStart != null and query.signDateStart != ''">
+            and d.sign_date &gt;= #{query.signDateStart}
+        </if>
+        <if test="query.signDateEnd != null and query.signDateEnd != ''">
+            and d.sign_date &lt;= #{query.signDateEnd}
+        </if>
+        <if test="query.signType != null">
+            and d.sign_type = #{query.signType}
+        </if>
+        <if test="query.createTimeStart != null">
+            and d.create_time &gt;= #{query.createTimeStart}
+        </if>
+    </sql>
+
+    <sql id="query_condition">
+        <where>
+            <include refid="base_condition_filed"/>
+        </where>
+    </sql>
+
+    <select id="selectList" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/> FROM user_sign_record_detail d
+        <include refid="query_condition"/>
+        <if test="query.orderBy != null">
+            order by ${query.orderBy}
+        </if>
+        <if test="query.simplePage != null">
+            limit #{query.simplePage.start},#{query.simplePage.end}
+        </if>
+    </select>
+
+    <select id="selectCount" resultType="java.lang.Integer">
+        SELECT count(1) FROM user_sign_record_detail d
+        <include refid="query_condition"/>
+    </select>
+
+    <insert id="insert" parameterType="com.simlect.entity.po.UserSignRecordDetail">
+        INSERT INTO user_sign_record_detail (user_id, sign_date, sign_type, create_time)
+        VALUES (#{bean.userId}, #{bean.signDate}, #{bean.signType}, #{bean.createTime})
+    </insert>
+
+    <insert id="insertIgnore" parameterType="com.simlect.entity.po.UserSignRecordDetail">
+        INSERT IGNORE INTO user_sign_record_detail (user_id, sign_date, sign_type, create_time)
+        VALUES (#{bean.userId}, #{bean.signDate}, #{bean.signType}, #{bean.createTime})
+    </insert>
+
+    <select id="selectByUserIdAndDateRange" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/>
+        FROM user_sign_record_detail d
+        WHERE d.user_id = #{userId}
+          AND d.sign_date &gt;= #{signDateStart}
+          AND d.sign_date &lt;= #{signDateEnd}
+        ORDER BY d.sign_date ASC
+    </select>
+
+    <select id="selectCreatedAfter" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/>
+        FROM user_sign_record_detail d
+        WHERE d.create_time &gt;= #{createTimeStart}
+        ORDER BY d.id ASC
+    </select>
+
+    <select id="selectDistinctUserIdsInDateRange" resultType="java.lang.String">
+        SELECT DISTINCT d.user_id
+        FROM user_sign_record_detail d
+        WHERE d.sign_date &gt;= #{signDateStart}
+          AND d.sign_date &lt;= #{signDateEnd}
+    </select>
+
+</mapper>

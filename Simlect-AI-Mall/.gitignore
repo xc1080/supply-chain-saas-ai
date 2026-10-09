@@ -1,0 +1,67 @@
+# Build
+**/target/
+**/dist/
+**/build/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+
+# Dependencies
+**/node_modules/
+**/.pnpm-store/
+**/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env & secrets (keep *.example)
+.env
+.env.*
+!.env.example
+!**/.env.example
+**/secrets/
+**/*.pem
+**/*.p12
+**/*Credentials*
+**/certs/
+!**/certs/.gitkeep
+
+# Logs & local data
+*.log
+logs/
+**/tmp/
+**/.cache/
+coverage/
+*.lcov
+
+# Frontend local
+**/.vite/
+**/playwright-report/
+**/test-results/
+
+# Agent / Python local
+**/Simlect-agent/.venv/
+**/Simlect-agent/.pytest_cache/
+**/Simlect-agent/.langgraph_api/
+# 备份 / 构建产物（禁止入库）
+*.bak
+*.tar.gz
+*.tgz
+*.zip.bak

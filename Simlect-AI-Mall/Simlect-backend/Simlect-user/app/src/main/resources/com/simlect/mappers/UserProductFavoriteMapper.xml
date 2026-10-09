@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.UserProductFavoriteMapper">
+
+	<resultMap id="base_result_map" type="com.simlect.entity.po.UserProductFavorite">
+		<id column="favorite_id" property="favoriteId"  />
+		<result column="user_id" property="userId"  />
+		<result column="product_id" property="productId"  />
+		<result column="create_time" property="createTime"  />
+	</resultMap>
+
+	<sql id="base_column_list">
+		 u.favorite_id,u.user_id,u.product_id,u.create_time
+	</sql>
+
+	<sql id="base_condition_filed">
+<if test="query.favoriteId != null and query.favoriteId!=''">
+				 and  u.favorite_id = #{query.favoriteId}
+			</if>
+<if test="query.userId != null and query.userId!=''">
+				 and  u.user_id = #{query.userId}
+			</if>
+<if test="query.productId != null and query.productId!=''">
+				 and  u.product_id = #{query.productId}
+			</if>
+<if test="query.createTime != null and query.createTime!=''">
+				 <![CDATA[ and  u.create_time=str_to_date(#{query.createTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+	</sql>
+
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+<if test="query.favoriteIdFuzzy!= null  and query.favoriteIdFuzzy!=''">
+				 and  u.favorite_id like concat('%', #{query.favoriteIdFuzzy}, '%')
+			</if>
+<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  u.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+<if test="query.productIdFuzzy!= null  and query.productIdFuzzy!=''">
+				 and  u.product_id like concat('%', #{query.productIdFuzzy}, '%')
+			</if>
+<if test="query.createTimeStart!= null and query.createTimeStart!=''">
+				 <![CDATA[ and  u.create_time>=str_to_date(#{query.createTimeStart}, '%Y-%m-%d') ]]>
+			</if>
+<if test="query.createTimeEnd!= null and query.createTimeEnd!=''">
+				 <![CDATA[ and  u.create_time< date_sub(str_to_date(#{query.createTimeEnd},'%Y-%m-%d'),interval -1 day) ]]>
+			</if>
+	 </where>
+	</sql>
+
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" /> FROM user_product_favorite u <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM user_product_favorite u <include refid="query_condition" />
+	</select>
+
+	<insert id="insert" parameterType="com.simlect.entity.po.UserProductFavorite">
+		 INSERT INTO user_product_favorite
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+<if test="bean.favoriteId != null">
+				 favorite_id,
+			</if>
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.productId != null">
+				 product_id,
+			</if>
+<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+<if test="bean.favoriteId!=null">
+				 #{bean.favoriteId},
+			</if>
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+	</insert>
+
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.UserProductFavorite">
+		 INSERT INTO user_product_favorite
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+<if test="bean.favoriteId != null">
+				 favorite_id,
+			</if>
+<if test="bean.userId != null">
+				 user_id,
+			</if>
+<if test="bean.productId != null">
+				 product_id,
+			</if>
+<if test="bean.createTime != null">
+				 create_time,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+<if test="bean.favoriteId!=null">
+				 #{bean.favoriteId},
+			</if>
+<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+<if test="bean.productId!=null">
+				 #{bean.productId},
+			</if>
+<if test="bean.createTime!=null">
+				 #{bean.createTime},
+			</if>
+		 </trim>
+		 on DUPLICATE key update
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.productId!=null">
+				 product_id = VALUES(product_id),
+			</if>
+			<if test="bean.createTime!=null">
+				 create_time = VALUES(create_time),
+			</if>
+		 </trim>
+	</insert>
+
+	<update id="updateByParam" parameterType="com.simlect.entity.query.UserProductFavoriteQuery">
+		 UPDATE user_product_favorite u
+		 <set>
+			<if test="bean.favoriteId != null">
+				 favorite_id = #{bean.favoriteId},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+		 </set>
+		 <include refid="query_condition" />
+	</update>
+
+	<delete id="deleteByParam">
+		 delete u from user_product_favorite u
+		 <include refid="query_condition" />
+	</delete>
+
+	<update id="updateByFavoriteId" parameterType="com.simlect.entity.query.UserProductFavoriteQuery">
+		 UPDATE user_product_favorite u
+		 <set>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.productId != null">
+				 product_id = #{bean.productId},
+			</if>
+			<if test="bean.createTime != null">
+				 create_time = #{bean.createTime},
+			</if>
+		 </set>
+		 where favorite_id=#{favoriteId}
+	</update>
+	<delete id="deleteByFavoriteId">
+		delete from user_product_favorite where favorite_id=#{favoriteId}
+	</delete>
+	<select id="selectByFavoriteId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from user_product_favorite u where favorite_id=#{favoriteId}
+	</select>
+
+</mapper>

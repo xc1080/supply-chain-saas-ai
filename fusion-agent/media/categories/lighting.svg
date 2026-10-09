@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-labelledby="title"><title id="title">智能照明，演示商品示意图</title><rect width="600" height="600" fill="#e7eff7"/><g transform="translate(-15 35) scale(.82)">
+<ellipse cx="300" cy="465" rx="126" ry="20" fill="#d7e0e9"/>
+<path d="M230 356C225 321 186 295 186 230C186 163 236 116 300 116S414 163 414 230C414 295 375 321 370 356Z" fill="#fff" stroke="#c5d1dc" stroke-width="3"/>
+<path d="M204 246C214 287 248 298 264 335H336C352 298 386 287 396 246Z" fill="#fae6b0"/>
+<path fill="none" d="M262 335V366M338 335V366" stroke="#d4b876" stroke-width="5"/>
+<rect x="230" y="357" width="140" height="26" rx="10" fill="#a8b7c5"/>
+<path d="M238 389H362L355 414H245Z" fill="#c4cfd9"/>
+<path d="M245 415H355L342 434H258Z" fill="#99aab9"/>
+<path d="M266 435H334L323 449H277Z" fill="#344c64"/>
+<path fill="none" d="M232 179C246 154 269 142 295 140" stroke="#eaf0f5" stroke-width="10" stroke-linecap="round"/>
+<path fill="none" d="M134 218H110M155 145L138 128M446 145L463 128M466 218H490" stroke="#e7c876" stroke-width="5" stroke-linecap="round"/>
+</g><g transform="translate(277 260) scale(.40)">
+<ellipse cx="300" cy="470" rx="146" ry="21" fill="#d7e0e9"/>
+<ellipse cx="306" cy="446" rx="122" ry="24" fill="#bdcad7"/>
+<path d="M184 438C184 420 427 420 427 438V449C427 477 184 477 184 449Z" fill="#f9fbfd" stroke="#c5d1dc" stroke-width="3"/>
+<ellipse cx="306" cy="438" rx="121" ry="22" fill="#fff"/>
+<path d="M306 431V303L230 195" fill="none" stroke="#becbd7" stroke-width="23" stroke-linejoin="round"/>
+<path d="M306 427V303L230 195" fill="none" stroke="#fff" stroke-width="14" stroke-linejoin="round"/>
+<circle cx="306" cy="303" r="20" fill="#f7fafc" stroke="#c5d1dc" stroke-width="3"/>
+<circle cx="306" cy="303" r="7" fill="#437abb"/>
+<path d="M155 172L345 148L373 205L173 231Z" fill="#fff" stroke="#c5d1dc" stroke-width="3"/>
+<path d="M175 222L371 196L373 209L179 238Z" fill="#f5d995"/>
+<path fill="none" d="M282 441H331" stroke="#a9bacb" stroke-width="3" stroke-linecap="round"/>
+<circle cx="351" cy="437" r="5" fill="#437abb"/>
+</g><text x="30" y="566" fill="#70869c" font-size="18" font-family="Microsoft YaHei, PingFang SC, sans-serif">商品示意</text></svg>

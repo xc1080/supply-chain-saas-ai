@@ -1,0 +1,538 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.simlect.mappers.OrderInfoMapper">
+
+	<!--实体映射-->
+	<resultMap id="base_result_map" type="com.simlect.entity.po.OrderInfo">
+		<!--订单ID-->
+		<result column="order_id" property="orderId"  />
+		<!--金额-->
+		<result column="amount" property="amount"  />
+		<!--用户ID-->
+		<result column="user_id" property="userId"  />
+		<!--订单创建时间-->
+		<result column="order_time" property="orderTime"  />
+		<!---1已删除 0:待付款 1:已付款,待发货  2:已发货  3:已完成 4:已取消 5:已关闭 6:已退款 7:部分退款-->
+		<result column="order_status" property="orderStatus"  />
+		<!--支付通道-->
+		<result column="pay_channel" property="payChannel"  />
+		<!--支付场景-->
+		<result column="pay_scene" property="payScene"  />
+		<!--支付订单号-->
+		<result column="pay_order_id" property="payOrderId"  />
+		<!--通道ID-->
+		<result column="channel_order_Id" property="channelOrderId"  />
+		<!--评价状态 0:未评价  1:已评价  2:已追评-->
+		<result column="comment_status" property="commentStatus"  />
+		<!--订单标题-->
+		<result column="subject" property="subject"  />
+		<collection property="orderItemList" ofType="com.simlect.entity.po.OrderItem">
+			<id column="order_item_id" property="orderItemId" />
+			<result column="cover" property="cover" />
+			<result column="product_id" property="productId" />
+			<result column="product_name" property="productName" />
+			<result column="property_value_id_hash" property="propertyValueIdHash" />
+			<result column="property_info" property="propertyInfo" />
+			<result column="item_amount" property="itemAmount" />
+			<result column="buy_count" property="buyCount" />
+			<result column="order_item_status" property="orderItemStatus" />
+			<result column="remark" property="remark" />
+			<result column="refund_order_id" property="refundOrderId" />
+		</collection>
+	</resultMap>
+
+
+	<!-- 通用查询结果列-->
+	<sql id="base_column_list">
+		 o.order_id,o.amount,o.user_id,o.order_time,o.order_status,
+		 o.pay_channel,o.pay_scene,o.pay_order_id,o.channel_order_Id,o.comment_status,o.subject
+		 
+	</sql>
+
+	<sql id="base_condition_filed">
+			<if test="query.orderId != null and query.orderId!=''">
+				 and  o.order_id = #{query.orderId}
+			</if>
+			<if test="query.amount != null">
+				 and  o.amount = #{query.amount}
+			</if>
+			<if test="query.userId != null and query.userId!=''">
+				 and  o.user_id = #{query.userId}
+			</if>
+			<if test="query.orderTime != null and query.orderTime!=''">
+				 <![CDATA[ and  o.order_time=str_to_date(#{query.orderTime}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.orderStatus != null">
+				 and  o.order_status = #{query.orderStatus}
+			</if>
+			<if test="query.payChannel != null and query.payChannel!=''">
+				 and  o.pay_channel = #{query.payChannel}
+			</if>
+			<if test="query.payScene != null and query.payScene!=''">
+				 and  o.pay_scene = #{query.payScene}
+			</if>
+			<if test="query.payOrderId != null and query.payOrderId!=''">
+				 and  o.pay_order_id = #{query.payOrderId}
+			</if>
+			<if test="query.channelOrderId != null and query.channelOrderId!=''">
+				 and  o.channel_order_Id = #{query.channelOrderId}
+			</if>
+			<if test="query.commentStatus != null">
+				 and  o.comment_status = #{query.commentStatus}
+			</if>
+			<if test="query.commentStatusList != null and query.commentStatusList.length > 0">
+				and o.comment_status in
+				<foreach item="item" collection="query.commentStatusList" separator="," open="(" close=")">
+					#{item}
+				</foreach>
+			</if>
+			<if test="query.subject != null and query.subject!=''">
+				 and  o.subject = #{query.subject}
+			</if>
+			<if test="query.orderStatusList != null and query.orderStatusList.length > 0">
+				and o.order_status in
+				 <foreach item="item" collection="query.orderStatusList" separator="," open="(" close=")" >
+					 #{item}
+				 </foreach>
+			</if>
+			<if test="query.executeOrderStatusList != null and query.executeOrderStatusList.length > 0">
+				and o.order_status not in
+				<foreach item="item" collection="query.executeOrderStatusList" separator="," open="(" close=")" >
+					#{item}
+				</foreach>
+			</if>
+	</sql>
+
+	<!-- 通用查询条件列-->
+	<sql id="query_condition">
+	 <where>
+			<include refid="base_condition_filed" />
+			<if test="query.orderIdFuzzy!= null  and query.orderIdFuzzy!=''">
+				 and  o.order_id like concat('%', #{query.orderIdFuzzy}, '%')
+			</if>
+			<if test="query.userIdFuzzy!= null  and query.userIdFuzzy!=''">
+				 and  o.user_id like concat('%', #{query.userIdFuzzy}, '%')
+			</if>
+			<if test="query.orderTimeStart!= null and query.orderTimeStart!=''">
+				 <![CDATA[ and  o.order_time>=str_to_date(#{query.orderTimeStart}, '%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.orderTimeEnd!= null and query.orderTimeEnd!=''">
+				 <![CDATA[ and  o.order_time<=str_to_date(#{query.orderTimeEnd},'%Y-%m-%d %H:%i:%s') ]]>
+			</if>
+			<if test="query.payChannelFuzzy!= null  and query.payChannelFuzzy!=''">
+				 and  o.pay_channel like concat('%', #{query.payChannelFuzzy}, '%')
+			</if>
+			<if test="query.paySceneFuzzy!= null  and query.paySceneFuzzy!=''">
+				 and  o.pay_scene like concat('%', #{query.paySceneFuzzy}, '%')
+			</if>
+			<if test="query.payOrderIdFuzzy!= null  and query.payOrderIdFuzzy!=''">
+				 and  o.pay_order_id like concat('%', #{query.payOrderIdFuzzy}, '%')
+			</if>
+			<if test="query.channelOrderIdFuzzy!= null  and query.channelOrderIdFuzzy!=''">
+				 and  o.channel_order_Id like concat('%', #{query.channelOrderIdFuzzy}, '%')
+			</if>
+	 </where>
+	</sql>
+
+	<!-- 查询集合-->
+	<select id="selectList" resultMap="base_result_map" >
+		 SELECT <include refid="base_column_list" />
+		     <if test="query.queryItems">
+				 ,i.*
+			 </if>
+		     FROM order_info o
+		     <if test="query.queryItems">
+				 left join order_item i on o.order_id=i.order_id
+			 </if>
+		     <include refid="query_condition" />
+		 <if test="query.orderBy!=null">
+			 order by ${query.orderBy}
+		 </if>
+		 <if test="query.simplePage!=null">
+			 limit #{query.simplePage.start},#{query.simplePage.end}
+		 </if>
+	</select>
+
+	<!-- 查询数量-->
+	<select id="selectCount" resultType="java.lang.Integer" >
+		 SELECT count(1) FROM order_info o
+		 <if test="query.queryItems">
+			 left join order_item i on o.order_id=i.order_id
+		 </if>
+		 <include refid="query_condition" />
+	</select>
+
+	<!-- 插入 （匹配有值的字段）-->
+	<insert id="insert" parameterType="com.simlect.entity.po.OrderInfo">
+		 INSERT INTO order_info
+		 <trim prefix="(" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.amount != null">
+				 amount,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.orderTime != null">
+				 order_time,
+			</if>
+			<if test="bean.orderStatus != null">
+				 order_status,
+			</if>
+			<if test="bean.payChannel != null">
+				 pay_channel,
+			</if>
+			<if test="bean.payScene != null">
+				 pay_scene,
+			</if>
+			<if test="bean.payOrderId != null">
+				 pay_order_id,
+			</if>
+			<if test="bean.channelOrderId != null">
+				 channel_order_Id,
+			</if>
+			<if test="bean.commentStatus != null">
+				 comment_status,
+			</if>
+			<if test="bean.subject != null">
+				 subject,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides="," >
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.amount!=null">
+				 #{bean.amount},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.orderTime!=null">
+				 #{bean.orderTime},
+			</if>
+			<if test="bean.orderStatus!=null">
+				 #{bean.orderStatus},
+			</if>
+			<if test="bean.payChannel!=null">
+				 #{bean.payChannel},
+			</if>
+			<if test="bean.payScene!=null">
+				 #{bean.payScene},
+			</if>
+			<if test="bean.payOrderId!=null">
+				 #{bean.payOrderId},
+			</if>
+			<if test="bean.channelOrderId!=null">
+				 #{bean.channelOrderId},
+			</if>
+			<if test="bean.commentStatus!=null">
+				 #{bean.commentStatus},
+			</if>
+			<if test="bean.subject!=null">
+				 #{bean.subject},
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 插入或者更新 （匹配有值的字段）-->
+	<insert id="insertOrUpdate" parameterType="com.simlect.entity.po.OrderInfo">
+		 INSERT INTO order_info
+		 <trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="bean.orderId != null">
+				 order_id,
+			</if>
+			<if test="bean.amount != null">
+				 amount,
+			</if>
+			<if test="bean.userId != null">
+				 user_id,
+			</if>
+			<if test="bean.orderTime != null">
+				 order_time,
+			</if>
+			<if test="bean.orderStatus != null">
+				 order_status,
+			</if>
+			<if test="bean.payChannel != null">
+				 pay_channel,
+			</if>
+			<if test="bean.payScene != null">
+				 pay_scene,
+			</if>
+			<if test="bean.payOrderId != null">
+				 pay_order_id,
+			</if>
+			<if test="bean.channelOrderId != null">
+				 channel_order_Id,
+			</if>
+			<if test="bean.commentStatus != null">
+				 comment_status,
+			</if>
+			<if test="bean.subject != null">
+				 subject,
+			</if>
+		 </trim>
+		 <trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="bean.orderId!=null">
+				 #{bean.orderId},
+			</if>
+			<if test="bean.amount!=null">
+				 #{bean.amount},
+			</if>
+			<if test="bean.userId!=null">
+				 #{bean.userId},
+			</if>
+			<if test="bean.orderTime!=null">
+				 #{bean.orderTime},
+			</if>
+			<if test="bean.orderStatus!=null">
+				 #{bean.orderStatus},
+			</if>
+			<if test="bean.payChannel!=null">
+				 #{bean.payChannel},
+			</if>
+			<if test="bean.payScene!=null">
+				 #{bean.payScene},
+			</if>
+			<if test="bean.payOrderId!=null">
+				 #{bean.payOrderId},
+			</if>
+			<if test="bean.channelOrderId!=null">
+				 #{bean.channelOrderId},
+			</if>
+			<if test="bean.commentStatus!=null">
+				 #{bean.commentStatus},
+			</if>
+			<if test="bean.subject!=null">
+				 #{bean.subject},
+			</if>
+		 </trim>
+		 on DUPLICATE key update 
+		 <trim prefix="" suffix="" suffixOverrides=",">
+			<if test="bean.orderId!=null">
+				 order_id = VALUES(order_id),
+			</if>
+			<if test="bean.amount!=null">
+				 amount = VALUES(amount),
+			</if>
+			<if test="bean.userId!=null">
+				 user_id = VALUES(user_id),
+			</if>
+			<if test="bean.orderTime!=null">
+				 order_time = VALUES(order_time),
+			</if>
+			<if test="bean.orderStatus!=null">
+				 order_status = VALUES(order_status),
+			</if>
+			<if test="bean.payChannel!=null">
+				 pay_channel = VALUES(pay_channel),
+			</if>
+			<if test="bean.payScene!=null">
+				 pay_scene = VALUES(pay_scene),
+			</if>
+			<if test="bean.payOrderId!=null">
+				 pay_order_id = VALUES(pay_order_id),
+			</if>
+			<if test="bean.channelOrderId!=null">
+				 channel_order_Id = VALUES(channel_order_Id),
+			</if>
+			<if test="bean.commentStatus!=null">
+				 comment_status = VALUES(comment_status),
+			</if>
+			<if test="bean.subject!=null">
+				 subject = VALUES(subject),
+			</if>
+		 </trim>
+	</insert>
+
+	<!-- 添加 （批量插入）-->
+	<insert id="insertBatch" parameterType="com.simlect.entity.po.OrderInfo">
+		 INSERT INTO order_info(
+			 order_id,
+			 amount,
+			 user_id,
+			 order_time,
+			 order_status,
+			 pay_channel,
+			 pay_scene,
+			 pay_order_id,
+			 channel_order_Id,
+			 comment_status,
+			 subject
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderId},
+				 #{item.amount},
+				 #{item.userId},
+				 #{item.orderTime},
+				 #{item.orderStatus},
+				 #{item.payChannel},
+				 #{item.payScene},
+				 #{item.payOrderId},
+				 #{item.channelOrderId},
+				 #{item.commentStatus},
+			  	 #{item.subject}
+			 )
+		 </foreach>
+	</insert>
+
+	<!-- 批量新增修改 （批量插入）-->
+	<insert id="insertOrUpdateBatch" parameterType="com.simlect.entity.po.OrderInfo">
+		 INSERT INTO order_info(
+			 order_id,
+			 amount,
+			 user_id,
+			 order_time,
+			 order_status,
+			 pay_channel,
+			 pay_scene,
+			 pay_order_id,
+			 channel_order_Id,
+			 comment_status,
+			 subject
+		 )values
+		 <foreach collection="list" item="item" separator=",">
+			 (
+				 #{item.orderId},
+				 #{item.amount},
+				 #{item.userId},
+				 #{item.orderTime},
+				 #{item.orderStatus},
+				 #{item.payChannel},
+				 #{item.payScene},
+				 #{item.payOrderId},
+				 #{item.channelOrderId},
+				 #{item.commentStatus},
+			 	 #{item.subject}
+			 )
+		 </foreach>
+			on DUPLICATE key update 
+			order_id = VALUES(order_id),
+			amount = VALUES(amount),
+			user_id = VALUES(user_id),
+			order_time = VALUES(order_time),
+			order_status = VALUES(order_status),
+			pay_channel = VALUES(pay_channel),
+			pay_scene = VALUES(pay_scene),
+			pay_order_id = VALUES(pay_order_id),
+			channel_order_Id = VALUES(channel_order_Id),
+			comment_status = VALUES(comment_status),
+			subject = VALUES(subject)
+	</insert>
+
+	<!--多条件修改-->
+	<update id="updateByParam" parameterType="com.simlect.entity.query.OrderInfoQuery">
+		 UPDATE order_info o
+ 		 <set> 
+			<if test="bean.orderId != null">
+				 order_id = #{bean.orderId},
+			</if>
+			<if test="bean.amount != null">
+				 amount = #{bean.amount},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.orderTime != null">
+				 order_time = #{bean.orderTime},
+			</if>
+			<if test="bean.orderStatus != null">
+				 order_status = #{bean.orderStatus},
+			</if>
+			<if test="bean.payChannel != null">
+				 pay_channel = #{bean.payChannel},
+			</if>
+			<if test="bean.payScene != null">
+				 pay_scene = #{bean.payScene},
+			</if>
+			<if test="bean.payOrderId != null">
+				 pay_order_id = #{bean.payOrderId},
+			</if>
+			<if test="bean.channelOrderId != null">
+				 channel_order_Id = #{bean.channelOrderId},
+			</if>
+			<if test="bean.commentStatus != null">
+				 comment_status = #{bean.commentStatus},
+			</if>
+			 <if test="bean.subject != null">
+				 subject = #{bean.subject},
+			</if>
+ 		 </set>
+ 		 <include refid="query_condition" />
+	</update>
+
+	<!--多条件删除-->
+	<delete id="deleteByParam">
+		 delete o from order_info o
+ 		 <include refid="query_condition" />
+	</delete>
+
+	<!-- 根据OrderId修改-->
+	<update id="updateByOrderId" parameterType="com.simlect.entity.po.OrderInfo">
+		 UPDATE order_info
+ 		 <set> 
+			<if test="bean.amount != null">
+				 amount = #{bean.amount},
+			</if>
+			<if test="bean.userId != null">
+				 user_id = #{bean.userId},
+			</if>
+			<if test="bean.orderTime != null">
+				 order_time = #{bean.orderTime},
+			</if>
+			<if test="bean.orderStatus != null">
+				 order_status = #{bean.orderStatus},
+			</if>
+			<if test="bean.payChannel != null">
+				 pay_channel = #{bean.payChannel},
+			</if>
+			<if test="bean.payScene != null">
+				 pay_scene = #{bean.payScene},
+			</if>
+			<if test="bean.payOrderId != null">
+				 pay_order_id = #{bean.payOrderId},
+			</if>
+			<if test="bean.channelOrderId != null">
+				 channel_order_Id = #{bean.channelOrderId},
+			</if>
+			<if test="bean.commentStatus != null">
+				 comment_status = #{bean.commentStatus},
+			</if>
+			 <if test="bean.subject != null">
+				 subject = #{bean.subject},
+			</if>
+ 		 </set>
+ 		 where order_id=#{orderId}
+	</update>
+
+	<update id="markCommentEvaluatedIfNotEvaluated">
+		UPDATE order_info
+		SET comment_status = 1
+		WHERE order_id = #{orderId}
+		  AND user_id = #{userId}
+		  AND comment_status = 0
+	</update>
+
+	<update id="revertCommentStatusIfEvaluated">
+		UPDATE order_info
+		SET comment_status = 0
+		WHERE order_id = #{orderId}
+		  AND comment_status = 1
+	</update>
+
+	<!-- 根据OrderId删除-->
+	<delete id="deleteByOrderId">
+		delete from order_info where order_id=#{orderId}
+	</delete>
+
+	<!-- 根据PrimaryKey获取对象-->
+	<select id="selectByOrderId" resultMap="base_result_map" >
+		select <include refid="base_column_list" /> from order_info o where order_id=#{orderId}
+	</select>
+
+</mapper>
