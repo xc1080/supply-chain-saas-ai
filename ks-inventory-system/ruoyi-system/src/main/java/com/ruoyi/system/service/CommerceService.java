@@ -37,6 +37,7 @@ public class CommerceService {
     private final CommerceMerchantService merchants;
     private final CommercePaymentService payments;
     private final CommerceDeliveryService delivery;
+    private final CommerceWarehouseAllocationService warehouses;
     private static final Map<String, String> MEDIA = new LinkedHashMap<>();
     static {
         MEDIA.put("DEMO-LAMP-ZB", "lamp-zb");
@@ -61,6 +62,9 @@ public class CommerceService {
         MEDIA.put("LAB-TAPO-L510E", "lamp-wifi");
     }
 
+    private CommerceCostService costs;
+    @Autowired public void configureCosts(CommerceCostService costs) { this.costs=costs; }
+
     public CommerceService(DataSource dataSource) {
         this(dataSource, new CommerceInventoryService(dataSource), new CommerceMerchantService(dataSource));
     }
@@ -75,6 +79,7 @@ public class CommerceService {
         this.dataSource = dataSource;
         this.jdbc = new JdbcTemplate(dataSource);
         this.stock = stock; this.merchants = merchants;this.payments=payments;this.delivery=delivery;
+        this.warehouses=new CommerceWarehouseAllocationService(dataSource);
     }
 
     public void initializeSchema() {
@@ -238,9 +243,14 @@ public class CommerceService {
         if(request.get("items")!=null)quantities=normalizeItems(request.get("items"));
         else for(Map<String,Object> fact:facts){long remaining=number(fact.get("quantity"))-number(fact.get("shipped"))-number(fact.get("released"));if(remaining>0)quantities.put(number(fact.get("product_id")),remaining);}
         String requestKey=request.get("requestKey")==null?"LEGACY_FULL":key(request.get("requestKey"),"requestKey");
+        Long warehouseId=request.get("warehouseId")==null?null:positiveInteger(request.get("warehouseId"),"warehouseId");
         List<Map<String,Object>> previous=jdbc.queryForList("SELECT * FROM commerce_shipment WHERE order_id=? AND request_key=?",orderId,requestKey);
         if(!previous.isEmpty()) {
-            if(request.get("items")!=null)require(requestHash(quantities).equals(previous.get(0).get("request_hash")),"同一发货请求不能改变商品或数量",409);
+            SortedMap<Long,Long> original=new TreeMap<>();
+            for(Map<String,Object> row:jdbc.queryForList("SELECT product_id,quantity FROM commerce_shipment_item WHERE shipment_id=?",previous.get(0).get("shipment_id")))original.put(number(row.get("product_id")),number(row.get("quantity")));
+            String previousHash=String.valueOf(previous.get(0).get("request_hash"));
+            if("LEGACY_FULL".equals(previous.get(0).get("request_key"))&&previousHash.equals(String.join("",Collections.nCopies(64,"0"))))previousHash=requestHash(original);
+            require(shipmentHash(request.get("items")==null?original:quantities,warehouseId).equals(previousHash),"同一发货请求不能改变商品、数量或仓库",409);
             return shape(order);
         }
         requireFulfillable(order);
@@ -266,7 +276,7 @@ public class CommerceService {
         jdbc.update("INSERT INTO commerce_receipt_lock(receipt_id) VALUES (?) ON DUPLICATE KEY UPDATE receipt_id=VALUES(receipt_id)",receipt);
         require(jdbc.queryForList("SELECT systematic_id FROM head_receipt WHERE systematic_receipt=? FOR UPDATE",receipt).isEmpty(),"发货单号已存在，请先核对历史单据",409);
         List<Map<String, Object>> products = lockProducts(quantities.keySet());
-        stock.dispatch(orderId,quantities,"DISPATCH:"+shipmentId);
+        Map<Long,Map<Long,Long>> warehousePlan=stock.dispatch(orderId,quantities,"DISPATCH:"+shipmentId,warehouseId);
         Long firstWarehouse = null;
         for (Map<String, Object> product : products) {
             long id = number(product.get("product_id"));
@@ -274,6 +284,7 @@ public class CommerceService {
             List<Map<String, Object>> inventory = jdbc.queryForList("SELECT * FROM inventory_product WHERE product_id=? ORDER BY warehouse_id,inventory_id FOR UPDATE", id);
             long book = 0;
             Map<Long,Long> warehouseBefore=new TreeMap<>(),warehouseTaken=new TreeMap<>();
+            Map<Long,Long> warehouseRemaining=new TreeMap<>(warehousePlan.get(id));
             for (Map<String,Object> row:inventory) {
                 long warehouse=number(row.get("warehouse_id")),quantity=number(row.get("plan_quantity")); book+=quantity;
                 warehouseBefore.put(warehouse,warehouseBefore.getOrDefault(warehouse,0L)+quantity);
@@ -283,12 +294,11 @@ public class CommerceService {
             for (Map<String, Object> row : inventory) {
                 long before = number(row.get("plan_quantity"));
                 long warehouse = number(row.get("warehouse_id"));
-                long blocked=jdbc.queryForObject("SELECT COALESCE(SUM(quality_hold+damaged),0) FROM commerce_warehouse_condition WHERE product_id=? AND warehouse_id=?",Long.class,id,warehouse);
-                long free=warehouseBefore.get(warehouse)-blocked-warehouseTaken.getOrDefault(warehouse,0L);
-                long amount = Math.min(Math.min(Math.max(before, 0), remaining),Math.max(0,free));
+                long amount = Math.min(Math.max(before,0),warehouseRemaining.getOrDefault(warehouse,0L));
                 if (amount == 0) continue;
                 if (firstWarehouse == null) firstWarehouse = warehouse;
                 warehouseTaken.put(warehouse,warehouseTaken.getOrDefault(warehouse,0L)+amount);
+                warehouseRemaining.put(warehouse,warehouseRemaining.get(warehouse)-amount);
                 int changed = jdbc.update("UPDATE inventory_product SET plan_quantity=plan_quantity-?,update_by='commerce-demo',update_time=CURRENT_TIMESTAMP WHERE inventory_id=? AND plan_quantity>=?", amount, row.get("inventory_id"), amount);
                 require(changed == 1, "库存已变化，发货未执行", 409);
                 BigDecimal price = decimal(item.get("unit_price"));
@@ -308,8 +318,9 @@ public class CommerceService {
         // Type 3 is sales outbound; type 2 in the original schema is purchase return.
         jdbc.update("INSERT INTO head_receipt(systematic_receipt,original_receipt,receipt_category,receipt_type,receipt_status,invoice_date,warehousing_ids,retrieval_ids,user_ids,supplier_ids,customer_ids,deposit,total_amount,receipt_notes,create_by,create_time) VALUES (?,?,'2','3','2',CURRENT_DATE,0,?,?,0,0,0,?,?,'commerce-demo',CURRENT_TIMESTAMP)",
                 receipt, orderId, firstWarehouse, userId, shipmentAmount, "商城本地支付沙箱；分批发货登记（未提交真实物流）");
-        jdbc.update("INSERT INTO commerce_shipment(shipment_id,order_id,request_key,request_hash,receipt_id,carrier,tracking_no,amount,created_at) VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",shipmentId,orderId,requestKey,requestHash(quantities),receipt,carrier,tracking,shipmentAmount);
+        jdbc.update("INSERT INTO commerce_shipment(shipment_id,order_id,request_key,request_hash,receipt_id,carrier,tracking_no,amount,created_at) VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",shipmentId,orderId,requestKey,shipmentHash(quantities,warehouseId),receipt,carrier,tracking,shipmentAmount);
         for(Map.Entry<Long,Long> part:quantities.entrySet())jdbc.update("INSERT INTO commerce_shipment_item(shipment_id,product_id,quantity) VALUES (?,?,?)",shipmentId,part.getKey(),part.getValue());
+        if(costs!=null)costs.recordShipment(shipmentId,userId);
         long outstanding=jdbc.queryForObject("SELECT COALESCE(SUM(i.quantity-f.shipped-f.released),0) FROM commerce_order_item i JOIN commerce_fulfillment_line f ON f.order_id=i.order_id AND f.product_id=i.product_id WHERE i.order_id=?",Long.class,orderId);
         jdbc.update("UPDATE commerce_order SET status=?,shipped_time=CURRENT_TIMESTAMP,receipt_id=?,carrier=?,tracking_no=? WHERE order_id=? AND status=1",outstanding==0?2:1, receipt, carrier, tracking, orderId);
         return detail(orderId, null);
@@ -401,6 +412,7 @@ public class CommerceService {
         }
         Map<String,Object> result=map("orderId", id, "tenantId", TenantContext.id(), "shopId",row.get("shop_id"), "activityId", row.get("activity_id"), "expiresAt", time(row.get("expires_at")), "closeReason", row.get("close_reason"), "status", status, "orderStatus", status, "statusName", names[status], "totalAmount", row.get("total_amount"), "createTime", time(row.get("create_time")), "paidTime", time(row.get("paid_time")), "shippedTime", time(row.get("shipped_time")), "receivedTime", time(row.get("received_time")), "cancelledTime", time(row.get("cancelled_time")), "transactionId", row.get("transaction_id"), "receiptId", row.get("receipt_id"), "carrier", row.get("carrier"), "trackingNo", row.get("tracking_no"), "shippingAddress",row.get("shipping_address")==null?null:JSON.parseObject(String.valueOf(row.get("shipping_address"))), "afterSalesId",row.get("after_sales_id"),"afterSalesStatus",row.get("after_sales_status"),"refundedAmount",row.get("refunded_amount"), "demo", true, "paymentProvider", "LOCAL_SANDBOX", "reservationActive", (status == 0 || status == 1) && !"REFUNDED".equals(row.get("after_sales_status")), "items", items);
         result.put("dispatchPromise",delivery.orderPromise(id));
+        result.put("warehouseAllocations",warehouses.allocations(id));
         List<String> paymentIds=jdbc.queryForList("SELECT operation_id FROM commerce_payment_operation WHERE order_id=? AND kind='PAYMENT' ORDER BY CASE WHEN provider_reference=? THEN 0 WHEN local_status IN('PREPARED','PENDING','UNKNOWN','COMPENSATION_PENDING') THEN 1 ELSE 2 END,created_at DESC,operation_id DESC LIMIT 1",String.class,id,row.get("transaction_id"));
         if(!paymentIds.isEmpty()){Map<String,Object> payment=payments.detail(paymentIds.get(0));result.put("paymentOperation",payment);result.put("paymentOutcome",payment.get("outcome"));}
         CommercePartialSupport.decorate(jdbc,result);return result;
@@ -569,6 +581,10 @@ public class CommerceService {
             for (byte value : digest) result.append(String.format("%02x", value & 255));
             return result.toString();
         } catch (Exception ex) { throw new IllegalStateException(ex); }
+    }
+
+    private static String shipmentHash(SortedMap<Long,Long> quantities,Long warehouseId) {
+        return warehouseId==null?requestHash(quantities):activityHash(quantities,"WAREHOUSE:"+warehouseId);
     }
 
     private static long positiveInteger(Object value, String field) {

@@ -10,6 +10,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.ruoyi.common.utils.SecurityUtils;
 
 import javax.sql.DataSource;
 import java.util.*;
@@ -26,6 +28,10 @@ public class CommerceReceiptInventoryGuard {
     private final CommerceInventoryService inventory;
     private final HeadReceiptMapper heads;
     private final DetailReceiptMapper details;
+    private final CommerceWarehouseAllocationService allocations;
+    private CommerceCostService costs;
+    @Autowired public void configureCosts(CommerceCostService costs) { this.costs=costs; }
+    private long costActor() { try { return SecurityUtils.getUserId(); } catch(ServiceException missing) { return 0L; } }
 
     public CommerceReceiptInventoryGuard(DataSource source, CommerceInventoryService inventory,
                                          HeadReceiptMapper heads, DetailReceiptMapper details) {
@@ -33,6 +39,7 @@ public class CommerceReceiptInventoryGuard {
         this.inventory = inventory;
         this.heads = heads;
         this.details = details;
+        this.allocations = new CommerceWarehouseAllocationService(source);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -66,6 +73,7 @@ public class CommerceReceiptInventoryGuard {
         if (existed) heads.updateHeadReceipt(receipt); else heads.addHeadReceipt(receipt);
         apply(changes, warehouses, id, id, "SAVE");
         synchronizeTracked(products, "ERP_SAVE:" + id);
+        if(costs!=null)costs.recordProcurementReceipt(id,costActor());
         return 1;
     }
 
@@ -91,6 +99,7 @@ public class CommerceReceiptInventoryGuard {
         details.delDetailReceipt(identifiers);
         heads.delHeadReceipt(identifiers);
         synchronizeTracked(products, "ERP_DELETE:" + ids.get(0));
+        if(costs!=null)for(String id:ids)costs.reverseProcurementReceipt(id,costActor());
         return 1;
     }
 
@@ -237,6 +246,7 @@ public class CommerceReceiptInventoryGuard {
             require(!jdbc.queryForList("SELECT warehouse_id FROM warehouse WHERE warehouse_id=? FOR UPDATE", warehouse).isEmpty(), "仓库不存在", 404);
         for (Long product : products) {
             if (tracked(product)) inventory.ensureStock(product);
+            if (tracked(product)) allocations.ensureProduct(product);
             warehouses.put(product, jdbc.queryForList("SELECT inventory_id,warehouse_id,plan_quantity FROM inventory_product WHERE product_id=? ORDER BY warehouse_id,inventory_id FOR UPDATE", product));
         }
         return warehouses;
@@ -250,6 +260,7 @@ public class CommerceReceiptInventoryGuard {
             long before = warehouseQuantity(warehouses.get(key.product),key.warehouse);
             long unavailable=jdbc.queryForObject("SELECT COALESCE(SUM(quality_hold+damaged),0) FROM commerce_warehouse_condition WHERE product_id=? AND warehouse_id=?",Long.class,key.product,key.warehouse);
             require(Math.addExact(before,delta) >= unavailable, "指定仓库可用库存不足，不能侵占待检或损坏库存", 409);
+            require(Math.addExact(before,delta)>=unavailable+allocations.pending(key.product,key.warehouse),"指定仓库出库或冲销将侵占商城订单仓占用",409);
             productDeltas.put(key.product, Math.addExact(productDeltas.getOrDefault(key.product,0L),delta));
         }
         for (Map.Entry<Long,Long> entry : productDeltas.entrySet()) {

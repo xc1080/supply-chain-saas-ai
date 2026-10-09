@@ -32,6 +32,7 @@ export const getQueueMetrics = () => request({ url: '/commerce/queue/metrics', m
 export const setProductListing = (productId, listed) => request({ url: `/commerce/products/${productId}/listing`, method: 'post', data: { listed } })
 
 export const listWarehouseLedger = productId => request({ url: `/commerce/inventory/${productId}/warehouse-ledger`, method: 'get' })
+export const listCommerceWarehouses = productId => request({ url: `/commerce/inventory/${productId}/warehouses`, method: 'get' })
 export const listCommerceAfterSales = query => request({ url: '/commerce/after-sales', method: 'get', params: query })
 export const getCommerceAfterSales = id => request({ url: `/commerce/after-sales/${encodeURIComponent(id)}`, method: 'get' })
 export const reviewCommerceAfterSales = (id, data) => request({ url: `/commerce/after-sales/${encodeURIComponent(id)}/review`, method: 'post', data })

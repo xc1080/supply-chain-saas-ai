@@ -51,7 +51,7 @@ public class CommerceServiceTest {
         jdbc.update("INSERT INTO inventory_product(inventory_id,product_id,warehouse_id,plan_quantity) VALUES (1,1,1,10)");
         service = new CommerceService(source);
         merchants=new CommerceMerchantService(source);
-        for(String resource:Arrays.asList("db/commerce-merchant.sql","db/commerce-inventory.sql","db/commerce-after-sales.sql","db/commerce-planning.sql","db/commerce-payment.sql","db/commerce-delivery.sql")) {
+        for(String resource:Arrays.asList("db/commerce-merchant.sql","db/commerce-inventory.sql","db/commerce-after-sales.sql","db/commerce-planning.sql","db/commerce-payment.sql","db/commerce-delivery.sql","db/commerce-warehouse-allocation.sql","db/commerce-cost-reconciliation.sql","db/commerce-agent-tasks.sql")) {
             String schema=StreamUtils.copyToString(new ClassPathResource(resource).getInputStream(),StandardCharsets.UTF_8).replace("ENGINE=InnoDB DEFAULT CHARSET=utf8mb4","");
             new ResourceDatabasePopulator(new ByteArrayResource(schema.getBytes(StandardCharsets.UTF_8))).execute(source);
         }
@@ -63,6 +63,8 @@ public class CommerceServiceTest {
         jdbc.update("INSERT INTO commerce_product_shop VALUES (1,'default',1)");
         afterSales=new CommerceAfterSalesService(source);
         warehouse=new CommerceReceiptInventoryGuard(source,new CommerceInventoryService(source),null,null);
+        CommerceCostService costs=new CommerceCostService(source);
+        service.configureCosts(costs);afterSales.configureCosts(costs);warehouse.configureCosts(costs);
         tx = new TransactionTemplate(new DataSourceTransactionManager(source));
         tx.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }

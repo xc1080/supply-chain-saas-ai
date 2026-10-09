@@ -44,6 +44,7 @@ public class CommerceReceiptInventoryGuardTest {
         jdbc = new JdbcTemplate(source);
         schema(source,"db/commerce-demo.sql"); schema(source,"db/commerce-inventory.sql"); schema(source,"db/commerce-merchant.sql");
         schema(source,"db/commerce-planning.sql");
+        schema(source,"db/commerce-warehouse-allocation.sql");
         jdbc.execute("CREATE TABLE product(product_id BIGINT PRIMARY KEY,inventory_qty BIGINT,update_by VARCHAR(32),update_time DATETIME)");
         jdbc.execute("CREATE TABLE inventory_product(inventory_id BIGINT AUTO_INCREMENT PRIMARY KEY,product_id BIGINT,warehouse_id BIGINT,supplier_id BIGINT,plan_quantity BIGINT,univalence DECIMAL(14,2),discount DECIMAL(5,2),money DECIMAL(14,2),create_by VARCHAR(32),create_time DATETIME,update_by VARCHAR(32),update_time DATETIME)");
         jdbc.execute("CREATE TABLE warehouse(warehouse_id BIGINT PRIMARY KEY)");

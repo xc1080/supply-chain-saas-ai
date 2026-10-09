@@ -34,10 +34,11 @@ public class CommerceInventoryServiceTest {
         schema(source, "db/commerce-demo.sql");
         schema(source, "db/commerce-inventory.sql");
         schema(source, "db/commerce-planning.sql");
+        schema(source, "db/commerce-warehouse-allocation.sql");
         jdbc.execute("CREATE TABLE product(product_id BIGINT PRIMARY KEY,inventory_qty BIGINT NOT NULL)");
-        jdbc.execute("CREATE TABLE inventory_product(inventory_id BIGINT PRIMARY KEY,product_id BIGINT NOT NULL,plan_quantity BIGINT NOT NULL)");
+        jdbc.execute("CREATE TABLE inventory_product(inventory_id BIGINT PRIMARY KEY,product_id BIGINT NOT NULL,plan_quantity BIGINT NOT NULL,warehouse_id BIGINT DEFAULT 1)");
         jdbc.update("INSERT INTO product VALUES (1,10),(2,5)");
-        jdbc.update("INSERT INTO inventory_product VALUES (1,1,7),(2,1,3),(3,2,5)");
+        jdbc.update("INSERT INTO inventory_product(inventory_id,product_id,plan_quantity) VALUES (1,1,7),(2,1,3),(3,2,5)");
         service = new CommerceInventoryService(source);
         tx = new TransactionTemplate(new DataSourceTransactionManager(source));
         tx.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);

@@ -11,9 +11,11 @@
         <el-button icon="Refresh" :loading="ordersLoading || inventoryLoading" @click="refreshAll">刷新</el-button>
       </div>
     </header>
+    <nav class="commerce-navigation" aria-label="商城业务工作区">
+      <button v-for="section in workbenchSections" :key="section.id" type="button" :aria-pressed="workbenchSection === section.id" @click="selectWorkbench(section.id)">{{ section.label }}</button>
+    </nav>
 
-
-    <section class="commerce-section" aria-labelledby="commerce-orders-title">
+    <section v-show="workbenchSection === 'orders'" class="commerce-section" aria-labelledby="commerce-orders-title">
       <div class="commerce-section-heading">
         <h2 id="commerce-orders-title">订单处理</h2>
         <el-select v-model="query.status" aria-label="订单状态" placeholder="全部状态" clearable @change="filterOrders">
@@ -51,10 +53,12 @@
       <pagination v-show="total > 0" :total="total" v-model:page="query.pageNum" v-model:limit="query.pageSize" @pagination="loadOrders" />
     </section>
 
-    <AfterSalesPanel ref="afterSalesPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
-    <ReplenishmentPanel ref="replenishmentPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" :member-role="currentShop?.memberRole || ''" @updated="refreshAll" />
+    <AfterSalesPanel v-if="workbenchSection === 'orders'" ref="afterSalesPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
+    <ReplenishmentPanel v-if="workbenchSection === 'supply'" ref="replenishmentPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" :member-role="currentShop?.memberRole || ''" @updated="refreshAll" />
+    <DurableAgentTaskPanel v-if="workbenchSection === 'supply'" ref="agentTaskPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" @updated="refreshAll" />
+    <CostReconciliationPanel v-if="workbenchSection === 'finance' && hasCapability('REFUND_REVIEW')" ref="costPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
 
-    <section class="commerce-section" aria-labelledby="commerce-inventory-title">
+    <section v-show="workbenchSection === 'inventory'" class="commerce-section" aria-labelledby="commerce-inventory-title">
       <div class="commerce-section-heading"><h2 id="commerce-inventory-title">商城商品库存</h2><div><el-tag :type="reconciliation ? (reconciliation.healthy ? 'success' : 'danger') : 'info'">{{ reconciliation?.healthy === false ? '库存有差异' : reconciliation ? '账实核对一致' : '核对暂不可用' }}</el-tag><el-button v-if="hasCapability('CATALOG')" link type="primary" style="margin-left:16px" @click="openListing">上架货品</el-button></div></div>
       <el-alert v-if="reconciliation?.issues?.length" :title="'发现 ' + reconciliation.issues.length + ' 项库存差异，请核对原业务单据'" type="error" :closable="false" />
       <el-alert v-if="inventoryError" :title="inventoryError" type="error" :closable="false" show-icon class="commerce-error" />
@@ -68,6 +72,7 @@
           </template>
         </el-table-column>
         <el-table-column label="账面库存" align="right" min-width="115"><template #default="scope">{{ formatNumber(scope.row.bookStock) }}</template></el-table-column>
+        <el-table-column label="仓分布" width="90"><template #default="scope"><el-button link type="primary" @click="openWarehouses(scope.row)">按仓查看</el-button></template></el-table-column>
         <el-table-column label="订单预留" align="right" min-width="115"><template #default="scope"><span :class="{ 'commerce-reserved': Number(scope.row.reservedStock) > 0 }">{{ formatNumber(scope.row.reservedStock) }}</span></template></el-table-column>
         <el-table-column label="活动待抢" align="right" min-width="115"><template #default="scope">{{ formatNumber(scope.row.activityStock || 0) }}</template></el-table-column>
         <el-table-column label="不可售" align="right" min-width="100"><template #default="scope"><el-button v-if="Number(scope.row.unavailableStock) > 0" link type="warning" @click="openConditions(scope.row)">{{ formatNumber(scope.row.unavailableStock) }} · 原因</el-button><span v-else>0</span></template></el-table-column>
@@ -85,10 +90,20 @@
         <el-table-column label="仓库" prop="warehouseId" width="80" /><el-table-column label="调整" min-width="170"><template #default="scope">{{ conditionNames[scope.row.fromState] || scope.row.fromState }} → {{ conditionNames[scope.row.toState] || scope.row.toState }}</template></el-table-column><el-table-column label="数量" prop="quantity" width="80" /><el-table-column label="登记原因" prop="reason" min-width="200" />
       </el-table>
     </el-drawer>
-    <section class="commerce-section" aria-label="交易队列">
+    <section v-show="workbenchSection === 'orders'" class="commerce-section" aria-label="交易队列">
       <div class="commerce-section-heading"><h2>交易队列</h2><span class="commerce-sync-note">最长等待 {{ queueMetrics.oldestWaitingSeconds || 0 }} 秒</span></div>
       <div class="commerce-queue-states"><span>待处理 <strong>{{ queueMetrics.PENDING || 0 }}</strong></span><span>处理中 <strong>{{ queueMetrics.PROCESSING || 0 }}</strong></span><span>已成单 <strong>{{ queueMetrics.SUCCEEDED || 0 }}</strong></span><span>未成单 <strong>{{ queueMetrics.REJECTED || 0 }}</strong></span></div>
     </section>
+    <el-drawer v-model="warehousesVisible" :title="warehouseProduct.productName + ' · 按仓库存'" size="min(720px, 100vw)">
+      <el-alert v-if="warehousesError" :title="warehousesError" type="error" :closable="false" />
+      <el-table :data="warehouseBalances" v-loading="warehousesLoading" empty-text="暂无仓库库存记录">
+        <el-table-column label="仓库" prop="warehouseId" width="100" />
+        <el-table-column label="在库" prop="onHand" align="right" />
+        <el-table-column label="订单占用" prop="orderReserved" align="right" />
+        <el-table-column label="质检 / 损坏" prop="unavailable" align="right" />
+        <el-table-column label="未占用" prop="uncommitted" align="right" />
+      </el-table>
+    </el-drawer>
     <el-drawer v-model="ledgerVisible" :title="ledgerProduct.productName + ' · 库存流水'" size="min(760px, 100vw)">
       <el-radio-group v-model="ledgerTab" style="margin-bottom:20px"><el-radio-button value="sellable" label="sellable">可售库存</el-radio-button><el-radio-button value="warehouse" label="warehouse">仓库出入库</el-radio-button></el-radio-group>
       <el-alert v-if="ledgerError" :title="ledgerError" type="error" :closable="false" />
@@ -113,7 +128,7 @@
       <el-select v-model="listingProduct" filterable placeholder="选择本企业的货品" style="width:100%"><el-option v-for="product in listingCandidates" :key="product.productId" :value="product.productId" :label="product.productName + ' · ' + product.productCode" /></el-select>
       <template #footer><el-button @click="listingVisible=false">返回</el-button><el-button type="primary" :disabled="!listingProduct" @click="publishListing">上架到当前店铺</el-button></template>
     </el-dialog>
-    <section class="commerce-section" aria-label="秒杀活动">
+    <section v-show="workbenchSection === 'activities'" class="commerce-section" aria-label="秒杀活动">
       <div class="commerce-section-heading"><h2>秒杀活动</h2><el-link :href="tenantId === 'studio' ? 'http://127.0.0.1:6002/activities' : 'http://127.0.0.1:6001/activities'" target="_blank">顾客抢购入口 ↗</el-link></div>
       <el-table :data="activities" empty-text="选择有可售库存的商品创建活动">
         <el-table-column label="商品" min-width="230"><template #default="scope"><ProductIdentity :product="scope.row" /></template></el-table-column>
@@ -140,10 +155,12 @@
     <el-dialog v-model="shipmentVisible" title="选择此次发货商品" width="680px" :close-on-click-modal="false" :before-close="closeShipment">
       <template v-if="shipmentOrder">
         <p class="commerce-dialog-order">{{ shipmentOrder.orderId }}</p>
-        <el-alert title="登记成功后会生成销售出库单，扣减账面库存并释放对应预留。" type="info" :closable="false" show-icon />
-        <el-table :data="shipmentOrder.items || []" style="margin-top:16px">
-          <el-table-column label="商品" min-width="240"><template #default="scope"><div class="commerce-product"><img :src="getProductImage(scope.row)" :alt="scope.row.productName" @error="handleProductImageError($event, scope.row)" /><div><strong>{{ scope.row.productName }}</strong><span>可发 {{ shippable(scope.row, shipmentOrder) }} · 已发 {{ scope.row.shippedQuantity || 0 }}</span></div></div></template></el-table-column>
-          <el-table-column label="本次发货" width="165"><template #default="scope"><el-input-number v-model="shipmentQuantities[String(scope.row.productId)]" :min="0" :max="shippable(scope.row, shipmentOrder)" :precision="0" size="small" :disabled="!!shippingId" :aria-label="`${scope.row.productName}本次发货数量`" /></template></el-table-column>
+        <el-select v-model="shipmentWarehouse" clearable aria-label="本次发货仓库" placeholder="按订单分配自动出库" :disabled="!!shippingId || shipmentLoading" @change="resetShipmentQuantities" style="width:100%">
+          <el-option v-for="warehouse in shipmentWarehouses" :key="warehouse" :value="warehouse" :label="'仓库 ' + warehouse" />
+        </el-select>
+        <el-table :data="shipmentOrder.items || []" v-loading="shipmentLoading" style="margin-top:16px">
+          <el-table-column label="商品" min-width="240"><template #default="scope"><div class="commerce-product"><img :src="getProductImage(scope.row)" :alt="scope.row.productName" @error="handleProductImageError($event, scope.row)" /><div><strong>{{ scope.row.productName }}</strong><span>本仓可发 {{ warehouseShippable(scope.row) }} · 已发 {{ scope.row.shippedQuantity || 0 }}</span></div></div></template></el-table-column>
+          <el-table-column label="本次发货" width="165"><template #default="scope"><el-input-number v-model="shipmentQuantities[String(scope.row.productId)]" :min="0" :max="warehouseShippable(scope.row)" :precision="0" size="small" :disabled="!!shippingId || shipmentLoading" :aria-label="`${scope.row.productName}本次发货数量`" /></template></el-table-column>
         </el-table>
         <el-form ref="shipmentFormRef" :model="shipmentForm" :rules="shipmentRules" label-position="top" class="commerce-shipment-form">
           <el-form-item label="承运商" prop="carrier"><el-input v-model="shipmentForm.carrier" maxlength="40" placeholder="例如：演示物流" :disabled="!!shippingId" /></el-form-item>
@@ -151,7 +168,7 @@
         </el-form>
         <el-alert v-if="shipmentError" :title="shipmentError" type="error" :closable="false" show-icon />
       </template>
-      <template #footer><el-button :disabled="!!shippingId" @click="shipmentVisible = false">返回</el-button><el-button type="primary" :loading="!!shippingId" @click="submitShipment">确认登记发货</el-button></template>
+      <template #footer><el-button :disabled="!!shippingId" @click="shipmentVisible = false">返回</el-button><el-button type="primary" :loading="!!shippingId" :disabled="shipmentLoading || !shipmentReady" @click="submitShipment">确认登记发货</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="detailVisible" title="商城订单详情" width="720px">
@@ -185,6 +202,7 @@
               <span>{{ formatNumber(item.quantity) }} 件<small v-if="item.orderedQuantity != null" class="commerce-quantity-note">已发 {{ item.shippedQuantity }} · 待发 {{ item.unshippedQuantity }} · 已退 {{ item.returnedQuantity }} · 已取消 {{ item.cancelledQuantity }}</small></span><strong>{{ formatMoney(item.amount) }}</strong>
             </div>
           </div>
+          <el-table v-if="detail.warehouseAllocations?.length" :data="detail.warehouseAllocations" style="margin-top:20px"><el-table-column label="商品编号" prop="productId" /><el-table-column label="分配仓库" prop="warehouseId" /><el-table-column label="待发" prop="reservedQuantity" /><el-table-column label="已发" prop="shippedQuantity" /><el-table-column label="已释放" prop="releasedQuantity" /></el-table>
           <el-table v-if="detail.shipments?.length" :data="detail.shipments" style="margin-top:20px"><el-table-column label="发货时间" prop="createdAt" min-width="165" /><el-table-column label="承运商" prop="carrier" min-width="120" /><el-table-column label="运单" prop="trackingNo" min-width="160" /><el-table-column label="出库单" prop="receiptId" width="100" /><el-table-column label="此次金额" width="110"><template #default="scope">{{ formatMoney(scope.row.amount) }}</template></el-table-column></el-table>
         </template>
       </div>
@@ -201,9 +219,46 @@ import { listCommerceOrders, getCommerceOrder, listCommerceInventory, shipCommer
 import { getProductImage, handleProductImageError } from '@/utils/productMedia'
 import AfterSalesPanel from './components/AfterSalesPanel.vue'
 import ReplenishmentPanel from './components/ReplenishmentPanel.vue'
+import CostReconciliationPanel from './components/CostReconciliationPanel.vue'
+import DurableAgentTaskPanel from './components/DurableAgentTaskPanel.vue'
+import { useRoute, useRouter } from 'vue-router'
+import { listCommerceWarehouses } from '@/api/commerce/orders'
 import { listCommerceStockConditions } from '@/api/commerce/orders'
 const afterSalesPanel = ref()
 const replenishmentPanel = ref()
+const costPanel = ref(), agentTaskPanel = ref()
+const route = useRoute(), router = useRouter()
+const sectionIds = ['orders', 'inventory', 'supply', 'finance', 'activities']
+const workbenchSection = ref(sectionIds.includes(route.query.section) ? route.query.section : 'orders')
+const workbenchSections = computed(() => [
+  { id: 'orders', label: '订单与售后' }, { id: 'inventory', label: '仓库库存' },
+  { id: 'supply', label: '采购与任务' },
+  ...(hasCapability('REFUND_REVIEW') ? [{ id: 'finance', label: '成本与对账' }] : []),
+  { id: 'activities', label: '活动' }
+])
+async function selectWorkbench(section) {
+  workbenchSection.value = section
+  await router.replace({ query: { ...route.query, section } })
+  await nextTick()
+  await refreshAll()
+}
+watch(() => route.query.section, section => {
+  if (sectionIds.includes(section) && section !== workbenchSection.value) {
+    workbenchSection.value = section
+    nextTick(refreshAll)
+  }
+})
+const warehousesVisible = ref(false), warehousesLoading = ref(false), warehouseProduct = ref({}), warehouseBalances = ref([]), warehousesError = ref('')
+async function openWarehouses(product) {
+  const shop = shopId.value
+  warehouseProduct.value = product; warehouseBalances.value = []; warehousesError.value = ''; warehousesVisible.value = true; warehousesLoading.value = true
+  try {
+    const response = await listCommerceWarehouses(product.productId)
+    if (shop === shopId.value && warehouseProduct.value.productId === product.productId) warehouseBalances.value = response.data || []
+  } catch (error) {
+    if (shop === shopId.value) warehousesError.value = errorText(error, '按仓库存读取失败')
+  } finally { warehousesLoading.value = false }
+}
 const conditionsVisible = ref(false), conditionLoading = ref(false), conditionRows = ref([]), conditionProduct = ref({}), conditionError = ref('')
 const conditionNames = {SELLABLE:'可售',QUALITY_HOLD:'质检冻结',DAMAGED:'损坏'}
 async function openConditions(product) {
@@ -228,7 +283,10 @@ const ledgerVisible = ref(false), ledgerLoading = ref(false), ledgerRows = ref([
 const ledgerTab = ref('sellable'), warehouseRows = ref([]), ledgerError = ref('')
 const listingVisible = ref(false), listingCandidates = ref([]), listingProduct = ref(null)
 const ledgerNames = { BOOTSTRAP: '初始余额', RESERVE: '订单占用', RELEASE: '取消 / 超时释放', DISPATCH: '发货出库', ACTIVITY_ALLOCATE: '活动分配', ACTIVITY_EXPIRE: '活动结束', EXTERNAL_ADJUST: '进销存单据变动' }
-async function loadShops() { shops.value = (await listCommerceShops()).data }
+async function loadShops() {
+  shops.value = (await listCommerceShops()).data
+  if (workbenchSection.value === 'finance' && !hasCapability('REFUND_REVIEW')) await selectWorkbench('orders')
+}
 async function newShop() {
   if (!canCreateShop.value) return
   const result = await ElMessageBox.prompt('店铺名称', '开设店铺', { inputValidator: value => !!value?.trim() || '请填写店铺名称' }).catch(() => null)
@@ -241,6 +299,8 @@ async function changeShop() {
   orders.value = []; inventory.value = []; activities.value = []; total.value = 0; reconciliation.value = null; queueMetrics.value = {}
   detailVisible.value = false; shipmentVisible.value = false; ledgerVisible.value = false
   conditionsVisible.value = false
+  warehousesVisible.value = false
+  if (workbenchSection.value === 'finance' && !hasCapability('REFUND_REVIEW')) workbenchSection.value = 'orders'
   await refreshAll()
 }
 async function showLedger(product) {
@@ -302,6 +362,18 @@ const detailError = ref('')
 const detail = ref(null)
 const shipmentVisible = ref(false)
 const shipmentOrder = ref(null)
+const shipmentWarehouse = ref(null), shipmentLoading = ref(false), shipmentReady = ref(false)
+const shipmentWarehouses = computed(() => [...new Set((shipmentOrder.value?.warehouseAllocations || []).filter(row => Number(row.reservedQuantity) > 0).map(row => row.warehouseId))])
+function warehouseShippable(item) {
+  const maximum = shippable(item, shipmentOrder.value)
+  if (shipmentWarehouse.value == null) return maximum
+  const assigned = (shipmentOrder.value?.warehouseAllocations || []).filter(row => String(row.productId) === String(item.productId) && String(row.warehouseId) === String(shipmentWarehouse.value)).reduce((sum, row) => sum + Number(row.reservedQuantity || 0), 0)
+  return Math.min(maximum, assigned)
+}
+function resetShipmentQuantities() {
+  for (const key of Object.keys(shipmentQuantities)) delete shipmentQuantities[key]
+  for (const item of shipmentOrder.value?.items || []) shipmentQuantities[String(item.productId)] = 0
+}
 const shippingId = ref('')
 const shipmentError = ref('')
 const shipmentFormRef = ref()
@@ -364,7 +436,15 @@ async function loadInventory() {
     inventoryError.value = errorText(error, '库存未能刷新，请检查服务后重试。已有数据可能不是最新库存')
   } finally { inventoryLoading.value = false; if (currentShop !== shopId.value) await loadInventory() }
 }
-async function refreshAll() { await Promise.all([loadOrders(), loadInventory(), afterSalesPanel.value?.refresh(), replenishmentPanel.value?.refresh(), loadOperations().catch(() => { reconciliation.value = null }), loadActivities().catch(() => { inventoryError.value = '活动数据读取失败，请刷新重试' })]) }
+async function refreshAll() {
+  const reads = []
+  if (workbenchSection.value === 'orders') reads.push(loadOrders(), afterSalesPanel.value?.refresh(), loadOperations().catch(() => { reconciliation.value = null }))
+  if (workbenchSection.value === 'inventory') reads.push(loadInventory(), loadOperations().catch(() => { reconciliation.value = null }))
+  if (workbenchSection.value === 'supply') reads.push(replenishmentPanel.value?.refresh(), agentTaskPanel.value?.refresh())
+  if (workbenchSection.value === 'finance') reads.push(costPanel.value?.refresh())
+  if (workbenchSection.value === 'activities') reads.push(loadInventory(), loadActivities().catch(() => { inventoryError.value = '活动数据读取失败，请刷新重试' }))
+  await Promise.allSettled(reads)
+}
 function filterOrders() { query.pageNum = 1; loadOrders() }
 async function showDetail(order) {
   detailVisible.value = true
@@ -375,26 +455,37 @@ async function showDetail(order) {
   catch (error) { detailError.value = errorText(error, '订单详情未能读取，请关闭后重试') }
   finally { detailLoading.value = false }
 }
-function openShipment(order) {
+async function openShipment(order) {
   if (!canShip(order) || shippingId.value) return
+  const shop = shopId.value
   shipmentOrder.value = order
-  for (const key of Object.keys(shipmentQuantities)) delete shipmentQuantities[key]
-  for (const item of order.items || []) shipmentQuantities[String(item.productId)] = 0
+  shipmentWarehouse.value = null
+  resetShipmentQuantities()
   shipmentRequestKey = ''; shipmentFingerprint = ''
   shipmentForm.carrier = '演示物流'
   shipmentForm.trackingNo = ''
   shipmentError.value = ''
   shipmentVisible.value = true
+  shipmentLoading.value = true; shipmentReady.value = false
+  try {
+    const response = await getCommerceOrder(order.orderId)
+    if (shop === shopId.value && shipmentOrder.value?.orderId === order.orderId && shipmentVisible.value) {
+      shipmentOrder.value = response.data
+      shipmentReady.value = true
+      resetShipmentQuantities()
+    }
+  } catch (error) { if (shop === shopId.value) shipmentError.value = errorText(error, '订单分配读取失败，请重新打开') }
+  finally { shipmentLoading.value = false }
   nextTick(() => shipmentFormRef.value?.clearValidate())
 }
 function closeShipment(done) { if (!shippingId.value) done() }
 async function submitShipment() {
-  if (shippingId.value || !shipmentOrder.value || !canShip(shipmentOrder.value)) return
+  if (shippingId.value || shipmentLoading.value || !shipmentReady.value || !shipmentOrder.value || !canShip(shipmentOrder.value)) return
   const valid = await shipmentFormRef.value?.validate().catch(() => false)
   if (!valid) return
-  const items = (shipmentOrder.value.items || []).map(item => ({ productId: String(item.productId), quantity: Math.min(shippable(item, shipmentOrder.value), Math.max(0, Number(shipmentQuantities[String(item.productId)]) || 0)) })).filter(item => item.quantity > 0)
+  const items = (shipmentOrder.value.items || []).map(item => ({ productId: String(item.productId), quantity: Math.min(warehouseShippable(item), Math.max(0, Number(shipmentQuantities[String(item.productId)]) || 0)) })).filter(item => item.quantity > 0)
   if (!items.length) { shipmentError.value = '请选择此次发货的商品数量'; return }
-  const body = { items, carrier: shipmentForm.carrier.trim(), trackingNo: shipmentForm.trackingNo.trim() || undefined }
+  const body = { items, warehouseId: shipmentWarehouse.value ?? undefined, carrier: shipmentForm.carrier.trim(), trackingNo: shipmentForm.trackingNo.trim() || undefined }
   const fingerprint = JSON.stringify(body)
   if (fingerprint !== shipmentFingerprint) { shipmentFingerprint = fingerprint; shipmentRequestKey = crypto.randomUUID() }
   shippingId.value = shipmentOrder.value.orderId
@@ -412,7 +503,7 @@ async function submitShipment() {
 
 function startSync() {
   if (syncTimer) return
-  syncTimer = setInterval(() => { if (document.visibilityState === 'visible') refreshAll() }, 10000)
+  syncTimer = setInterval(() => { if (document.visibilityState === 'visible' && ['orders', 'inventory', 'activities'].includes(workbenchSection.value)) refreshAll() }, 30000)
 }
 function stopSync() { clearInterval(syncTimer); syncTimer = undefined }
 onMounted(() => { setCommerceShop(shopId.value); loadShops().catch(() => {}); getCommerceContext().then(response => { tenantId.value = response.data.tenantId; userId.value = response.data.userId }).catch(() => {}); refreshAll(); startSync() })
@@ -429,6 +520,10 @@ onUnmounted(stopSync)
 .commerce-queue-states { flex-wrap: wrap; gap: 32px; color: var(--sc-muted); }
 .commerce-queue-states strong { margin-left: 12px; color: var(--sc-text); font-size: 24px; }
 .commerce-heading { margin-bottom: 22px; }
+.commerce-navigation { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; border-bottom: 1px solid var(--sc-border); }
+.commerce-navigation button { padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--sc-muted); font: inherit; cursor: pointer; }
+.commerce-navigation button[aria-pressed="true"] { color: var(--sc-text); font-weight: 600; border-bottom-color: var(--el-color-primary); }
+.commerce-navigation button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: -2px; }
 .commerce-heading h1 { margin: 0 0 8px; font-size: 25px; font-weight: 650; }
 .commerce-heading p, .commerce-section-heading p { margin: 0; color: var(--sc-muted); line-height: 1.7; }
 .commerce-sync-note { display: block; margin-top: 5px; color: var(--sc-muted); font-size: 12px; }

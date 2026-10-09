@@ -1,0 +1,51 @@
+CREATE TABLE IF NOT EXISTS commerce_agent_task (
+  task_id VARCHAR(32) NOT NULL PRIMARY KEY,
+  tenant_id VARCHAR(32) NOT NULL,
+  shop_id VARCHAR(32) NOT NULL,
+  request_key VARCHAR(80) NOT NULL,
+  request_hash CHAR(64) NOT NULL,
+  goal VARCHAR(500) NOT NULL,
+  requested_json TEXT NOT NULL,
+  planner_mode VARCHAR(16) NOT NULL,
+  planner_run_id VARCHAR(64) NULL,
+  status VARCHAR(24) NOT NULL,
+  plan_version BIGINT NOT NULL,
+  fact_hash CHAR(64) NOT NULL,
+  fact_date DATE NOT NULL,
+  plan_json TEXT NOT NULL,
+  created_by BIGINT NOT NULL,
+  approved_by BIGINT NULL,
+  approved_version BIGINT NULL,
+  draft_id VARCHAR(32) NULL,
+  execution_key VARCHAR(80) NULL,
+  execution_hash CHAR(64) NULL,
+  result_json TEXT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  UNIQUE KEY commerce_agent_request(tenant_id,shop_id,request_key),
+  INDEX commerce_agent_pending(tenant_id,shop_id,status,updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS commerce_agent_task_version (
+  task_id VARCHAR(32) NOT NULL,
+  plan_version BIGINT NOT NULL,
+  fact_hash CHAR(64) NOT NULL,
+  fact_date DATE NOT NULL,
+  facts_json TEXT NOT NULL,
+  plan_json TEXT NOT NULL,
+  reason VARCHAR(160) NOT NULL,
+  created_by BIGINT NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY(task_id,plan_version)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS commerce_agent_task_event (
+  event_id VARCHAR(32) NOT NULL PRIMARY KEY,
+  task_id VARCHAR(32) NOT NULL,
+  plan_version BIGINT NOT NULL,
+  action VARCHAR(24) NOT NULL,
+  request_key VARCHAR(80) NULL,
+  request_hash CHAR(64) NULL,
+  actor_id BIGINT NOT NULL,
+  detail VARCHAR(160) NOT NULL,
+  created_at DATETIME NOT NULL,
+  INDEX commerce_agent_event(task_id,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

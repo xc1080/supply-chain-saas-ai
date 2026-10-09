@@ -682,6 +682,8 @@ from store_api import build_store_router
 
 store_router = build_store_router(sys.modules[__name__])
 app.include_router(store_router)
+from business_tasks import build_business_task_router
+app.include_router(build_business_task_router(sys.modules[__name__]))
 from planner import recover
 app.router.add_event_handler("startup", recover)
 from maintenance import PeriodicMaintenance

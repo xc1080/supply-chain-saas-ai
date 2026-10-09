@@ -161,6 +161,7 @@ public class CommercePlanningService {
         long afterQuality=quality+("QUALITY_HOLD".equals(to)?quantity:0)-("QUALITY_HOLD".equals(from)?quantity:0);
         long afterDamaged=damaged+("DAMAGED".equals(to)?quantity:0)-("DAMAGED".equals(from)?quantity:0);
         require(afterQuality+afterDamaged<=total,"不可售数量不能超过仓库实物",409);
+        stock.validateWarehouseUnavailable(product,warehouse,Math.addExact(afterQuality,afterDamaged));
         long delta=afterQuality+afterDamaged-quality-damaged;String event=id("IC");
         if(delta!=0)stock.adjustUnavailable(product,"CONDITION:"+event,delta,"库存条件："+from+"→"+to);
         jdbc.update("UPDATE commerce_warehouse_condition SET quality_hold=?,damaged=? WHERE product_id=? AND warehouse_id=?",afterQuality,afterDamaged,product,warehouse);
@@ -292,7 +293,7 @@ public class CommercePlanningService {
     public Map<String,Object> createDraft(Map<String,Object> body,long actor) {
         merchant(actor,CommerceCapability.SUPPLY_DRAFT);String key=key(body);SortedMap<Long,Long> requested=items(body);String hash=hash(requested);lockShop();
         List<Map<String,Object>> old=jdbc.queryForList("SELECT * FROM commerce_replenishment_draft WHERE shop_id=? AND request_key=?",shop(),key);
-        if(!old.isEmpty()){require(hash.equals(old.get(0).get("request_hash")),"同一草稿请求不能修改数量",409);return draftView(old.get(0));}
+        if(!old.isEmpty()){require(actor==n(old.get(0).get("actor_id"))&&hash.equals(old.get(0).get("request_hash")),"同一草稿请求不能修改创建人或数量",409);return draftView(old.get(0));}
         Map<Long,Map<String,Object>> facts=new HashMap<>();for(Object raw:(List<?>)replenishment(actor).get("items")){Map<String,Object> p=(Map<String,Object>)raw;facts.put(n(p.get("productId")),p);}
         List<Map<String,Object>> lines=new ArrayList<>();
         for(Map.Entry<Long,Long> item:requested.entrySet()){

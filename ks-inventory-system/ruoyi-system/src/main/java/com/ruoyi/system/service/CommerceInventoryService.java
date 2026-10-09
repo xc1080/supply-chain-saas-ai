@@ -26,10 +26,12 @@ import java.util.*;
 public class CommerceInventoryService {
     private final DataSource dataSource;
     private final JdbcTemplate jdbc;
+    private final CommerceWarehouseAllocationService warehouses;
 
     public CommerceInventoryService(DataSource dataSource) {
         this.dataSource = dataSource;
         this.jdbc = new JdbcTemplate(dataSource);
+        this.warehouses = new CommerceWarehouseAllocationService(dataSource);
     }
 
     /** Invoke after commerce-demo.sql for every tenant, before enabling commerce requests. */
@@ -104,6 +106,7 @@ public class CommerceInventoryService {
                     activityId == null ? 0 : -quantity, quantity);
             jdbc.update("INSERT INTO commerce_stock_hold(order_id,product_id,quantity,activity_id,status,created_at,updated_at) VALUES (?,?,?,?,'RESERVED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", orderId, product, quantity, activityId);
             prepareLine(orderId,product);
+            warehouses.ensureProduct(product);
         }
     }
 
@@ -163,15 +166,26 @@ public class CommerceInventoryService {
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public void dispatch(String orderId,Map<Long,Long> input,String eventPrefix) { move(orderId,input,eventPrefix,"DISPATCH","商城分批出库",false); }
     @Transactional(isolation=Isolation.READ_COMMITTED)
+    public Map<Long,Map<Long,Long>> dispatch(String orderId,Map<Long,Long> input,String eventPrefix,Long warehouseId) {
+        transactionRequired();lockOrder(orderId);SortedMap<Long,Long> items=quantities(input);lockProducts(items.keySet());
+        for(Long product:items.keySet())ensureStock(product);
+        Map<Long,Map<Long,Long>> plan=warehouses.dispatch(orderId,items,eventPrefix,warehouseId);
+        move(orderId,items,eventPrefix,"DISPATCH","商城分批出库",false,false);return plan;
+    }
+    @Transactional(isolation=Isolation.READ_COMMITTED)
     public void release(String orderId,Map<Long,Long> input,String eventPrefix,String reason,boolean restoreActivity) {move(orderId,input,eventPrefix,"RELEASE",reason,restoreActivity);}
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public void acceptReturn(String orderId,String afterSalesId,Map<Long,Long> input) {move(orderId,input,"RETURN:"+afterSalesId,"RETURN_ACCEPT","售后实物验收",false);}
 
     private void move(String orderId,Map<Long,Long> input,String eventPrefix,String type,String reason,boolean restoreActivity) {
+        move(orderId,input,eventPrefix,type,reason,restoreActivity,true);
+    }
+    private void move(String orderId,Map<Long,Long> input,String eventPrefix,String type,String reason,boolean restoreActivity,boolean allocateDispatch) {
         transactionRequired();reference(orderId,"订单");require(eventPrefix!=null && eventPrefix.length()<=120,"库存事件编号无效",400);
         require(reason!=null && !reason.trim().isEmpty() && reason.length()<=80,"库存原因无效",400);
         lockOrder(orderId);SortedMap<Long,Long> items=quantities(input);lockProducts(items.keySet());
         for(Long product:items.keySet())ensureStock(product);
+        if("DISPATCH".equals(type)&&allocateDispatch)warehouses.dispatch(orderId,items,eventPrefix,null);
         for(Map.Entry<Long,Long> item:items.entrySet()) {
             long product=item.getKey(),quantity=item.getValue();String event=eventPrefix+":"+product;
             List<Map<String,Object>> prior=jdbc.queryForList("SELECT event_quantity,event_type FROM commerce_stock_ledger WHERE event_key=?",event);
@@ -186,6 +200,7 @@ public class CommerceInventoryService {
                 change(lockedStock(product),event,type,orderId,activity,reason,quantity,0,0,quantity);returned+=quantity;
             }else {
                 require(remaining>=quantity,"操作数量超过剩余未发货预留",409);
+                if("RELEASE".equals(type))warehouses.release(orderId,product,quantity,eventPrefix);
                 boolean restore="RELEASE".equals(type)&&activity!=null&&restoreActivity&&activityIsActive(activity)&&!eventExists(expiryKey(activity,product));
                 change(lockedStock(product),event,type,orderId,activity,reason,"DISPATCH".equals(type)?-quantity:0,-quantity,restore?quantity:0,quantity);
                 if("DISPATCH".equals(type))shipped+=quantity;else released+=quantity;
@@ -194,6 +209,11 @@ public class CommerceInventoryService {
             String state=number(hold.get("quantity"))-shipped-released>0?"RESERVED":shipped==0?"RELEASED":returned==shipped?"RETURNED":"DISPATCHED";
             jdbc.update("UPDATE commerce_stock_hold SET status=?,updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND product_id=?",state,orderId,product);
         }
+    }
+
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public void validateWarehouseUnavailable(long product,long warehouse,long blocked) {
+        transactionRequired();lockProducts(Collections.singleton(product));warehouses.requireWarehouseCondition(product,warehouse,blocked);
     }
 
     @Transactional(isolation=Isolation.READ_COMMITTED)
@@ -266,6 +286,13 @@ public class CommerceInventoryService {
             difference(issues, product, "PHYSICAL_SNAPSHOT_MISMATCH", physical, number(stock.get("on_hand")));
             long held = jdbc.queryForObject("SELECT COALESCE(SUM(h.quantity-COALESCE(f.shipped,0)-COALESCE(f.released,0)),0) FROM commerce_stock_hold h LEFT JOIN commerce_fulfillment_line f ON f.order_id=h.order_id AND f.product_id=h.product_id WHERE h.product_id=? AND h.status='RESERVED'", Long.class, product);
             difference(issues, product, "HOLD_SNAPSHOT_MISMATCH", held, number(stock.get("reserved")));
+            long warehouseHeld=jdbc.queryForObject("SELECT COALESCE(SUM(quantity-shipped-released),0) FROM commerce_warehouse_allocation WHERE product_id=?",Long.class,product);
+            difference(issues,product,"WAREHOUSE_ALLOCATION_MISMATCH",held,warehouseHeld);
+            for(Map<String,Object> warehouse:jdbc.queryForList("SELECT warehouse_id,SUM(plan_quantity) quantity FROM inventory_product WHERE product_id=? GROUP BY warehouse_id",product)) {
+                long id=number(warehouse.get("warehouse_id")),blocked=jdbc.queryForObject("SELECT COALESCE(SUM(quality_hold+damaged),0) FROM commerce_warehouse_condition WHERE product_id=? AND warehouse_id=?",Long.class,product,id);
+                long pending=warehouses.pending(product,id);
+                if(number(warehouse.get("quantity"))<blocked+pending)issues.add(map("productId",product,"warehouseId",id,"type","WAREHOUSE_ALLOCATION_OVERDRAWN","onHand",warehouse.get("quantity"),"unavailable",blocked,"reserved",pending));
+            }
             long ordered = jdbc.queryForObject("SELECT COALESCE(SUM(i.quantity-COALESCE(f.shipped,0)-COALESCE(f.released,0)),0) FROM commerce_order_item i JOIN commerce_order o ON o.order_id=i.order_id LEFT JOIN commerce_fulfillment_line f ON f.order_id=i.order_id AND f.product_id=i.product_id WHERE i.product_id=? AND o.status IN (0,1) AND COALESCE(o.after_sales_status,'')<>'REFUNDED'", Long.class, product);
             difference(issues, product, "ORDER_HOLD_MISMATCH", ordered, held);
             long allocated = jdbc.queryForObject("SELECT COALESCE(SUM(remaining),0) FROM commerce_activity WHERE product_id=? AND ends_at>CURRENT_TIMESTAMP", Long.class, product);

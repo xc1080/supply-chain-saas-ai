@@ -27,6 +27,8 @@ public class CommerceAfterSalesService {
     private final CommerceMerchantService merchants;
     private final CommercePaymentService payments;
     private final CommerceDeliveryService delivery;
+    private CommerceCostService costs;
+    @Autowired public void configureCosts(CommerceCostService costs) { this.costs=costs; }
     public CommerceAfterSalesService(DataSource source){this(source,new CommerceInventoryService(source),new CommerceMerchantService(source));}
     public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants){this(source,stock,merchants,new CommercePaymentService(source));}
     public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants,CommercePaymentService payments){this(source,stock,merchants,payments,new CommerceDeliveryService(source));}
@@ -131,7 +133,9 @@ public class CommerceAfterSalesService {
         for(Map<String,Object> target:targets.values())recordReturnCondition(id,target,condition,actor);
         String original=sources.size()==1?sources.iterator().next():orderId;
         jdbc.update("INSERT INTO head_receipt(systematic_receipt,original_receipt,receipt_category,receipt_type,receipt_status,invoice_date,warehousing_ids,retrieval_ids,user_ids,supplier_ids,customer_ids,deposit,total_amount,receipt_notes,create_by,create_time) VALUES (?,?,'2','4','2',CURRENT_DATE,?,0,?,0,0,0,?,?,'commerce-return',CURRENT_TIMESTAMP)",receipt,original,targets.values().iterator().next().get("warehouse"),actor,row.get("refund_amount"),"商城部分退货验收；按原批次原仓返库，退款另行执行");
-        jdbc.update("UPDATE commerce_after_sales_case SET status='RETURN_RECEIVED',return_key=?,return_receipt_id=?,return_condition=?,returned_at=CURRENT_TIMESTAMP WHERE after_sales_id=?",key,receipt,condition,id);header(orderId,id,"RETURN_RECEIVED");event(id,"RETURN","RETURN_RECEIVED",actor,condition+"：按原发货批次仓库返库");return detail(id,null);
+        jdbc.update("UPDATE commerce_after_sales_case SET status='RETURN_RECEIVED',return_key=?,return_receipt_id=?,return_condition=?,returned_at=CURRENT_TIMESTAMP WHERE after_sales_id=?",key,receipt,condition,id);header(orderId,id,"RETURN_RECEIVED");event(id,"RETURN","RETURN_RECEIVED",actor,condition+"：按原发货批次仓库返库");
+        if(costs!=null)costs.recordReturn(id,actor);
+        return detail(id,null);
     }
 
     private void recordReturnCondition(String id,Map<String,Object> target,String condition,long actor){

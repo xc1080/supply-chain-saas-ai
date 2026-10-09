@@ -147,7 +147,7 @@ class Smoke:
         health = self.data(client, prefix + "operationsHealth", "GET", "/commerce/operations/health")
         self.check(prefix + "databaseAndRedis", health.get("database") is True and health.get("redis") is True)
         schema = health.get("schema", [])
-        self.check(prefix + "eightAppliedMigrations", [row.get("version") for row in schema] == list(range(1,9)) and all(row.get("state") == "APPLIED" for row in schema))
+        self.check(prefix + "elevenAppliedMigrations", [row.get("version") for row in schema] == list(range(1,12)) and all(row.get("state") == "APPLIED" for row in schema))
         planning = self.data(client, prefix + "replenishmentWithCompatibleJoins", "GET", "/commerce/planning/replenishment")
         policy = planning.get("dispatchPolicy")
         self.check(prefix + "dispatchPolicyProjection", isinstance(policy,dict) and set(('dailyItemCapacity','dispatchDays','actorId','updatedAt')).issubset(policy))
