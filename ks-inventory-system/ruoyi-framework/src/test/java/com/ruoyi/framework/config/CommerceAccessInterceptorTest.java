@@ -21,6 +21,7 @@ import org.springframework.web.servlet.handler.MappedInterceptor;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.server.ServletServerHttpRequest;
 import java.util.*;
 import static org.junit.Assert.*;
 
@@ -95,7 +96,15 @@ public class CommerceAccessInterceptorTest {
         try{advice.afterBodyRead(Collections.emptyMap(),null,parameter,Map.class,MappingJackson2HttpMessageConverter.class);fail("Expected missing owner rejection");}
         catch(ServiceException e){assertEquals(Integer.valueOf(403),e.getCode());}
         Map<String,Object> valid=Collections.singletonMap("ownerId",String.join("",Collections.nCopies(64,"a")));
-        assertSame(valid,advice.afterBodyRead(valid,null,parameter,Map.class,MappingJackson2HttpMessageConverter.class));
+        MockHttpServletRequest delegated=request("POST");delegated.setAttribute(CommerceCustomerAssertionConfig.VERIFIED_OWNER,valid.get("ownerId"));
+        assertSame(valid,advice.afterBodyRead(valid,new ServletServerHttpRequest(delegated),parameter,Map.class,MappingJackson2HttpMessageConverter.class));
+        org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(new org.springframework.web.context.request.ServletRequestAttributes(delegated));
+        try{
+            assertSame(valid,advice.afterBodyRead(valid,new org.springframework.mock.http.MockHttpInputMessage(new byte[0]),parameter,Map.class,MappingJackson2HttpMessageConverter.class));
+        }finally{org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();}
+        delegated.setAttribute(CommerceCustomerAssertionConfig.VERIFIED_OWNER,String.join("",Collections.nCopies(64,"b")));
+        try{advice.afterBodyRead(valid,new ServletServerHttpRequest(delegated),parameter,Map.class,MappingJackson2HttpMessageConverter.class);fail("Owner must match verified delegation");}
+        catch(ServiceException e){assertEquals(Integer.valueOf(403),e.getCode());}
         login(1,"admin");Map<String,Object> merchant=Collections.emptyMap();
         assertSame(merchant,advice.afterBodyRead(merchant,null,parameter,Map.class,MappingJackson2HttpMessageConverter.class));
     }

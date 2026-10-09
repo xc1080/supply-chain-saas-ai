@@ -128,7 +128,10 @@ def run():
             assert time.monotonic() < deadline, order
             time.sleep(.2)
         assert order["closeReason"] == "PAYMENT_TIMEOUT"
-        assert call(client, "order/sandboxPay", orderId=order_id)["code"] == 409
+        late_payment = call(client, "order/sandboxPay", orderId=order_id)
+        assert late_payment["code"] == 200
+        assert late_payment["data"]["orderStatus"] == 4 and late_payment["data"]["paymentOutcome"] == "EXPIRED"
+        assert int(sql(f"SELECT COUNT(*) FROM ksdatabase_studio.commerce_payment_operation WHERE order_id='{order_id}'")) == 0
         assert int(sql(f"SELECT COUNT(*) FROM ksdatabase_studio.commerce_stock_ledger WHERE order_id='{order_id}' AND event_type='RELEASE'")) == 1
         report["timeoutReleased"] = True
         expire_activity()

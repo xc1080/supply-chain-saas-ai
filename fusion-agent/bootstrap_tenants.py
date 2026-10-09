@@ -43,13 +43,19 @@ def provision_commerce_identities():
     """Dedicated customer proxy credentials never inherit ERP or merchant permissions."""
     path = ROOT / "runtime/commerce-service-credentials.json"
     credentials = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {
-        tenant: {"username": f"commerce_{tenant}", "password": secrets.token_urlsafe(36)}
+        tenant: {"username": f"commerce_{tenant}", "password": secrets.token_urlsafe(15)}
         for tenant in ("demo", "studio")}
     if not path.exists():
         path.write_text(json.dumps(credentials,ensure_ascii=False,indent=2),encoding="utf-8")
+    for tenant in ("demo", "studio"):
+        # RuoYi validates 5..20 characters before BCrypt; 15 random bytes encode to 20 characters.
+        if credentials[tenant]["username"] == f"commerce_{tenant}" and len(credentials[tenant]["password"]) > 20:
+            credentials[tenant]["password"] = secrets.token_urlsafe(15)
+        if "assertionSecret" not in credentials[tenant]:
+            credentials[tenant]["assertionSecret"] = secrets.token_urlsafe(48)
     if "_paymentWebhookSecret" not in credentials:
         credentials["_paymentWebhookSecret"] = secrets.token_urlsafe(48)
-        path.write_text(json.dumps(credentials,ensure_ascii=False,indent=2),encoding="utf-8")
+    path.write_text(json.dumps(credentials,ensure_ascii=False,indent=2),encoding="utf-8")
     for role_id, role_key, role_name in ((9001,"commerce_customer","商城客户服务"),(9002,"shop_staff","店铺岗位")):
         existing = sql(f"SELECT role_key FROM ksdatabase.sys_role WHERE role_id={role_id}")
         if existing and existing != role_key:
@@ -60,7 +66,7 @@ def provision_commerce_identities():
         database = "ksdatabase" if tenant == "demo" else "ksdatabase_studio"
         account = credentials[tenant]
         expected_user = f"commerce_{tenant}"
-        if account["username"] != expected_user or not account["password"].isascii() or len(account["password"]) < 32:
+        if account["username"] != expected_user or not account["password"].isascii() or len(account["password"]) != 20:
             raise RuntimeError("Invalid commerce service credential configuration")
         existing = sql(f"SELECT user_name FROM ksdatabase.sys_user WHERE user_id={user_id}")
         if existing and existing != expected_user:

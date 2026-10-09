@@ -37,6 +37,7 @@ export const reviewCommerceAfterSales = (id, data) => request({ url: `/commerce/
 export const acceptCommerceReturn = (id, data) => request({ url: `/commerce/after-sales/${encodeURIComponent(id)}/accept-return`, method: 'post', data })
 export const refundCommerceAfterSales = (id, data) => request({ url: `/commerce/after-sales/${encodeURIComponent(id)}/sandbox-refund`, method: 'post', data })
 export const getCommerceReplenishment = () => request({ url: '/commerce/planning/replenishment', method: 'get' })
+export const saveCommercePlanningPolicy = data => request({ url: '/commerce/planning/policy', method: 'post', data })
 export const listReplenishmentDrafts = () => request({ url: '/commerce/planning/drafts', method: 'get' })
 export const createReplenishmentDraft = data => request({ url: '/commerce/planning/drafts', method: 'post', data })
 export const reviewReplenishmentDraft = (id, data) => request({ url: `/commerce/planning/drafts/${encodeURIComponent(id)}/review`, method: 'post', data })

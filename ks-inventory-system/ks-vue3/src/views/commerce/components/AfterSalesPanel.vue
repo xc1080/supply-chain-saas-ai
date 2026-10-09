@@ -9,7 +9,7 @@
       <el-table-column label="申请金额" width="110"><template #default="scope">{{ money(scope.row.refundAmount) }}</template></el-table-column>
       <el-table-column label="状态" width="150"><template #default="scope"><el-tag :type="scope.row.status === 'REFUNDED' ? 'success' : pending(scope.row) ? 'warning' : 'info'">{{ statusLabel(scope.row) }}</el-tag></template></el-table-column>
       <el-table-column label="申请时间" prop="createdAt" min-width="170" />
-      <el-table-column label="操作" width="110" fixed="right"><template #default="scope"><el-button link type="primary" @click="open(scope.row)">{{ ['REFUNDED','REJECTED'].includes(scope.row.status) ? '查看记录' : '处理申请' }}</el-button></template></el-table-column>
+      <el-table-column label="操作" width="110" fixed="right"><template #default="scope"><el-button link type="primary" @click="open(scope.row)">{{ Object.keys(actionCapabilities).some(action => canAction(scope.row, action)) ? '处理申请' : '查看记录' }}</el-button></template></el-table-column>
     </el-table>
     <pagination v-show="total > 0" :total="total" v-model:page="page" v-model:limit="pageSize" @pagination="refresh" />
     <el-drawer v-model="visible" title="售后申请详情" size="min(640px, 100vw)" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
@@ -71,7 +71,14 @@ const outcomeLabels = {PREPARED:'请求待确认',PENDING:'退款处理中',UNKN
 const pending = row => ['PREPARED','PENDING','UNKNOWN'].includes(row.refundOperation?.outcome)
 const statusLabel = row => pending(row) ? outcomeLabels[row.refundOperation.outcome] : row.statusName || labels[row.status]
 const times = computed(() => [{key:'createdAt',label:'申请'},{key:'reviewedAt',label:'审核'},{key:'returnedAt',label:'验收'},{key:'refundedAt',label:'退款'}].filter(row => detail.value?.[row.key]))
-const can = action => props.capabilities.includes(({REVIEW:'REFUND_REVIEW',ACCEPT_RETURN:'FULFILMENT',SANDBOX_REFUND:'REFUND_EXECUTE',QUERY_REFUND:'REFUND_EXECUTE'})[action]) && (Array.isArray(detail.value?.availableActions) ? detail.value.availableActions.includes(action) : ({REVIEW:['REQUESTED'],ACCEPT_RETURN:['AWAITING_RETURN'],SANDBOX_REFUND:['APPROVED','RETURN_RECEIVED']}[action] || []).includes(detail.value?.status))
+const actionCapabilities = {REVIEW:'REFUND_REVIEW',ACCEPT_RETURN:'FULFILMENT',SANDBOX_REFUND:'REFUND_EXECUTE',QUERY_REFUND:'REFUND_EXECUTE'}
+const canAction = (row, action) => {
+  if (!row || !props.capabilities.includes(actionCapabilities[action])) return false
+  if (action === 'SANDBOX_REFUND' && pending(row)) return false
+  if (action === 'QUERY_REFUND' && (!pending(row) || !row.refundOperation?.operationId)) return false
+  return Array.isArray(row.availableActions) ? row.availableActions.includes(action) : action === 'QUERY_REFUND' || ({REVIEW:['REQUESTED'],ACCEPT_RETURN:['AWAITING_RETURN'],SANDBOX_REFUND:['APPROVED','RETURN_RECEIVED']}[action] || []).includes(row.status)
+}
+const can = action => canAction(detail.value, action)
 const money = value => new Intl.NumberFormat('zh-CN',{style:'currency',currency:'CNY'}).format(Number(value || 0))
 const operationKeys = new Map()
 const keyFor = action => {const key = detail.value.afterSalesId + ':' + action;if (!operationKeys.has(key)) operationKeys.set(key,crypto.randomUUID());return operationKeys.get(key)}
@@ -92,7 +99,11 @@ async function perform(action, operation) {
   if (acting.value || !detail.value) return
   acting.value = true; detailError.value = ''; const shop = props.shopId
   try {await operation(keyFor(action));if (shop !== props.shopId) return;detail.value = (await getCommerceAfterSales(detail.value.afterSalesId)).data;ElMessage.success('处理结果已更新');emit('updated');await refresh()}
-  catch (failure) {if (shop === props.shopId) detailError.value = failure?.message || '处理结果暂未确认，请重试原操作'}
+  catch (failure) {
+    if (shop !== props.shopId) return
+    detailError.value = failure?.message || '处理结果暂未确认，请重试原操作'
+    try {const response = await getCommerceAfterSales(detail.value.afterSalesId);if (shop === props.shopId) detail.value = response.data} catch {}
+  }
   finally {acting.value = false}
 }
 async function review(decision) {

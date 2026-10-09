@@ -18,6 +18,7 @@ def run():
              'FUSION_STORE_DB':str(Path(directory)/'store.sqlite3'),
              'FUSION_AI_METRICS_DB':str(Path(directory)/'metrics.sqlite3'),
              'FUSION_AI_KEY_PREFIX':ai_prefix,'FUSION_STORE_KEY_PREFIX':store_prefix,
+             'FUSION_CUSTOMER_ASSERTION_SECRET':'test-assertion-secret-only-32-characters',
              'FUSION_LLM_KEY':'','AI_BAILIAN_API_KEY':'','DEEPSEEK_API_KEY':'','FUSION_EMBEDDING_KEY':''}
         with patch.dict(os.environ,env):
             try:

@@ -47,6 +47,9 @@ class StoreRuntimeTests(unittest.TestCase):
         self.assertEqual(response.json()['code'],200)
         message=self.await_message(self.alice,identity,expected_status=3)
         self.assertEqual(message['assistantMessage'],'已停止回答')
+        time.sleep(1.4)
+        message=self.await_message(self.alice,identity,expected_status=3)
+        self.assertEqual(message['assistantMessage'],'已停止回答')
 
     def test_mutating_order_operations_reject_get_navigation(self):
         identity=self.create_order(self.alice)
@@ -55,9 +58,6 @@ class StoreRuntimeTests(unittest.TestCase):
             self.assertEqual(response.json()['code'],405,path)
         self.assertEqual(self.authority.orders[identity]['orderStatus'],0)
         self.assertFalse(self.authority.payments)
-        time.sleep(1.4)
-        message=self.await_message(self.alice,identity,expected_status=3)
-        self.assertEqual(message['assistantMessage'],'已停止回答')
 
 
 if __name__=='__main__':unittest.main()

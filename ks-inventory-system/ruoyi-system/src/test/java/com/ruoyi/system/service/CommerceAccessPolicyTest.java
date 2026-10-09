@@ -38,6 +38,12 @@ public class CommerceAccessPolicyTest {
         for(CommerceCapability capability:CommerceCapability.values())denied(()->fixture.merchants.requireCapability("default",6,capability));
         denied(()->fixture.merchants.requireCustomerService("default",1));
     }
+    @Test public void shopCapabilitiesExposeTheSameServerAuthorityUsedForWrites(){
+        assertEquals(Arrays.asList("READ","CATALOG","FULFILMENT","SUPPLY_DRAFT"),fixture.merchants.shops(3).get(0).get("capabilities"));
+        assertEquals(Collections.emptyList(),fixture.merchants.shops(6).get(0).get("capabilities"));
+        fixture.jdbc.update("UPDATE commerce_shop_member SET member_role='VIEWER' WHERE user_id=3");
+        assertEquals(Collections.singletonList("READ"),fixture.merchants.shops(3).get(0).get("capabilities"));
+    }
     @Test public void revokedOrDisabledMembershipDeniesImmediately(){
         fixture.merchants.requireCapability("default",3,CommerceCapability.READ);
         fixture.jdbc.update("DELETE FROM commerce_shop_member WHERE user_id=3");

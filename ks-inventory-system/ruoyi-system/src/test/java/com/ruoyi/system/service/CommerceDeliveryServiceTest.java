@@ -24,7 +24,7 @@ public class CommerceDeliveryServiceTest {
     @Test public void parallelOrdersCannotPromiseMoreThanDailyCapacityAndExpiryReleasesExactlyOnce() throws Exception{
         capacity(3);ExecutorService pool=Executors.newFixedThreadPool(10);CountDownLatch start=new CountDownLatch(1);List<Future<String>> results=new ArrayList<>();
         try{
-            for(int i=0;i<24;i++){final int index=i;results.add(pool.submit(()->{start.await();try{return f.id(f.create("quota:"+index,1));}catch(ServiceException e){assertEquals(Integer.valueOf(409),e.getCode());return null;}}));}
+            for(int i=0;i<24;i++){final int index=i;results.add(pool.submit(()->{start.await();try{return f.id(f.create("quota-"+index,1));}catch(ServiceException e){assertEquals(e.getMessage(),Integer.valueOf(409),e.getCode());return null;}}));}
             start.countDown();List<String> winners=new ArrayList<>();for(Future<String> result:results){String id=result.get(20,TimeUnit.SECONDS);if(id!=null)winners.add(id);}
             assertEquals(3,winners.size());assertEquals(0,available());assertEquals(3L,f.count("commerce_order"));assertEquals(3L,f.count("commerce_delivery_hold"));
             String expired=winners.get(0);f.jdbc.update("UPDATE commerce_order SET expires_at=TIMESTAMPADD(SECOND,-2,CURRENT_TIMESTAMP) WHERE order_id=?",expired);

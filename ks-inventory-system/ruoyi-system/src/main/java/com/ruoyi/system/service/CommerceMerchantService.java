@@ -38,7 +38,14 @@ public class CommerceMerchantService {
     }
 
     public List<Map<String,Object>> shops(long user) {
-        return jdbc.queryForList("SELECT s.shop_id AS shopId,s.shop_name AS shopName,s.status,m.member_role AS memberRole FROM commerce_shop s JOIN commerce_shop_member m ON m.shop_id=s.shop_id WHERE m.user_id=? ORDER BY s.created_at,s.shop_id", user);
+        List<Map<String,Object>> rows=jdbc.queryForList("SELECT s.shop_id AS shopId,s.shop_name AS shopName,s.status,m.member_role AS memberRole FROM commerce_shop s JOIN commerce_shop_member m ON m.shop_id=s.shop_id WHERE m.user_id=? ORDER BY s.created_at,s.shop_id", user);
+        for(Map<String,Object> row:rows){
+            List<String> capabilities=new ArrayList<>();
+            for(CommerceCapability capability:CommerceCapability.values())
+                if(CommerceAccessPolicy.allows(String.valueOf(row.get("memberRole")),capability))capabilities.add(capability.name());
+            row.put("capabilities",capabilities);
+        }
+        return rows;
     }
 
     public Map<String,Object> requireShop(String id, long user, boolean write) {

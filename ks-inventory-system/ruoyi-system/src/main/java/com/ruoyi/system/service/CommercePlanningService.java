@@ -108,7 +108,8 @@ public class CommercePlanningService {
                 "supplierLeadDays",leadKnown?lead:null,"leadTimeKnown",leadKnown,"forecastDemand",demand,"projectedStock",projected,"rawSuggestedQuantity",rawSuggestion,"committedSupplyQuantity",committed,"suggestedQuantity",suggestion,
                 "reason",leadKnown?"可售+交期内确认在途-交期预测需求；低于下限时补至目标":"交期未核实，仅按现有可售与补货下限提示缺口；审批前需补查交期"));
         }
-        return map("status","DRAFT","items",result,"assumptions",Arrays.asList("销量采用近7日净出库，不能替代完整需求预测", "在途只统计商家登记的确认批次，逾期批次不计入可承诺供给", "备货建议与批准草稿不产生采购付款或库存入账"));
+        List<Map<String,Object>> dispatchPolicies=jdbc.queryForList("SELECT daily_item_capacity AS dailyItemCapacity,dispatch_days AS dispatchDays,actor_id AS actorId,updated_at AS updatedAt FROM commerce_delivery_policy WHERE shop_id=?",shop());
+        return map("status","DRAFT","items",result,"dispatchPolicy",dispatchPolicies.isEmpty()?null:dispatchPolicies.get(0),"assumptions",Arrays.asList("销量采用近7日净出库，不能替代完整需求预测", "在途只统计商家登记的确认批次，逾期批次不计入可承诺供给", "备货建议与批准草稿不产生采购付款或库存入账"));
     }
 
     @Transactional(isolation=Isolation.READ_COMMITTED)

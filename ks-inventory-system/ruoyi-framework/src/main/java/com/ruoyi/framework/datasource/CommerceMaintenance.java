@@ -57,10 +57,15 @@ public class CommerceMaintenance {
                 CommerceSchemaMigrator.Migration.resources(3,"inventory-planning",planning::initializeSchema,"db/commerce-planning.sql"),
                 CommerceSchemaMigrator.Migration.resources(4,"payment-channel-state",payments::initializeSchema,"db/commerce-payment.sql"),
                 CommerceSchemaMigrator.Migration.resources(5,"dated-delivery-capacity",()->{delivery.initializeSchema();delivery.migrateLegacy();},"db/commerce-delivery.sql"),
-                CommerceSchemaMigrator.Migration.resources(6,"supply-commitments",planning::initializeSupplySchema,"db/commerce-supply-flow.sql")
+                CommerceSchemaMigrator.Migration.resources(6,"supply-commitments",planning::initializeSupplySchema,"db/commerce-supply-flow.sql"),
+                CommerceSchemaMigrator.Migration.resources(7,"shop-collation-compatibility",()->applySql("db/commerce-collation.sql"),"db/commerce-collation.sql")
             ),migrationsEnabled,retryFailed);
         } ready = true; }
         finally { TenantContext.clear(); }
+    }
+    private void applySql(String path){
+        org.springframework.jdbc.datasource.init.ResourceDatabasePopulator script=new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(new org.springframework.core.io.ClassPathResource(path));
+        script.setSqlScriptEncoding("UTF-8");script.execute(source);
     }
     @Scheduled(fixedDelayString="${commerce.expiry-scan-ms:2000}")
     public void expire() {

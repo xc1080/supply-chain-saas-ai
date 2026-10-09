@@ -119,7 +119,7 @@ def main():
     try:
         for tenant in DATABASES if args.tenant == "all" else [args.tenant]:
             report["mysql"].append(verify_mysql(tenant, directory))
-        for name in ("store-demo.sqlite3", "store-studio.sqlite3", "agent-runs.sqlite3", "ai-usage.sqlite3"):
+        for name in ("store-demo.sqlite3", "store-studio.sqlite3", "agent-runs.sqlite3", "ai-metrics.sqlite3"):
             path = ROOT / "runtime" / name
             if path.exists():
                 report["sqlite"].append(verify_sqlite(path, directory))

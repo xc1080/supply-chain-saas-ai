@@ -227,7 +227,7 @@ class StoreIntegrationTests(unittest.TestCase):
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
         self.stack.enter_context(patch.dict("os.environ", {"FUSION_PUBLIC_CACHE_SECONDS": "0"}))
-        self.stack.enter_context(patch.dict("os.environ", {"FUSION_COMMERCE_USER": "test-service", "FUSION_COMMERCE_PASSWORD": "fixture-only"}))
+        self.stack.enter_context(patch.dict("os.environ", {"FUSION_COMMERCE_USER": "test-service", "FUSION_COMMERCE_PASSWORD": "fixture-only","FUSION_CUSTOMER_ASSERTION_SECRET":"test-assertion-secret-only-32-characters"}))
         temporary = self.stack.enter_context(tempfile.TemporaryDirectory(prefix="simlect-store-test-"))
         self.stack.enter_context(patch.object(store_api, "DB_PATH", Path(temporary) / "store.sqlite3"))
         self.redis_prefix = "fusion:test:store:" + secrets.token_hex(10)

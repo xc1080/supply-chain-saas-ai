@@ -7,8 +7,11 @@ creating a disconnected local order.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 import re
+import time
+import uuid
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -76,9 +79,19 @@ class CommerceAPI:
 
     async def request(self, method, path, *, params=None, body=None):
         try:
+            tenant = os.getenv("FUSION_TENANT", "demo")
+            secret = os.getenv("FUSION_CUSTOMER_ASSERTION_SECRET", "")
+            if len(secret) < 32:
+                raise HTTPException(503, "客户身份委托未配置")
+            customer = (body or {}).get("ownerId", (params or {}).get("ownerId", ""))
+            stamp, nonce = str(int(time.time())), uuid.uuid4().hex
+            payload = "\n".join((tenant, self.shop_id, method.upper(), path, str(customer), stamp, nonce))
+            proof = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
             client = await self.get_client()
             response = await client.request(method, self.service.JAVA_URL + path,
-                                            headers={"Authorization": await self.token_reader(), "X-Shop-ID": self.shop_id},
+                                            headers={"Authorization": await self.token_reader(), "X-Shop-ID": self.shop_id,
+                                                     "X-Customer-Owner": str(customer), "X-Customer-Timestamp": stamp,
+                                                     "X-Customer-Nonce": nonce, "X-Customer-Signature": proof},
                                             params=params, json=body)
             data = response.json()
             code = int(data.get("code", response.status_code))

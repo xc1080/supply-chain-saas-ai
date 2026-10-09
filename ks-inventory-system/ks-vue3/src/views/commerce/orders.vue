@@ -7,7 +7,7 @@
       </div>
       <div class="commerce-shop-actions">
         <el-select v-model="shopId" aria-label="当前店铺" @change="changeShop"><el-option v-for="shop in shops" :key="shop.shopId" :label="shop.shopName" :value="shop.shopId" /></el-select>
-        <el-button @click="newShop">开设店铺</el-button>
+        <el-button v-if="canCreateShop" @click="newShop">开设店铺</el-button>
         <el-button icon="Refresh" :loading="ordersLoading || inventoryLoading" @click="refreshAll">刷新</el-button>
       </div>
     </header>
@@ -44,18 +44,18 @@
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="showDetail(scope.row)">查看</el-button>
-            <el-button type="primary" size="small" :disabled="!canShip(scope.row) || !!shippingId" :loading="shippingId === scope.row.orderId" @click="openShipment(scope.row)">登记发货</el-button>
+            <el-button v-if="hasCapability('FULFILMENT')" type="primary" size="small" :disabled="!canShip(scope.row) || !!shippingId" :loading="shippingId === scope.row.orderId" @click="openShipment(scope.row)">登记发货</el-button>
           </template>
         </el-table-column>
       </el-table>
       <pagination v-show="total > 0" :total="total" v-model:page="query.pageNum" v-model:limit="query.pageSize" @pagination="loadOrders" />
     </section>
 
-    <AfterSalesPanel ref="afterSalesPanel" :shop-id="shopId" @updated="refreshAll" />
-    <ReplenishmentPanel ref="replenishmentPanel" :shop-id="shopId" />
+    <AfterSalesPanel ref="afterSalesPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
+    <ReplenishmentPanel ref="replenishmentPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" :member-role="currentShop?.memberRole || ''" @updated="refreshAll" />
 
     <section class="commerce-section" aria-labelledby="commerce-inventory-title">
-      <div class="commerce-section-heading"><h2 id="commerce-inventory-title">商城商品库存</h2><div><el-tag :type="reconciliation ? (reconciliation.healthy ? 'success' : 'danger') : 'info'">{{ reconciliation?.healthy === false ? '库存有差异' : reconciliation ? '账实核对一致' : '核对暂不可用' }}</el-tag><el-button link type="primary" style="margin-left:16px" @click="openListing">上架货品</el-button></div></div>
+      <div class="commerce-section-heading"><h2 id="commerce-inventory-title">商城商品库存</h2><div><el-tag :type="reconciliation ? (reconciliation.healthy ? 'success' : 'danger') : 'info'">{{ reconciliation?.healthy === false ? '库存有差异' : reconciliation ? '账实核对一致' : '核对暂不可用' }}</el-tag><el-button v-if="hasCapability('CATALOG')" link type="primary" style="margin-left:16px" @click="openListing">上架货品</el-button></div></div>
       <el-alert v-if="reconciliation?.issues?.length" :title="'发现 ' + reconciliation.issues.length + ' 项库存差异，请核对原业务单据'" type="error" :closable="false" />
       <el-alert v-if="inventoryError" :title="inventoryError" type="error" :closable="false" show-icon class="commerce-error" />
       <el-table v-loading="inventoryLoading" :data="inventory" row-key="productId" empty-text="暂无商城商品库存。">
@@ -72,8 +72,8 @@
         <el-table-column label="活动待抢" align="right" min-width="115"><template #default="scope">{{ formatNumber(scope.row.activityStock || 0) }}</template></el-table-column>
         <el-table-column label="不可售" align="right" min-width="100"><template #default="scope"><el-button v-if="Number(scope.row.unavailableStock) > 0" link type="warning" @click="openConditions(scope.row)">{{ formatNumber(scope.row.unavailableStock) }} · 原因</el-button><span v-else>0</span></template></el-table-column>
         <el-table-column label="流水" width="85"><template #default="scope"><el-button link type="primary" @click="showLedger(scope.row)">查看</el-button></template></el-table-column>
-        <el-table-column label="上架" width="85"><template #default="scope"><el-switch :model-value="!!Number(scope.row.listed)" @change="value => toggleListing(scope.row,value)" /></template></el-table-column>
-        <el-table-column label="活动" width="110"><template #default="scope"><el-button link type="primary" :disabled="Number(scope.row.availableStock) <= 0 || !Number(scope.row.listed)" @click="openActivity(scope.row)">创建秒杀</el-button></template></el-table-column>
+        <el-table-column label="上架" width="85"><template #default="scope"><el-switch :model-value="!!Number(scope.row.listed)" :disabled="!hasCapability('CATALOG')" @change="value => toggleListing(scope.row,value)" /></template></el-table-column>
+        <el-table-column v-if="hasCapability('CATALOG')" label="活动" width="110"><template #default="scope"><el-button link type="primary" :disabled="Number(scope.row.availableStock) <= 0 || !Number(scope.row.listed)" @click="openActivity(scope.row)">创建秒杀</el-button></template></el-table-column>
         <el-table-column label="可售库存" align="right" min-width="115"><template #header><el-tooltip content="账面库存减去订单预留、活动待抢和不可售数量；取消释放预留，发货扣减账面。" placement="top"><span tabindex="0">可售库存 ⓘ</span></el-tooltip></template><template #default="scope"><strong :class="{ 'commerce-out': Number(scope.row.availableStock) <= 0 }">{{ formatNumber(scope.row.availableStock) }}</strong></template></el-table-column>
       </el-table>
       <p v-if="lastUpdated" class="commerce-updated" aria-live="polite">最近成功读取 {{ lastUpdated }}</p>
@@ -194,6 +194,7 @@
 
 <script setup name="CommerceOrders">
 import { ElMessage, ElMessageBox } from 'element-plus'
+import useUserStore from '@/store/modules/user'
 import { listProduct } from '@/api/basedate/product'
 import { setCommerceShop, listCommerceShops, createCommerceShop, listStockLedger, listWarehouseLedger, reconcileStock, getQueueMetrics, setProductListing } from '@/api/commerce/orders'
 import { listCommerceOrders, getCommerceOrder, listCommerceInventory, shipCommerceOrder, getCommerceContext, listCommerceActivities, createCommerceActivity } from '@/api/commerce/orders'
@@ -214,8 +215,13 @@ async function openConditions(product) {
 }
 
 const tenantId = ref('demo')
+const userId = ref(null)
 const shopId = ref('default')
 const shops = ref([])
+const currentShop = computed(() => shops.value.find(shop => shop.shopId === shopId.value))
+const capabilities = computed(() => Array.isArray(currentShop.value?.capabilities) ? currentShop.value.capabilities : [])
+const hasCapability = capability => capabilities.value.includes(capability)
+const canCreateShop = computed(() => useUserStore().roles.some(role => ['admin', 'tenant_admin'].includes(role)))
 const reconciliation = ref(null)
 const queueMetrics = ref({})
 const ledgerVisible = ref(false), ledgerLoading = ref(false), ledgerRows = ref([]), ledgerProduct = ref({})
@@ -224,6 +230,7 @@ const listingVisible = ref(false), listingCandidates = ref([]), listingProduct =
 const ledgerNames = { BOOTSTRAP: '初始余额', RESERVE: '订单占用', RELEASE: '取消 / 超时释放', DISPATCH: '发货出库', ACTIVITY_ALLOCATE: '活动分配', ACTIVITY_EXPIRE: '活动结束', EXTERNAL_ADJUST: '进销存单据变动' }
 async function loadShops() { shops.value = (await listCommerceShops()).data }
 async function newShop() {
+  if (!canCreateShop.value) return
   const result = await ElMessageBox.prompt('店铺名称', '开设店铺', { inputValidator: value => !!value?.trim() || '请填写店铺名称' }).catch(() => null)
   if (!result) return
   const shop = (await createCommerceShop(result.value.trim())).data
@@ -246,12 +253,13 @@ async function showLedger(product) {
   } catch(error) { ledgerError.value = errorText(error,'库存流水读取失败') }
   finally { ledgerLoading.value = false }
 }
-async function toggleListing(product,value) { await setProductListing(product.productId,value); await refreshAll() }
+async function toggleListing(product,value) { if (!hasCapability('CATALOG')) return; await setProductListing(product.productId,value); await refreshAll() }
 async function openListing() {
+  if (!hasCapability('CATALOG')) return
   listingProduct.value = null; listingVisible.value = true
   listingCandidates.value = (await listProduct({ pageNum: 1, pageSize: 100 })).rows
 }
-async function publishListing() { await setProductListing(listingProduct.value,true); listingVisible.value = false; await refreshAll() }
+async function publishListing() { if (!hasCapability('CATALOG')) return; await setProductListing(listingProduct.value,true); listingVisible.value = false; await refreshAll() }
 async function loadOperations() {
   const current = shopId.value
   const [report, metrics] = await Promise.all([reconcileStock(),getQueueMetrics()])
@@ -264,10 +272,10 @@ const activitySaving = ref(false)
 const activityError = ref('')
 const activityProduct = ref({})
 const activityForm = reactive({ title: '智能家居限时秒杀', price: 99, capacity: 1, perOwnerLimit: 1, minutes: 30 })
-function openActivity(product) { activityProduct.value = product; activityError.value = ''; activityVisible.value = true }
+function openActivity(product) { if (!hasCapability('CATALOG')) return; activityProduct.value = product; activityError.value = ''; activityVisible.value = true }
 function localIso(date) { return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 19) }
 async function submitActivity() {
-  if (activitySaving.value) return
+  if (activitySaving.value || !hasCapability('CATALOG')) return
   activitySaving.value = true; activityError.value = ''
   try {
     const now = new Date()
@@ -320,7 +328,7 @@ function orderStatus(order) { return Number(order.orderStatus ?? order.status) }
 const afterSalesLabels = {REQUESTED:'售后待审核',APPROVED:'待退款',AWAITING_RETURN:'待退货验收',RETURN_RECEIVED:'退货已验收',REFUNDED:'已退款',REJECTED:'售后申请已拒绝'}
 function statusLabel(order) { if (order.fulfillmentStatus === 'PARTIALLY_SHIPPED') return '部分发货'; if (Number(order.refundedAmount)>0 && Number(order.refundedAmount)<Number(order.totalAmount)) return '部分退款'; return (order.afterSalesStatus !== 'REJECTED' ? afterSalesLabels[order.afterSalesStatus] : '') || statusOptions.find(option => option.value === orderStatus(order))?.label || '未知状态' }
 function shippable(item, order) { return Math.max(0, Number(item.shippableQuantity ?? item.unshippedRefundAvailableQuantity ?? item.unshippedQuantity ?? (orderStatus(order) === 1 ? item.quantity : 0)) || 0) }
-function canShip(order) { return Array.isArray(order.availableActions) ? order.availableActions.includes('SHIP') : orderStatus(order) === 1 && (order.items || []).some(item => shippable(item, order) > 0) }
+function canShip(order) { return hasCapability('FULFILMENT') && (Array.isArray(order.availableActions) ? order.availableActions.includes('SHIP') : orderStatus(order) === 1 && (order.items || []).some(item => shippable(item, order) > 0)) }
 function statusTone(order) { return ({ 0: 'warning', 1: '', 2: 'success', 3: 'success', 4: 'info' })[orderStatus(order)] ?? 'info' }
 function errorText(error, fallback) { return error instanceof Error ? `${fallback}：${error.message}` : fallback }
 
@@ -381,7 +389,7 @@ function openShipment(order) {
 }
 function closeShipment(done) { if (!shippingId.value) done() }
 async function submitShipment() {
-  if (shippingId.value || !shipmentOrder.value) return
+  if (shippingId.value || !shipmentOrder.value || !canShip(shipmentOrder.value)) return
   const valid = await shipmentFormRef.value?.validate().catch(() => false)
   if (!valid) return
   const items = (shipmentOrder.value.items || []).map(item => ({ productId: String(item.productId), quantity: Math.min(shippable(item, shipmentOrder.value), Math.max(0, Number(shipmentQuantities[String(item.productId)]) || 0)) })).filter(item => item.quantity > 0)
@@ -407,7 +415,7 @@ function startSync() {
   syncTimer = setInterval(() => { if (document.visibilityState === 'visible') refreshAll() }, 10000)
 }
 function stopSync() { clearInterval(syncTimer); syncTimer = undefined }
-onMounted(() => { setCommerceShop(shopId.value); loadShops().catch(() => {}); getCommerceContext().then(response => { tenantId.value = response.data.tenantId }).catch(() => {}); refreshAll(); startSync() })
+onMounted(() => { setCommerceShop(shopId.value); loadShops().catch(() => {}); getCommerceContext().then(response => { tenantId.value = response.data.tenantId; userId.value = response.data.userId }).catch(() => {}); refreshAll(); startSync() })
 onActivated(() => { refreshAll(); startSync() })
 onDeactivated(stopSync)
 onUnmounted(stopSync)

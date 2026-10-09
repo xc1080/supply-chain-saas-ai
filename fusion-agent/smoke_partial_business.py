@@ -12,6 +12,7 @@ def run():
     result = {"runId": rid, "paymentProvider": "LOCAL_SANDBOX", "logistics": "SIMULATED"}
     with ExitStack() as stack:
         admin, studio = merchant(stack, "admin"), merchant(stack, "studio_admin")
+        reviewer = merchant(stack, "demo_supply_reviewer")
         buyer, foreign = visitor(stack), visitor(stack)
         rows = api(admin, "GET", "/commerce/inventory")
         products = {p["productCode"]: p for p in rows}
@@ -82,10 +83,15 @@ def run():
         line = next(p for p in report["items"] if p["productCode"] == "LAB-AQARA-M3" and p["suggestedQuantity"] > 0)
         draft = api(admin, "POST", "/commerce/planning/drafts", {"requestKey": "draft_" + rid,
                     "items": [{"productId": line["productId"], "quantity": min(5, line["suggestedQuantity"])}]})
-        approved = api(admin, "POST", "/commerce/planning/drafts/" + draft["draftId"] + "/review", {
-                    "requestKey": "approve_" + rid, "decision": "APPROVE", "note": "样例备货计划，尚未执行采购"})
-        assert approved["status"] == "APPROVED" and not approved["stockPosted"]
-        result["replenishmentDraft"] = {"draftId": approved["draftId"], "status": approved["status"], "executionStatus": approved["executionStatus"]}
+        base = "/commerce/planning/drafts/" + draft["draftId"]
+        try:
+            review = {"requestKey": "approve_" + rid, "decision": "APPROVE", "note": "样例备货计划，尚未执行采购"}
+            api(admin, "POST", base + "/review", review, expected=403)
+            approved = api(reviewer, "POST", base + "/review", review)
+            assert approved["status"] == "APPROVED" and not approved["stockPosted"]
+            result["replenishmentDraft"] = {"draftId": approved["draftId"], "status": approved["status"], "executionStatus": approved["executionStatus"], "independentReview": True}
+        finally:
+            api(admin, "POST", base + "/cancel", {"requestKey": "cancel_" + rid, "reason": "验收结束，释放未执行备货承诺"})
     output = Path(__file__).parent.parent / "logs" / "partial-business-live-result.json"
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False))

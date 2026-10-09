@@ -1,7 +1,7 @@
 import { createWebHistory, createRouter } from 'vue-router'
 /* Layout */
 import Layout from '@/layout'
-import auth from '@/plugins/auth'
+import useUserStore from '@/store/modules/user'
 
 /**
  * Note: 路由配置项
@@ -87,7 +87,10 @@ export const constantRoutes = [
     path: '/commerce',
     component: Layout,
     hidden: true,
-    beforeEnter: () => auth.hasRole('admin') ? true : '/401',
+    beforeEnter: () => {
+      const roles = useUserStore().roles
+      return !roles.includes('commerce_customer') && roles.some(role => ['admin', 'tenant_admin', 'erp_manager', 'shop_staff'].includes(role)) ? true : '/401'
+    },
     children: [
       {
         path: 'orders',
