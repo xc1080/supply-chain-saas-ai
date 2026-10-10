@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:demo": "vite --mode demo",
+    "test:sku": "node --test scripts/sku-selection.test.mjs",
     "generate:pwa": "node scripts/generate-pwa-assets.mjs",
     "build": "npm run generate:pwa && vue-tsc -b && vite build",
     "build:demo": "npm run generate:pwa && vue-tsc -b && vite build --mode demo",

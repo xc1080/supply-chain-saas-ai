@@ -13,6 +13,10 @@ import com.ruoyi.system.service.CommerceWarehouseAllocationService;
 import com.ruoyi.system.service.CommerceCostService;
 import com.ruoyi.system.service.CommerceAgentTaskService;
 import com.ruoyi.system.service.CommerceProcurementService;
+import com.ruoyi.system.service.CommerceSkuCatalogService;
+import com.ruoyi.system.service.CommerceOrderAmountService;
+import com.ruoyi.system.service.CommerceLogisticsService;
+import com.ruoyi.system.service.CommerceSettlementService;
 import org.springframework.core.env.Environment;
 import javax.sql.DataSource;
 import java.util.*;
@@ -43,6 +47,12 @@ public class CommerceMaintenance {
     private final CommerceCostService costs;
     private final CommerceAgentTaskService agentTasks;
     private final CommerceProcurementService procurement;
+    private final CommerceSkuCatalogService skuCatalog;
+    private CommerceOrderAmountService orderAmounts;
+    private CommerceLogisticsService logistics;
+    private CommerceSettlementService settlements;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void configureClosing(CommerceOrderAmountService orderAmounts,CommerceLogisticsService logistics,CommerceSettlementService settlements){this.orderAmounts=orderAmounts;this.logistics=logistics;this.settlements=settlements;}
     private final DataSource source;
     private final boolean migrationsEnabled,retryFailed;
     private final ConcurrentMap<String,Map<String,Object>> status=new ConcurrentHashMap<>();
@@ -50,10 +60,11 @@ public class CommerceMaintenance {
     private final ExecutorService workers=Executors.newFixedThreadPool(2,r -> { Thread t=new Thread(r,"commerce-checkout"); t.setDaemon(true); return t; });
     private volatile boolean ready;
     private static final Logger log = LoggerFactory.getLogger(CommerceMaintenance.class);
-    public CommerceMaintenance(TenantRegistry tenants, CommerceService service,CommerceQueueService queue,CommercePlanningService planning,CommercePaymentService payments,CommerceAfterSalesService afterSales,CommerceDeliveryService delivery,CommerceWarehouseAllocationService warehouses,CommerceCostService costs,CommerceAgentTaskService agentTasks,CommerceProcurementService procurement,DataSource source,Environment environment) {
+    public CommerceMaintenance(TenantRegistry tenants, CommerceService service,CommerceQueueService queue,CommercePlanningService planning,CommercePaymentService payments,CommerceAfterSalesService afterSales,CommerceDeliveryService delivery,CommerceWarehouseAllocationService warehouses,CommerceCostService costs,CommerceAgentTaskService agentTasks,CommerceProcurementService procurement,CommerceSkuCatalogService skuCatalog,DataSource source,Environment environment) {
         this.tenants=tenants;this.service=service;this.queue=queue;this.planning=planning;this.payments=payments;this.afterSales=afterSales;this.delivery=delivery;this.source=source;
         this.warehouses=warehouses;this.costs=costs;this.agentTasks=agentTasks;
         this.procurement=procurement;
+        this.skuCatalog=skuCatalog;
         this.migrationsEnabled=environment.getProperty("commerce.migrations.enabled",Boolean.class,true);
         this.retryFailed=environment.getProperty("commerce.migrations.retry-failed",Boolean.class,false);
     }
@@ -73,7 +84,11 @@ public class CommerceMaintenance {
                 CommerceSchemaMigrator.Migration.resources(9,"warehouse-order-allocations",()->{warehouses.initializeSchema();warehouses.allocateExisting();},"db/commerce-warehouse-allocation.sql"),
                 CommerceSchemaMigrator.Migration.resources(10,"document-cost-reconciliation",costs::initializeSchema,"db/commerce-cost-reconciliation.sql"),
                 CommerceSchemaMigrator.Migration.resources(11,"durable-procurement-agent-tasks",agentTasks::initializeSchema,"db/commerce-agent-tasks.sql"),
-                CommerceSchemaMigrator.Migration.resources(12,"procurement-source-lines",()->{procurement.initializeSchema();applySql("db/commerce-procurement-commands.sql");costs.initializeProcurementSchema();},"db/commerce-procurement.sql","db/commerce-procurement-commands.sql","db/commerce-procurement-cost.sql")
+                CommerceSchemaMigrator.Migration.resources(12,"procurement-source-lines",()->{procurement.initializeSchema();applySql("db/commerce-procurement-commands.sql");costs.initializeProcurementSchema();},"db/commerce-procurement.sql","db/commerce-procurement-commands.sql","db/commerce-procurement-cost.sql"),
+                CommerceSchemaMigrator.Migration.resources(13,"immutable-sku-catalog",skuCatalog::initializeSchema,"db/commerce-sku-catalog.sql"),
+                CommerceSchemaMigrator.Migration.resources(14,"order-amount-allocation",orderAmounts::initializeSchema,"db/commerce-order-amount.sql"),
+                CommerceSchemaMigrator.Migration.resources(15,"parcel-tracking-return-evidence",logistics::initializeSchema,"db/commerce-logistics.sql"),
+                CommerceSchemaMigrator.Migration.resources(16,"order-expense-settlement",settlements::initializeSchema,"db/commerce-order-settlement.sql")
             ),migrationsEnabled,retryFailed);
         } ready = true; }
         finally { TenantContext.clear(); }

@@ -2,7 +2,8 @@
   <section v-if="canFinance" class="cost-panel">
     <header><div><h2>成本与资金核对</h2><small>单据成本快照 · 本地支付沙箱</small></div><el-button text :loading="loading" @click="refresh">刷新</el-button></header>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <div class="cost-toolbar"><el-input v-model="orderId" placeholder="输入订单编号" aria-label="待核对订单编号" maxlength="32" clearable /><el-button :disabled="!orderId.trim() || acting" @click="inspect">查看订单凭证</el-button></div>
+    <div class="cost-toolbar"><el-input v-model="orderId" placeholder="输入订单编号" aria-label="待核对订单编号" maxlength="32" clearable /><el-button :disabled="!orderId.trim() || acting" @click="inspect">查看订单费用与凭证</el-button></div>
+    <OrderSettlementPanel ref="settlementPanel" :shop-id="shopId" :order-id="inspectedId" :capabilities="capabilities" />
     <template v-if="preview">
       <h3>订单 {{ preview.orderId }}</h3>
       <div class="money-summary"><span>订单净额 <strong>{{ money(preview.expectedNet) }}</strong></span><span>渠道净额 <strong>{{ money(preview.channelNet) }}</strong></span><span>出库成本 <strong>{{ preview.cost?.complete ? money(preview.cost.outbound) : '记录不完整' }}</strong></span><span>退货成本 <strong>{{ preview.cost?.complete ? money(preview.cost.returned) : '记录不完整' }}</strong></span><el-tag :type="preview.healthy ? 'success' : 'warning'">{{ preview.healthy ? '核对一致' : `${preview.issues?.length || 0} 项待核对` }}</el-tag></div>
@@ -10,11 +11,13 @@
       <ul v-if="preview.issues?.length" class="issues"><li v-for="(issue, index) in preview.issues" :key="index">{{ issueNames[issue.type] || issue.type }}<span v-if="issue.difference != null"> · 差额 {{ money(issue.difference) }}</span></li></ul>
       <div class="cost-actions"><el-button type="primary" :loading="acting" @click="saveReconciliation">保存本次核对</el-button></div>
     </template>
+    <template v-if="canReview">
     <h3>核对与处理记录</h3>
     <el-table :data="reconciliations" row-key="reconciliationId" v-loading="loading" empty-text="尚无核对记录"><el-table-column type="expand"><template #default="s"><div class="evidence"><p>原始核对：{{ s.row.snapshot?.healthy ? '一致' : `${s.row.snapshot?.issues?.length || 0} 项差异` }} · 操作人 {{ s.row.actorId }}</p><p v-if="s.row.resolution">处理依据 {{ s.row.resolution.evidenceReference }} · {{ s.row.resolution.note }} · 操作人 {{ s.row.resolution.actorId }}</p><ul v-if="s.row.snapshot?.issues?.length"><li v-for="(issue, index) in s.row.snapshot.issues" :key="index">{{ issueNames[issue.type] || issue.type }}<span v-if="issue.difference != null"> · {{ money(issue.difference) }}</span></li></ul></div></template></el-table-column><el-table-column label="订单" prop="orderId" min-width="225" /><el-table-column label="核对时间" prop="createdAt" min-width="170" /><el-table-column label="状态" width="110"><template #default="s"><el-tag :type="s.row.status === 'OPEN' ? 'warning' : 'success'">{{ { OPEN: '待处理', MATCHED: '一致', RESOLVED: '复核完成' }[s.row.status] || s.row.status }}</el-tag></template></el-table-column><el-table-column label="操作" width="230"><template #default="s"><el-button link type="primary" :disabled="acting" @click="inspectRecord(s.row)">查看凭证</el-button><el-button v-if="s.row.status === 'OPEN'" link type="primary" :disabled="acting" @click="openResolution(s.row)">复核并留证</el-button></template></el-table-column></el-table>
     <h3>最近成本流水 <el-tooltip content="采购按单据单价记快照，未分摊折扣、税及运费；出库按发货单成本记快照，退货回转原出库成本。不计算 FIFO 或完整库存估值。"><el-icon aria-label="成本口径"><InfoFilled /></el-icon></el-tooltip></h3>
     <el-table :data="ledger?.entries || []" row-key="entryId" empty-text="尚无成本快照"><el-table-column label="商品" min-width="235"><template #default="s"><ProductIdentity :product="s.row" /></template></el-table-column><el-table-column label="业务" width="125"><template #default="s">{{ eventNames[s.row.eventType] || s.row.eventType }}</template></el-table-column><el-table-column label="仓库" prop="warehouseId" width="80" /><el-table-column label="数量" prop="quantity" width="85" align="right" /><el-table-column label="单位成本" width="120" align="right"><template #default="s">{{ s.row.costStatus === 'KNOWN' ? money(s.row.unitCost) : '未知' }}</template></el-table-column><el-table-column label="成本变动" width="130" align="right"><template #default="s">{{ s.row.costStatus === 'KNOWN' ? money(s.row.amount) : '未知' }}</template></el-table-column><el-table-column label="凭证 / 原流水" min-width="230"><template #default="s">{{ s.row.receiptId }}<small v-if="s.row.originEntryId" class="origin">原流水 #{{ s.row.originEntryId }}</small></template></el-table-column></el-table>
     <p v-if="ledger?.unknownEntries" class="coverage">{{ ledger.unknownEntries }} 条成本记录缺少原始成本依据。</p>
+    </template>
     <el-dialog v-model="observationVisible" title="导入沙箱对账观测" width="min(500px, 95vw)" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
       <el-form label-position="top" @submit.prevent="submitObservation"><el-form-item label="观测状态" required><el-select v-model="observationForm.status" :disabled="acting"><el-option v-for="status in ['SUCCEEDED', 'FAILED', 'PENDING', 'MISSING']" :key="status" :label="stateNames[status]" :value="status" /></el-select></el-form-item><el-form-item label="观测金额（元）" required><el-input v-model="observationForm.amount" inputmode="decimal" :disabled="acting" /></el-form-item><el-form-item label="资料编号" required><el-input v-model="observationForm.sourceReference" maxlength="200" placeholder="沙箱对账资料或更正记录编号" :disabled="acting" /></el-form-item></el-form><el-alert v-if="dialogError" :title="dialogError" type="error" :closable="false" /><template #footer><el-button :disabled="acting" @click="observationVisible = false">返回</el-button><el-button type="primary" :loading="acting" @click="submitObservation">保存观测</el-button></template>
     </el-dialog>
@@ -26,10 +29,14 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { InfoFilled } from '@element-plus/icons-vue'
 import ProductIdentity from '@/components/ProductIdentity/index.vue'
+import OrderSettlementPanel from './OrderSettlementPanel.vue'
 import { getCostLedger, listMoneyReconciliations, previewOrderMoney, importSandboxObservation, createMoneyReconciliation, resolveMoneyReconciliation } from '@/api/commerce/costs'
 const props = defineProps({ shopId: { type: String, required: true }, capabilities: { type: Array, default: () => [] } })
 const emit = defineEmits(['updated'])
-const canFinance = computed(() => props.capabilities.includes('REFUND_REVIEW'))
+const canReview = computed(() => props.capabilities.includes('REFUND_REVIEW'))
+const canFinance = computed(() => canReview.value || props.capabilities.includes('REFUND_EXECUTE'))
+const inspectedId = ref('')
+const settlementPanel = ref()
 const loading = ref(false), acting = ref(false), error = ref(''), orderId = ref(''), preview = ref(null), ledger = ref(null), reconciliations = ref([])
 const observationVisible = ref(false), resolutionVisible = ref(false), dialogError = ref(''), observationTarget = ref(null), resolutionTarget = ref(null)
 const observationForm = reactive({ status: 'SUCCEEDED', amount: '', sourceReference: '', requestKey: '' }), resolutionForm = reactive({ evidenceReference: '', note: '', requestKey: '' })
@@ -39,25 +46,28 @@ const issueNames = { STATEMENT_MISSING: '缺少渠道观测', STATEMENT_MISMATCH
 const money = value => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', maximumFractionDigits: 4 }).format(Number(value || 0))
 const requestKey = prefix => `${prefix}_${crypto.randomUUID().replaceAll('-', '')}`
 let generation = 0
+let inspectGeneration = 0
 async function refresh() {
-  if (!canFinance.value) return
+  if (!canReview.value) { await settlementPanel.value?.refresh(); return }
   const shop = props.shopId, current = ++generation; loading.value = true; error.value = ''
-  try { const [costs, records] = await Promise.all([getCostLedger(shop), listMoneyReconciliations(shop)]); if (current !== generation || shop !== props.shopId) return; ledger.value = costs.data; reconciliations.value = records.data || [] }
+  try { const [costs, records] = await Promise.all([getCostLedger(shop), listMoneyReconciliations(shop), settlementPanel.value?.refresh()]); if (current !== generation || shop !== props.shopId) return; ledger.value = costs.data; reconciliations.value = records.data || [] }
   catch (failure) { if (current === generation) error.value = failure?.message || '成本与对账暂不可用' }
   finally { if (current === generation) loading.value = false }
 }
 async function inspect() {
   if (acting.value || !canFinance.value || !orderId.value.trim()) return
-  const shop = props.shopId, requested = orderId.value.trim(); acting.value = true; error.value = ''; preview.value = null
-  try { const result = await previewOrderMoney(shop, requested); if (shop === props.shopId) preview.value = result.data }
-  catch (failure) { if (shop === props.shopId) error.value = failure?.message || '订单凭证查询失败' }
+  const shop = props.shopId, requested = orderId.value.trim(), current = ++inspectGeneration; acting.value = true; error.value = ''; preview.value = null
+  inspectedId.value = requested
+  if (!canReview.value) { acting.value = false; return }
+  try { const result = await previewOrderMoney(shop, requested); if (shop === props.shopId && current === inspectGeneration) preview.value = result.data }
+  catch (failure) { if (shop === props.shopId && current === inspectGeneration) error.value = failure?.message || '订单凭证查询失败' }
   finally { acting.value = false }
 }
 async function perform(callback, finish) {
-  if (acting.value || !canFinance.value) return
-  const shop = props.shopId; acting.value = true; dialogError.value = ''; error.value = ''
-  try { await callback(shop); if (shop !== props.shopId) return; finish?.(); await refresh(); if (shop !== props.shopId) return; if (preview.value?.orderId) { const updated = await previewOrderMoney(shop, preview.value.orderId); if (shop !== props.shopId) return; preview.value = updated.data } emit('updated') }
-  catch (failure) { if (shop === props.shopId) { const message = failure?.message || '处理未完成，请核对后重试'; if (observationVisible.value || resolutionVisible.value) dialogError.value = message; else error.value = message } }
+  if (acting.value || !canReview.value) return
+  const shop = props.shopId, current = inspectGeneration; acting.value = true; dialogError.value = ''; error.value = ''
+  try { await callback(shop); if (shop !== props.shopId || current !== inspectGeneration) return; finish?.(); await refresh(); if (shop !== props.shopId || current !== inspectGeneration) return; if (preview.value?.orderId) { const updated = await previewOrderMoney(shop, preview.value.orderId); if (shop !== props.shopId || current !== inspectGeneration) return; preview.value = updated.data } emit('updated') }
+  catch (failure) { if (shop === props.shopId && current === inspectGeneration) { const message = failure?.message || '处理未完成，请核对后重试'; if (observationVisible.value || resolutionVisible.value) dialogError.value = message; else error.value = message } }
   finally { acting.value = false }
 }
 function inspectRecord(row) { if (acting.value) return; orderId.value = row.orderId; void inspect() }
@@ -74,7 +84,7 @@ function submitResolution() {
   void perform(shop => resolveMoneyReconciliation(shop, resolutionTarget.value.reconciliationId, { ...resolutionForm }), () => { resolutionVisible.value = false; ElMessage.success('复核完成，已保留处理证据') })
 }
 function saveReconciliation() { const id = preview.value?.orderId; if (!id) return; const key = requestKey('reconcile'); void perform(shop => createMoneyReconciliation(shop, { orderId: id, requestKey: key }), () => ElMessage.success('核对记录已保存')) }
-watch(() => props.shopId, () => { generation++; ledger.value = null; reconciliations.value = []; preview.value = null; orderId.value = ''; error.value = ''; observationVisible.value = false; resolutionVisible.value = false; void refresh() })
+watch(() => props.shopId, () => { generation++; inspectGeneration++; ledger.value = null; reconciliations.value = []; preview.value = null; orderId.value = ''; inspectedId.value = ''; error.value = ''; observationVisible.value = false; resolutionVisible.value = false; void refresh() })
 onMounted(refresh)
 defineExpose({ refresh })
 </script>

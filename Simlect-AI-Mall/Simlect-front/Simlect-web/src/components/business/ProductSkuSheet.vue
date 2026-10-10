@@ -25,12 +25,13 @@
                 />
                 <div class="pick-meta">
                   <h2 class="pick-name">{{ productInfo.productName }}</h2>
+                  <small class="pick-spec">{{ productInfo.spec }}</small>
                   <p class="pick-price">
                     <span class="sym">¥</span>{{ displayPrice }}
                   </p>
                   <p class="pick-stock">
                     {{ DEMO_MODE ? '可售库存' : '库存' }} {{ selectedSku?.stock ?? '--' }}
-                    <em v-if="selectedSku?.stock != null && selectedSku.stock <= 5">紧张</em>
+                    <em v-if="Number(selectedSku?.stock) > 0 && Number(selectedSku?.stock) <= 5">紧张</em>
                   </p>
                 </div>
               </header>
@@ -45,6 +46,9 @@
                       type="button"
                       class="sku-tag"
                       :class="{ active: selectedProperty[prop.propertyId] === val.propertyValueId }"
+                      :aria-pressed="selectedProperty[prop.propertyId] === val.propertyValueId"
+                      :disabled="isPropertyDisabled(prop, val)"
+                      :title="propertyUnavailableReason(prop, val)"
                       @click="selectProperty(prop, val)"
                     >
                       <ProductImage
@@ -69,7 +73,7 @@
               </div>
 
               <footer class="pick-footer">
-                <el-button type="primary" round size="large" class="btn-confirm" :loading="submitting" @click="confirmAdd">
+                <el-button type="primary" round size="large" class="btn-confirm" :disabled="!canBuy" :loading="submitting" @click="confirmAdd">
                   加入购物车
                 </el-button>
               </footer>
@@ -114,20 +118,25 @@ const {
   selectedProperty,
   displayPrice,
   maxBuy,
+  canBuy,
+  isPropertyDisabled,
+  propertyUnavailableReason,
   coverImage,
   selectProperty,
   load,
+  cancelLoad,
   validateSku
 } = useProductSku(() => productId.value);
 
-watch(visible, (show) => {
+watch([visible, productId], ([show]) => {
   document.body.style.overflow = show ? 'hidden' : '';
   if (show && productId.value) {
     void load();
-  }
+  } else if (!show) cancelLoad();
 });
 
 onBeforeUnmount(() => {
+  cancelLoad();
   document.body.style.overflow = '';
 });
 
@@ -140,15 +149,16 @@ const confirmAdd = async () => {
   if (!validateSku() || !productInfo.value) return;
 
   submitting.value = true;
+  const requestedProductId = productId.value;
   try {
     await cartApi.add2Cart({
-      productId: productInfo.value.productId,
+      productId: String(selectedSku.value.skuId),
       buyCount: quantity.value,
       propertyValueIds: selectedSku.value.propertyValueIds
     });
     await cartStore.fetchCartCount();
     toast.success('已加入购物车');
-    close();
+    if (productId.value === requestedProductId) close();
   } finally {
     submitting.value = false;
   }
@@ -635,4 +645,7 @@ const confirmAdd = async () => {
   opacity: 0;
 /* [zh] 样式规则 `}` */
 }
+
+.sku-tag:disabled { opacity: .42; cursor: not-allowed; border-style: dashed; }
+.sku-tag:focus-visible { outline: 2px solid #278763; outline-offset: 3px; }
 </style>

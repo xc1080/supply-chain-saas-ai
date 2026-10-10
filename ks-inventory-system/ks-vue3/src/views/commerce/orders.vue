@@ -54,6 +54,7 @@
     </section>
 
     <AfterSalesPanel v-if="workbenchSection === 'orders'" ref="afterSalesPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
+    <SkuCatalogPanel v-if="workbenchSection === 'catalog'" ref="skuCatalogPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
     <template v-if="workbenchSection === 'supply'">
       <nav class="commerce-supply-navigation" aria-label="采购工作区">
         <button type="button" :aria-pressed="supplyView === 'tasks'" @click="selectSupplyView('tasks')">规划任务</button>
@@ -62,7 +63,7 @@
       <div v-if="supplyView === 'tasks'" class="commerce-section commerce-task-section"><DurableAgentTaskPanel ref="agentTaskPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" @updated="refreshAll" /></div>
       <ReplenishmentPanel v-else ref="replenishmentPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" :member-role="currentShop?.memberRole || ''" @updated="refreshAll" />
     </template>
-    <CostReconciliationPanel v-if="workbenchSection === 'finance' && hasCapability('REFUND_REVIEW')" ref="costPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
+    <CostReconciliationPanel v-if="workbenchSection === 'finance' && (hasCapability('REFUND_REVIEW') || hasCapability('REFUND_EXECUTE'))" ref="costPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
 
     <section v-show="workbenchSection === 'inventory'" class="commerce-section" aria-labelledby="commerce-inventory-title">
       <div class="commerce-section-heading"><h2 id="commerce-inventory-title">商城商品库存</h2><div><el-tag :type="reconciliation ? (reconciliation.healthy ? 'success' : 'danger') : 'info'">{{ reconciliation?.healthy === false ? '库存有差异' : reconciliation ? '账实核对一致' : '核对暂不可用' }}</el-tag><el-button v-if="hasCapability('CATALOG')" link type="primary" style="margin-left:16px" @click="openListing">上架货品</el-button></div></div>
@@ -158,6 +159,8 @@
       <template #footer><el-button @click="activityVisible=false">返回</el-button><el-button type="primary" :loading="activitySaving" @click="submitActivity">分配库存并开始</el-button></template>
     </el-dialog>
 
+    <PricingPolicyPanel v-if="workbenchSection === 'activities'" ref="pricingPanel" :shop-id="shopId" :capabilities="capabilities" :products="inventory" />
+
     <el-dialog v-model="shipmentVisible" title="选择此次发货商品" width="680px" :close-on-click-modal="false" :before-close="closeShipment">
       <template v-if="shipmentOrder">
         <p class="commerce-dialog-order">{{ shipmentOrder.orderId }}</p>
@@ -186,8 +189,8 @@
             <el-descriptions-item label="订单编号" :span="2">{{ detail.orderId }}</el-descriptions-item>
             <el-descriptions-item label="订单状态">{{ statusLabel(detail) }}</el-descriptions-item>
             <el-descriptions-item label="订单金额">{{ formatMoney(detail.totalAmount) }}</el-descriptions-item>
-            <el-descriptions-item v-if="detail.shippedAmount != null" label="已发货金额">{{ formatMoney(detail.shippedAmount) }}</el-descriptions-item>
-            <el-descriptions-item v-if="detail.returnedAmount != null" label="已退货金额">{{ formatMoney(detail.returnedAmount) }}</el-descriptions-item>
+            <el-descriptions-item v-if="detail.shippedAmount != null" :label="detail.amountSnapshotVersion === 1 ? '已发货原价货值' : '已发货金额'">{{ formatMoney(detail.shippedAmount) }}</el-descriptions-item>
+            <el-descriptions-item v-if="detail.returnedAmount != null" :label="detail.amountSnapshotVersion === 1 ? '已退货原价货值' : '已退货金额'">{{ formatMoney(detail.returnedAmount) }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.refundedAmount != null" label="已退款金额">{{ formatMoney(detail.refundedAmount) }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.shippingAddress" label="收货人">{{ detail.shippingAddress.addressee }} · {{ detail.shippingAddress.phone }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.shippingAddress" label="收货地址" :span="2">{{ detail.shippingAddress.address }}</el-descriptions-item>
@@ -202,6 +205,7 @@
             <el-descriptions-item v-if="detail.carrier" label="承运商">{{ detail.carrier }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.trackingNo" label="物流单号" :span="2">{{ detail.trackingNo }}</el-descriptions-item>
           </el-descriptions>
+          <OrderMoneyBreakdown :order="detail" />
           <div class="commerce-order-items">
             <div v-for="item in detail.items" :key="item.productId" class="commerce-line-item">
               <div class="commerce-product"><img :src="getProductImage(item)" :alt="`${item.productName || '货品'}缩略图`" @error="handleProductImageError($event, item)" /><div><strong>{{ item.productName }}</strong><span>{{ item.spec }}</span></div></div>
@@ -209,7 +213,7 @@
             </div>
           </div>
           <el-table v-if="detail.warehouseAllocations?.length" :data="detail.warehouseAllocations" style="margin-top:20px"><el-table-column label="商品编号" prop="productId" /><el-table-column label="分配仓库" prop="warehouseId" /><el-table-column label="待发" prop="reservedQuantity" /><el-table-column label="已发" prop="shippedQuantity" /><el-table-column label="已释放" prop="releasedQuantity" /></el-table>
-          <el-table v-if="detail.shipments?.length" :data="detail.shipments" style="margin-top:20px"><el-table-column label="发货时间" prop="createdAt" min-width="165" /><el-table-column label="承运商" prop="carrier" min-width="120" /><el-table-column label="运单" prop="trackingNo" min-width="160" /><el-table-column label="出库单" prop="receiptId" width="100" /><el-table-column label="此次金额" width="110"><template #default="scope">{{ formatMoney(scope.row.amount) }}</template></el-table-column></el-table>
+          <ShipmentTrackingPanel v-for="shipment in detail.shipments || []" :key="shipment.shipmentId" :shipment="shipment" :shop-id="shopId" :capabilities="capabilities" />
         </template>
       </div>
     </el-dialog>
@@ -227,19 +231,26 @@ import AfterSalesPanel from './components/AfterSalesPanel.vue'
 import ReplenishmentPanel from './components/ReplenishmentPanel.vue'
 import CostReconciliationPanel from './components/CostReconciliationPanel.vue'
 import DurableAgentTaskPanel from './components/DurableAgentTaskPanel.vue'
+import SkuCatalogPanel from './components/SkuCatalogPanel.vue'
+import OrderMoneyBreakdown from './components/OrderMoneyBreakdown.vue'
+import ShipmentTrackingPanel from './components/ShipmentTrackingPanel.vue'
+import PricingPolicyPanel from './components/PricingPolicyPanel.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { listCommerceWarehouses } from '@/api/commerce/orders'
 import { listCommerceStockConditions } from '@/api/commerce/orders'
 const afterSalesPanel = ref()
 const replenishmentPanel = ref()
 const costPanel = ref(), agentTaskPanel = ref()
+const skuCatalogPanel = ref()
+const pricingPanel = ref()
 const route = useRoute(), router = useRouter()
-const sectionIds = ['orders', 'inventory', 'supply', 'finance', 'activities']
+const sectionIds = ['orders', 'inventory', 'catalog', 'supply', 'finance', 'activities']
 const workbenchSection = ref(sectionIds.includes(route.query.section) ? route.query.section : 'orders')
 const workbenchSections = computed(() => [
   { id: 'orders', label: '订单与售后' }, { id: 'inventory', label: '仓库库存' },
+  { id: 'catalog', label: '商品规格' },
   { id: 'supply', label: '采购与任务' },
-  ...(hasCapability('REFUND_REVIEW') ? [{ id: 'finance', label: '成本与对账' }] : []),
+  ...(hasCapability('REFUND_REVIEW') || hasCapability('REFUND_EXECUTE') ? [{ id: 'finance', label: '成本与对账' }] : []),
   { id: 'activities', label: '活动' }
 ])
 const supplyView = ref('tasks')
@@ -297,7 +308,7 @@ const listingVisible = ref(false), listingCandidates = ref([]), listingProduct =
 const ledgerNames = { BOOTSTRAP: '初始余额', RESERVE: '订单占用', RELEASE: '取消 / 超时释放', DISPATCH: '发货出库', ACTIVITY_ALLOCATE: '活动分配', ACTIVITY_EXPIRE: '活动结束', EXTERNAL_ADJUST: '进销存单据变动' }
 async function loadShops() {
   shops.value = (await listCommerceShops()).data
-  if (workbenchSection.value === 'finance' && !hasCapability('REFUND_REVIEW')) await selectWorkbench('orders')
+  if (workbenchSection.value === 'finance' && !hasCapability('REFUND_REVIEW') && !hasCapability('REFUND_EXECUTE')) await selectWorkbench('orders')
 }
 async function newShop() {
   if (!canCreateShop.value) return
@@ -309,10 +320,10 @@ async function newShop() {
 async function changeShop() {
   setCommerceShop(shopId.value); query.pageNum = 1
   orders.value = []; inventory.value = []; activities.value = []; total.value = 0; reconciliation.value = null; queueMetrics.value = {}
-  detailVisible.value = false; shipmentVisible.value = false; ledgerVisible.value = false
+  detailGeneration++; detailVisible.value = false; shipmentVisible.value = false; ledgerVisible.value = false
   conditionsVisible.value = false
   warehousesVisible.value = false
-  if (workbenchSection.value === 'finance' && !hasCapability('REFUND_REVIEW')) workbenchSection.value = 'orders'
+  if (workbenchSection.value === 'finance' && !hasCapability('REFUND_REVIEW') && !hasCapability('REFUND_EXECUTE')) workbenchSection.value = 'orders'
   await refreshAll()
 }
 async function showLedger(product) {
@@ -369,6 +380,7 @@ const ordersError = ref('')
 const inventoryError = ref('')
 const lastUpdated = ref('')
 const detailVisible = ref(false)
+let detailGeneration = 0
 const detailLoading = ref(false)
 const detailError = ref('')
 const detail = ref(null)
@@ -409,7 +421,7 @@ function formatNumber(value) {
 }
 function formatTime(value) { return value ? String(value).replace('T', ' ').slice(0, 19) : '—' }
 function orderStatus(order) { return Number(order.orderStatus ?? order.status) }
-const afterSalesLabels = {REQUESTED:'售后待审核',APPROVED:'待退款',AWAITING_RETURN:'待退货验收',RETURN_RECEIVED:'退货已验收',REFUNDED:'已退款',REJECTED:'售后申请已拒绝'}
+const afterSalesLabels = {REQUESTED:'售后待审核',APPROVED:'待退款',AWAITING_RETURN:'待退货验收',RETURN_RECEIVED:'退货已验收',REFUND_FAILED:'退款失败，可重试',PARTIALLY_REFUNDED:'部分退款',REFUNDED:'已退款',REJECTED:'售后申请已拒绝'}
 function statusLabel(order) { if (order.fulfillmentStatus === 'PARTIALLY_SHIPPED') return '部分发货'; if (Number(order.refundedAmount)>0 && Number(order.refundedAmount)<Number(order.totalAmount)) return '部分退款'; return (order.afterSalesStatus !== 'REJECTED' ? afterSalesLabels[order.afterSalesStatus] : '') || statusOptions.find(option => option.value === orderStatus(order))?.label || '未知状态' }
 function shippable(item, order) { return Math.max(0, Number(item.shippableQuantity ?? item.unshippedRefundAvailableQuantity ?? item.unshippedQuantity ?? (orderStatus(order) === 1 ? item.quantity : 0)) || 0) }
 function canShip(order) { return hasCapability('FULFILMENT') && (Array.isArray(order.availableActions) ? order.availableActions.includes('SHIP') : orderStatus(order) === 1 && (order.items || []).some(item => shippable(item, order) > 0)) }
@@ -452,20 +464,22 @@ async function refreshAll() {
   const reads = []
   if (workbenchSection.value === 'orders') reads.push(loadOrders(), afterSalesPanel.value?.refresh(), loadOperations().catch(() => { reconciliation.value = null }))
   if (workbenchSection.value === 'inventory') reads.push(loadInventory(), loadOperations().catch(() => { reconciliation.value = null }))
+  if (workbenchSection.value === 'catalog') reads.push(skuCatalogPanel.value?.refresh())
   if (workbenchSection.value === 'supply') reads.push(replenishmentPanel.value?.refresh(), agentTaskPanel.value?.refresh())
   if (workbenchSection.value === 'finance') reads.push(costPanel.value?.refresh())
-  if (workbenchSection.value === 'activities') reads.push(loadInventory(), loadActivities().catch(() => { inventoryError.value = '活动数据读取失败，请刷新重试' }))
+  if (workbenchSection.value === 'activities') reads.push(loadInventory(), pricingPanel.value?.refresh(), loadActivities().catch(() => { inventoryError.value = '活动数据读取失败，请刷新重试' }))
   await Promise.allSettled(reads)
 }
 function filterOrders() { query.pageNum = 1; loadOrders() }
 async function showDetail(order) {
+  const shop = shopId.value, requestVersion = ++detailGeneration
   detailVisible.value = true
   detailLoading.value = true
   detail.value = null
   detailError.value = ''
-  try { detail.value = (await getCommerceOrder(order.orderId)).data }
-  catch (error) { detailError.value = errorText(error, '订单详情未能读取，请关闭后重试') }
-  finally { detailLoading.value = false }
+  try { const response = await getCommerceOrder(order.orderId); if (shop === shopId.value && requestVersion === detailGeneration) detail.value = response.data }
+  catch (error) { if (shop === shopId.value && requestVersion === detailGeneration) detailError.value = errorText(error, '订单详情未能读取，请关闭后重试') }
+  finally { if (requestVersion === detailGeneration) detailLoading.value = false }
 }
 async function openShipment(order) {
   if (!canShip(order) || shippingId.value) return

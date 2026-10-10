@@ -44,7 +44,7 @@
             <template v-if="message.role === 'assistant'">
               <div v-if="message.mode && !isLlmEnabled(message.mode.llm)" class="mode-tags">
                 <span :class="['mode-label', { 'model-answer': isLlmEnabled(message.mode.llm) }]">
-                  {{ isLlmEnabled(message.mode.llm) ? '大模型回答' : '本地检索回答' }}
+                  {{ message.mode.retrieval === 'business' ? '业务凭证核验' : isLlmEnabled(message.mode.llm) ? '大模型回答' : '本地检索回答' }}
                 </span>
                 <span v-if="message.mode.retrieval" class="mode-label">{{ retrievalLabel(message.mode.retrieval) }}</span>
               </div>
@@ -140,7 +140,8 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { chatWithAssistant } from '@/api/ai/assistant'
 import { getCommerceShop, listCommerceShops, setCommerceShop } from '@/api/commerce/orders'
 import { getProductImage, handleProductImageError } from '@/utils/productMedia'
@@ -150,6 +151,8 @@ const questionTopics = ['按预算选品', '查设备兼容', '问业务规则']
 const priceFormatter = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 const numberFormatter = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 3 })
 const draft = ref('')
+const route = useRoute()
+watch(() => route.query.question, question => { if (typeof question === 'string' && question.trim()) draft.value = question.trim().slice(0, 2000) }, { immediate: true })
 const loading = ref(false)
 const errorMessage = ref('')
 const messages = ref([])
@@ -182,6 +185,7 @@ function isLlmEnabled(value) {
 
 function retrievalLabel(value) {
   const name = String(value).toLowerCase()
+  if (name === 'business') return '库存与结算工具'
   if (['hybrid', 'keyword+vector', 'keyword_vector', 'keyword-vector'].includes(name)) return '关键词 + 向量检索'
   if (['local', 'local_tfidf', 'tfidf', 'local-hybrid'].includes(name)) return '本地检索'
   if (['keyword', 'lexical'].includes(name)) return '关键词检索'
@@ -190,6 +194,7 @@ function retrievalLabel(value) {
 
 function traceLabel(value) {
   const labels = {
+    read_order_stock: '读取库存与出入库凭证', read_order_settlement: '核对订单费用与结算',
     search_products: '搜索候选商品', check_stock: '实时核对可售库存', check_budget: '核对预算', check_compatibility: '核对设备协议', read_orders: '读取当前访客订单',
     context: '理解后续问题',
     query_context: '理解后续问题',

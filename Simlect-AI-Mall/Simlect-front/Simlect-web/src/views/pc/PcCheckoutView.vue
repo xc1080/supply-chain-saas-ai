@@ -188,11 +188,12 @@
         <aside class="pc-checkout-aside">
           <div class="aside-card">
             <h2>{{ DEMO_MODE ? '订单金额' : '付款详情' }}</h2>
+            <CheckoutPricing v-if="DEMO_MODE && !isCouponRush" v-model:promotion-id="promotionId" :quote="pricingQuote" :promotions="promotions" :loading="pricingLoading" :error="pricingError" :disabled="submitting" @retry="refreshPricing" />
             <div class="amount-row">
               <span>商品件数</span>
               <span>{{ totalCount }} 件</span>
             </div>
-            <div class="amount-row">
+            <div v-if="!DEMO_MODE || isCouponRush" class="amount-row">
               <span>商品总价</span>
               <span>¥{{ goodsAmount }}</span>
             </div>
@@ -202,7 +203,7 @@
             </div>
             <p v-if="showMinPayTip" class="min-pay-tip">已按规则保留最低实付 ¥{{ minPayAmountText }}</p>
             <div class="amount-row total">
-              <span>{{ DEMO_MODE ? '参考总额' : '应付总额' }}</span>
+              <span>应付总额</span>
               <strong class="price-text">¥{{ payableAmount }}</strong>
             </div>
             <el-button
@@ -210,7 +211,7 @@
               class="btn-submit"
               size="large"
               :loading="submitting"
-              :disabled="isCouponRush && payCountdownMs <= 0"
+              :disabled="(isCouponRush && payCountdownMs <= 0) || (DEMO_MODE && !isCouponRush && (pricingLoading || !pricingQuote))"
               @click="submit"
             >
               {{ submitButtonText }}
@@ -308,6 +309,7 @@ import AddressCardBody from '@/components/business/AddressCardBody.vue';
 import AddressFormPanel from '@/components/business/AddressFormPanel.vue';
 import ProductImage from '@/components/common/ProductImage.vue';
 import { useCheckoutPage } from '@/composables/useCheckoutPage';
+import CheckoutPricing from '@/components/business/CheckoutPricing.vue';
 
 const router = useRouter();
 
@@ -334,6 +336,7 @@ const {
   couponLoading,
   usableCoupons,
   couponDiscount,
+  promotions, promotionId, pricingQuote, pricingLoading, pricingError, refreshPricing,
   payableAmount,
   minPayAmountText,
   showMinPayTip,

@@ -17,6 +17,7 @@ from langgraph.graph import END, START, StateGraph
 
 from retrieval import KNOWLEDGE, cosine, normalize_products, number, product_text, rank_products, resolve_query, retrieve_knowledge
 from business_catalog import profile_for, manufacturer_source, compatibility_assessment, mentioned_gateways
+from sku_catalog import public_sku_catalog, property_data
 from business_planning import public_restock_intent
 from ai_resources import provider_post, ResourceUnavailable, dependency_health
 
@@ -193,7 +194,8 @@ async def retrieve(state: ChatState) -> dict:
                 sources.append(source)
     for product in products:
         price = "未设置" if product["price"] is None else f"{product['price']:g} 元"
-        sources.append({"id": "P-" + product["id"], "title": product["name"] + "（本次商品与库存查询）", "content": f"货品编号：{product['code']}；规格：{product['spec']}；参考售价：{price}；{product.get('stock_kind', '账面库存')}：{product['stock']:g}；说明：{product['remark']}"})
+        attributes = "、".join(row["propertyName"] + "：" + row["propertyValue"] for row in property_data(product))
+        sources.append({"id": "P-" + product["id"], "title": product["name"] + "（本次商品与库存查询）", "content": f"货品编号：{product['code']}；规格：{product['spec']}；商家规格属性：{attributes}；参考售价：{price}；{product.get('stock_kind', '账面库存')}：{product['stock']:g}；说明：{product['remark']}"})
         evidence = manufacturer_source(product)
         if evidence:
             sources.append(evidence)
@@ -494,6 +496,8 @@ async def answer(state: ChatState) -> dict:
                 "channel": (state.get("context") or {}).get("channel", "workspace"),
                 "consulting_product": (state.get("context") or {}).get("product_id"),
                 "compatibility_checks": state.get("compatibility", []),
+                "merchant_sku_attributes": [{"source": "P-" + product["id"], "attributes": property_data(product)}
+                                            for product in state.get("products", [])],
                 "products": [{"source": "P-" + product["id"], "name": product["name"], "spec": product.get("spec", ""), "remark": product.get("remark", ""), "price": "{{price:P-" + product["id"] + "}}" if "{{price:P-" + product["id"] + "}}" in slots else "已通过预算筛选，具体售价见商品卡", "stock": "{{stock:P-" + product["id"] + "}}" if "{{stock:P-" + product["id"] + "}}" in slots else "具体库存见商品卡", "stock_kind": product.get("stock_kind", "账面库存"), "has_stock": product.get("stock", 0) > 0} for product in state.get("products", [])],
                 "orders": [{"source": order["source"], "order_no": "{{order_no:" + order["source"] + "}}", "status": "{{order_status:" + order["source"] + "}}", "status_meaning": order_status_text(order), "refunded_amount": "{{order_refunded:" + order["source"] + "}}" if "{{order_refunded:" + order["source"] + "}}" in slots else "未提供", "total": "{{order_total:" + order["source"] + "}}" if order["total"] is not None else "未提供", "quantity": "{{order_quantity:" + order["source"] + "}}" if order["quantity"] is not None else "未提供", "items": [{"name": item["name"], "spec": item["spec"], "quantity": "{{order_item_quantity:" + order["source"] + ":" + str(index) + "}}" if item["quantity"] is not None else "未提供"} for index, item in enumerate(order["items"])]} for order in server_orders(state)],
                 "sources": [{**source, "content": source["content"].replace("planQuantity", "账面库存").replace("univalence", "参考售价")} for source in sources if not source["id"].startswith(("P-", "O-"))] + [{"id": source["id"], "title": source["title"]} for source in sources if source["id"].startswith(("P-", "O-"))],
@@ -596,7 +600,8 @@ async def workspace_catalog(state):
                 "price": float(item["price"]) if item.get("price") is not None else None,
                 "category": str(item.get("categoryName") or "智能家居"),
                 "remark": str(item.get("description") or ""), "stock": float(item["availableStock"]),
-                "stock_kind": "可售库存", "profile": profile_for(item["productCode"])})
+                "stock_kind": "可售库存", "profile": profile_for(item["productCode"]),
+                "skuCatalog": public_sku_catalog(item.get("skuCatalog"))})
     except (ValueError, KeyError, TypeError, AttributeError):
         raise HTTPException(502, "商品或库存业务数据格式不正确") from None
     return {"catalog": catalog, "trace": [{"step": "fetch_data", "status": "ok",
@@ -624,6 +629,17 @@ async def merchant_replenishment(state):
     if (state.get("context") or {}).get("channel") != "workspace":
         raise HTTPException(403, "备货规划仅供已授权商家在工作台使用")
     return await planning_authority(state, "GET", "/commerce/planning/replenishment")
+
+
+async def merchant_order_evidence(state, order_id, tool):
+    from business_tools import require_tool
+    require_tool(tool, (state.get("context") or {}).get("channel"))
+    if not isinstance(order_id, str) or not re.fullmatch(r"SC[A-Z0-9]{1,30}", order_id):
+        raise HTTPException(422, "订单经营查询标识无效")
+    if tool not in ("read_order_stock", "read_order_settlement"):
+        raise HTTPException(400, "订单经营工具无效")
+    suffix = "/stock-explanation" if tool == "read_order_stock" else ""
+    return await planning_authority(state, "GET", "/commerce/settlements/orders/" + order_id + suffix)
 
 
 async def run_customer_plan(state, fetcher, tenant, owner, run_id=None, *, quote_fetcher=None):
@@ -727,4 +743,23 @@ async def authorize_saved_workspace(authorization, saved, requested_shop):
         raise HTTPException(409, "旧任务没有店铺归属，请在当前店铺发起新任务")
     if requested_shop is not None and requested_shop != shop:
         raise HTTPException(409, "该任务属于其他店铺，请切回原店铺后恢复")
-    return await workspace_identity(authorization, shop)
+    identity = await workspace_identity(authorization, shop)
+    result = saved.get("result") or {}
+    plan = result.get("businessPlan") or {}
+    has_finance = (plan.get("type") == "ORDER_REVIEW"
+                   or "read_order_settlement" in (saved.get("completed") or [])
+                   or "read_order_settlement" in (result.get("completed") or []))
+    if has_finance:
+        from business_tools import tool_enabled
+        if not tool_enabled("read_order_settlement"):
+            raise HTTPException(403, "订单财务查询工具已停用，无法查看或恢复旧任务")
+        shops = await authority_data(authorization, "GET", "/commerce/shops")
+        if not isinstance(shops, list):
+            raise HTTPException(502, "店铺授权数据不可用")
+        if not any(isinstance(row, dict) and row.get("shopId") == shop and row.get("status") == "ENABLED"
+                   and isinstance(row.get("capabilities"), list)
+                   and "READ" in row["capabilities"]
+                   and any(capability in row["capabilities"] for capability in ("REFUND_REVIEW", "REFUND_EXECUTE"))
+                   for row in shops):
+            raise HTTPException(403, "当前账号没有该店铺的财务查询权限")
+    return identity

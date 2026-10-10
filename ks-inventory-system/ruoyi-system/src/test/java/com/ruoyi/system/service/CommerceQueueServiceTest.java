@@ -72,6 +72,14 @@ public class CommerceQueueServiceTest {
         assertEquals(1, pending());
     }
 
+    @Test public void unsupportedPromotionIsRejectedBeforeQueueCapacityOrCheckoutIsConsumed() {
+        Map<String,Object> body=request("promotion");body.put("promotionId","server-promotion");
+        rejected(400,()->queue.submit("rush",body));
+        assertEquals(0,count("commerce_checkout_job"));assertEquals(0,count("commerce_checkout_outbox"));assertEquals(0,count("commerce_order"));assertEquals(0,pending());
+        assertEquals(0,queue.processBatch(1));assertEquals(0,checkout.calls.get());
+        body.remove("promotionId");assertEquals("PENDING",queue.submit("rush",body).get("state"));assertEquals(1,pending());
+    }
+
     @Test public void concurrentSameRequestAcceptsOneJobAndOneOutboxEvent() throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(8);
         CountDownLatch start = new CountDownLatch(1);

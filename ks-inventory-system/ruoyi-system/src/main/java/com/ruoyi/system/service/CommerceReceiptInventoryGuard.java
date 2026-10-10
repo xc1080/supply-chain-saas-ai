@@ -32,6 +32,8 @@ public class CommerceReceiptInventoryGuard {
     private CommerceCostService costs;
     @Autowired public void configureCosts(CommerceCostService costs) { this.costs=costs; }
     private CommerceProcurementService procurement;
+    private CommerceSkuCatalogService skuCatalog;
+    @Autowired public void configureSkuCatalog(CommerceSkuCatalogService skuCatalog) {this.skuCatalog=skuCatalog;}
     @Autowired public void configureProcurement(CommerceProcurementService procurement) { this.procurement=procurement; }
     private long costActor() { try { return SecurityUtils.getUserId(); } catch(ServiceException missing) { return 0L; } }
 
@@ -139,6 +141,7 @@ public class CommerceReceiptInventoryGuard {
                     || referenced("SELECT product_id FROM commerce_order_item WHERE product_id=? LIMIT 1 FOR UPDATE", id)
                     || referenced("SELECT activity_id FROM commerce_activity WHERE product_id=? LIMIT 1 FOR UPDATE", id)
                     || referenced("SELECT product_id FROM commerce_product_shop WHERE product_id=? LIMIT 1 FOR UPDATE", id);
+            if(skuCatalog!=null)used=used||referenced("SELECT product_id FROM commerce_sku WHERE product_id=? LIMIT 1 FOR UPDATE",id);
             require(!used, "货品已有库存、订单或历史流水引用，请停用，不能硬删除", 409);
         }
         int deleted = 0;

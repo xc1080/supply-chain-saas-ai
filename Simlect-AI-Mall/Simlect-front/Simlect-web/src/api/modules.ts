@@ -66,6 +66,7 @@ export const cartApi = {
 };
 
 export const orderApi = {
+  shipmentTracking: (shipmentId: string) => request.get<Record<string, any>>('/order/shipmentTracking', { params: { shipmentId } }),
   postOrder: (payload: Record<string, unknown>) => request.post('/order/postOrder', payload),
   getPayInfo: (orderId: string) => request.postForm('/order/getPayInfo', { orderId }),
   getOrderInfo: (payOrderId: string) => request.postForm('/order/getOrderInfo', { payOrderId }),
@@ -95,9 +96,15 @@ export const addressApi = {
 };
 
 export const afterSalesApi = {
+  returnParcel: (params: { afterSalesId: string; carrierCode: string; trackingNo: string; requestKey: string }) => request.post<Record<string, any>>('/afterSales/returnParcel', params),
   apply: (params: { orderId: string; requestKey: string; reason: string; kind?: 'UNSHIPPED_REFUND' | 'RETURN_REFUND'; items?: {productId: string; quantity: number}[] }) => request.post('/afterSales/apply', params),
   list: (pageNo = 1) => request.get('/afterSales/list', { params: { pageNo, pageSize: 20 } }),
   detail: (afterSalesId: string) => request.get('/afterSales/detail', { params: { afterSalesId } })
+};
+
+export const pricingApi = {
+  promotions: () => request.get<Record<string, any>[]>('/pricing/promotions'),
+  quote: (params: { orderList: { productId: string; buyCount: number }[]; promotionId?: string }) => request.post<Record<string, any>>('/pricing/quote', params)
 };
 
 export const commentApi = {

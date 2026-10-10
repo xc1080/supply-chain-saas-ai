@@ -1,16 +1,14 @@
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import { commentApi, favoriteApi, productApi } from '@/api/modules';
+import { commentApi, favoriteApi } from '@/api/modules';
 import { usePageRefresh } from '@/composables/pullRefresh';
 import { openImagePreview } from '@/composables/imagePreview';
 import { useProductSkuSheet } from '@/composables/useProductSkuSheet';
 import { useAuthStore } from '@/stores/auth';
-import { isProductOnSale, pickDefaultSku } from '@/utils/product';
+import { useProductSku } from '@/composables/useProductSku';
 import { resolveImageUrl } from '@/utils/image';
 import { saveCheckoutSession } from '@/utils/checkout';
 import { toast } from '@/utils/toast';
-import { MAX_CART_QTY } from '@/constants/validation';
 import { DEMO_MODE } from '@/integrations/demo';
 
 export function useProductDetailPage() {
@@ -19,26 +17,22 @@ export function useProductDetailPage() {
   const authStore = useAuthStore();
   const { open: openSkuSheet } = useProductSkuSheet();
 
-  const loading = ref(true);
+  const productId = computed(() => String(route.params.productId || ''));
+  const { loading, productInfo, productPropertyList, quantity, selectedSku, selectedProperty,
+    displayPrice, maxBuy, canBuy, isPropertyDisabled, propertyUnavailableReason, selectProperty, load: loadSku, cancelLoad, validateSku
+  } = useProductSku(() => productId.value);
+  let loadVersion = 0;
   const loadError = ref(false);
-  const productInfo = ref<any>(null);
-  const productPropertyList = ref<any[]>([]);
-  const skuList = ref<any[]>([]);
   const comments = ref<any[]>([]);
   const commentTotal = ref(0);
   const commentGoodRate = ref(100);
   const commentImageCount = ref(0);
-  const quantity = ref(1);
-  const selectedSku = ref<any>({});
-  const selectedProperty = reactive<Record<string, string>>({});
-  const propertyImageMap = reactive<Record<string, string>>({});
   const activeImageIndex = ref(0);
   const favorited = ref(false);
   const favoriteLoading = ref(false);
   const detailTab = ref<'comments' | 'desc'>('desc');
 
   const PREVIEW_COMMENT_COUNT = 2;
-  const productId = computed(() => String(route.params.productId || ''));
 
   const thumbList = computed(() => {
     const cover = productInfo.value?.cover;
@@ -51,10 +45,6 @@ export function useProductDetailPage() {
 
   const galleryImages = computed(() => thumbList.value);
 
-  const displayPrice = computed(() =>
-    Number(selectedSku.value?.price ?? productInfo.value?.minPrice ?? 0).toFixed(2)
-  );
-
   const agentConsultProduct = computed(() => {
     const p = productInfo.value;
     if (!p?.productId) return null;
@@ -62,25 +52,13 @@ export function useProductDetailPage() {
       productId: String(p.productId),
       productName: String(p.productName || '商品'),
       cover: thumbList.value[0] || '',
-      minPrice: displayPrice.value
+      minPrice: displayPrice.value,
+      productCode: String(p.productCode || p.code || ''),
+      spec: String(p.spec || '')
     };
   });
 
   const previewComments = computed(() => comments.value.slice(0, PREVIEW_COMMENT_COUNT));
-
-  const maxBuy = computed(() => {
-    const value = Number(selectedSku.value?.stock);
-    const stock = Number.isFinite(value) ? Math.max(0, value) : MAX_CART_QTY;
-    return Math.max(1, Math.min(stock, MAX_CART_QTY));
-  });
-
-  const buildSkuKey = (map: Record<string, string>) =>
-    productPropertyList.value.map((p) => map[p.propertyId]).filter(Boolean).join('-');
-
-  const syncCarouselByImage = (imgPath: string) => {
-    const idx = galleryImages.value.findIndex((img) => img === imgPath);
-    if (idx >= 0) activeImageIndex.value = idx;
-  };
 
   const touchStartX = ref(0);
   const touchDeltaX = ref(0);
@@ -144,50 +122,17 @@ export function useProductDetailPage() {
     activeImageIndex.value = index;
   };
 
-  const initDefaultSku = () => {
-    const sku = pickDefaultSku(skuList.value);
-    if (!sku) return;
-    selectedSku.value = sku;
-    const ids = String(selectedSku.value.propertyValueIds || '').split('-');
-    productPropertyList.value.forEach((prop, index) => {
-      const valId = ids[index];
-      if (valId) selectedProperty[prop.propertyId] = valId;
-      prop.propertyValues?.forEach((val: any) => {
-        if (val.propertyCover) propertyImageMap[val.propertyValueId] = val.propertyCover;
-      });
-    });
-    const coverFromSku = propertyImageMap[ids[0]];
-    if (coverFromSku) syncCarouselByImage(coverFromSku);
-    else activeImageIndex.value = 0;
-  };
-
-  const selectProperty = (property: any, propertyValue: any) => {
-    const temp = { ...selectedProperty, [property.propertyId]: propertyValue.propertyValueId };
-    const key = buildSkuKey(temp);
-    const matched = skuList.value.find((sku) => sku.propertyValueIds === key);
-    if (!matched) {
-      ElMessage.warning('该规格组合暂不可售');
-      return;
-    }
-    if (matched.stock === 0) {
-      ElMessage.warning('该规格已售罄');
-      return;
-    }
-    selectedProperty[property.propertyId] = propertyValue.propertyValueId;
-    selectedSku.value = matched;
-    if (propertyValue.propertyCover) syncCarouselByImage(propertyValue.propertyCover);
-    if (quantity.value > matched.stock) quantity.value = matched.stock;
-  };
-
   const loadFavoriteStatus = async () => {
+    const id = productId.value, version = loadVersion;
     if (DEMO_MODE || !authStore.isLoggedIn || !productId.value) {
       favorited.value = false;
       return;
     }
     try {
-      favorited.value = Boolean(await favoriteApi.isFavorite(productId.value));
+      const result = Boolean(await favoriteApi.isFavorite(id));
+      if (id === productId.value && version === loadVersion) favorited.value = result;
     } catch {
-      favorited.value = false;
+      if (id === productId.value && version === loadVersion) favorited.value = false;
     }
   };
 
@@ -208,44 +153,30 @@ export function useProductDetailPage() {
   };
 
   const load = async () => {
-    loading.value = true;
-    loadError.value = false;
+    const version = ++loadVersion;
+    const id = productId.value;
+    loadError.value = false; activeImageIndex.value = 0;
+    comments.value = []; commentTotal.value = 0; commentGoodRate.value = 100; commentImageCount.value = 0;
+    favorited.value = false;
     try {
-      const data = await productApi.getProduct(productId.value);
-      productInfo.value = data?.productInfo || null;
-      if (productInfo.value && !isProductOnSale(productInfo.value)) {
-        ElMessage.warning('该商品已下架');
-        productInfo.value = null;
-        return;
-      }
-      productPropertyList.value = data?.productPropertyList || [];
-      skuList.value = data?.skuList || [];
-      initDefaultSku();
-      if (DEMO_MODE) return;
-      const commentRes = await commentApi.loadComment({
-        pageNo: 1,
-        productId: productId.value
-      });
+      await loadSku();
+      if (version !== loadVersion || id !== productId.value || !productInfo.value || DEMO_MODE) return;
+      const commentRes = await commentApi.loadComment({ pageNo: 1, productId: id });
+      if (version !== loadVersion || id !== productId.value) return;
       comments.value = commentRes?.list || [];
       commentTotal.value = commentRes?.totalCount ?? comments.value.length;
       try {
-        const stats = await commentApi.getProductCommentStats(productId.value);
+        const stats = await commentApi.getProductCommentStats(id);
+        if (version !== loadVersion || id !== productId.value) return;
         if (stats) {
           commentGoodRate.value = stats.goodRatePercent ?? 100;
           commentImageCount.value = stats.imageCount ?? 0;
-          if (stats.totalCount != null) {
-            commentTotal.value = stats.totalCount;
-          }
+          if (stats.totalCount != null) commentTotal.value = stats.totalCount;
         }
-      } catch {
-
-      }
+      } catch { /* Comments do not block a valid product. */ }
       await loadFavoriteStatus();
     } catch {
-      loadError.value = true;
-      productInfo.value = null;
-    } finally {
-      loading.value = false;
+      if (version === loadVersion && id === productId.value) { loadError.value = true; cancelLoad(); }
     }
   };
 
@@ -269,18 +200,11 @@ export function useProductDetailPage() {
       .filter(Boolean) as { propertyName: string; propertyValue: string }[];
 
   const buyNow = () => {
-    if (Number(selectedSku.value?.stock) <= 0) {
-      ElMessage.warning('该商品暂无可售库存');
-      return;
-    }
-    if (!selectedSku.value?.propertyValueIds) {
-      ElMessage.warning('请选择商品规格');
-      return;
-    }
+    if (!validateSku() || !productInfo.value) return;
     const cover = thumbList.value[0] || productInfo.value?.cover?.split(',')[0];
     const checkoutItems = [
       {
-        productId: productInfo.value.productId,
+        productId: String(selectedSku.value.skuId),
         productName: productInfo.value.productName,
         productCover: cover,
         propertyValueIds: selectedSku.value.propertyValueIds,
@@ -312,6 +236,8 @@ export function useProductDetailPage() {
     }
   );
 
+  watch(() => selectedSku.value.skuId, () => { activeImageIndex.value = 0; });
+  onBeforeUnmount(() => { ++loadVersion; cancelLoad(); });
   onMounted(load);
   usePageRefresh(load);
 
@@ -337,6 +263,9 @@ export function useProductDetailPage() {
     agentConsultProduct,
     previewComments,
     maxBuy,
+    canBuy,
+    isPropertyDisabled,
+    propertyUnavailableReason,
     onTouchStart,
     onTouchMove,
     onTouchEnd,

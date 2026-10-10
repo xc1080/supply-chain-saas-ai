@@ -113,6 +113,9 @@
             type="button"
             class="sku-tag"
             :class="{ active: selectedProperty[prop.propertyId] === val.propertyValueId }"
+                :aria-pressed="selectedProperty[prop.propertyId] === val.propertyValueId"
+                :disabled="isPropertyDisabled(prop, val)"
+                :title="propertyUnavailableReason(prop, val)"
             @click="selectProperty(prop, val)"
           >
             <!-- [zh] 开始标签 `<ProductImage>` -->
@@ -143,14 +146,14 @@
           <!-- [zh] 模板内容：`库存 {{ selectedSku?.stock ?? '--' }}` -->
           {{ selectedCampaign ? '普通可售' : DEMO_MODE ? '可售库存' : '库存' }} {{ selectedSku?.stock ?? '--' }}
           <!-- [zh] 开始标签 `<em>` -->
-          <em v-if="selectedSku?.stock != null && selectedSku.stock <= 5">紧张</em>
+          <em v-if="Number(selectedSku?.stock) > 0 && Number(selectedSku?.stock) <= 5">紧张</em>
         <!-- [zh] 闭合标签 `</span>` -->
         </span>
         <!-- [zh] 开始标签 `<el-input-number>` -->
         <el-input-number v-model="quantity" :min="1" :max="maxBuy" size="small" />
       <!-- [zh] 闭合标签 `</div>` -->
       </div>
-      <button v-if="selectedCampaign" type="button" class="ordinary-cart" :disabled="Number(selectedSku?.stock) <= 0" @click="openAddCartSheet">按普通售价加入购物车</button>
+      <button v-if="selectedCampaign" type="button" class="ordinary-cart" :disabled="!canBuy" @click="openAddCartSheet">按普通售价加入购物车</button>
     <!-- [zh] 闭合标签 `</section>` -->
     </section>
 
@@ -260,7 +263,8 @@
 
     <section class="block desc-block">
       <h3 class="block-title">图文详情</h3>
-      <ProductTechnicalProfile :profile="productInfo.technicalProfile" />
+      <p class="selected-sku-code">{{ productInfo.productCode || productInfo.code }}<span v-if="productInfo.spec"> · {{ productInfo.spec }}</span></p>
+          <ProductTechnicalProfile :key="String(selectedSku.skuId || productInfo.productId)" :profile="productInfo.technicalProfile" />
       <MarkdownContent :content="productInfo.productDesc" class="desc-body" />
     </section>
 
@@ -307,7 +311,7 @@
         <span class="label">{{ favorited ? '已收藏' : '收藏' }}</span>
       </button>
       <template v-if="selectedCampaign">
-        <button type="button" class="footer-ordinary-buy" :disabled="Number(selectedSku?.stock) <= 0" @click="buyNow">
+        <button type="button" class="footer-ordinary-buy" :disabled="!canBuy" @click="buyNow">
           普通购买 <span>¥{{ displayPrice }}</span>
         </button>
         <button type="button" class="footer-campaign-buy" :disabled="(!hasOwnCampaignOrder && (campaignStatus !== 'live' || !!campaignError)) || !!campaignBuying" :aria-label="`${campaignButtonLabel}${hasOwnCampaignOrder ? '' : '，每单 1 件'}`" @click="buyCampaign(selectedCampaign)">
@@ -316,8 +320,8 @@
         </button>
       </template>
       <template v-else>
-        <el-button class="btn-cart" type="primary" plain round :disabled="Number(selectedSku?.stock) <= 0" @click="openAddCartSheet">加入购物车</el-button>
-        <el-button class="btn-buy" type="primary" round :disabled="Number(selectedSku?.stock) <= 0" @click="buyNow">立即购买</el-button>
+        <el-button class="btn-cart" type="primary" plain round :disabled="!canBuy" @click="openAddCartSheet">加入购物车</el-button>
+        <el-button class="btn-buy" type="primary" round :disabled="!canBuy" @click="buyNow">立即购买</el-button>
       </template>
     </LiquidGlassSurface>
   </div>
@@ -362,6 +366,9 @@ const {
   productPropertyList,
   quantity,
   selectedSku,
+  canBuy,
+  isPropertyDisabled,
+  propertyUnavailableReason,
   selectedProperty,
   activeImageIndex,
   favorited,
@@ -1794,4 +1801,8 @@ const openReport = (payload: { orderId: string; commentContent?: string }) => {
   .footer-campaign-buy { color: #fff; background: #c83e36; border-color: #c83e36; }
   .footer-campaign-buy:hover:not(:disabled) { background: #b5352e; }
 }
+
+.sku-tag:disabled, .sku-option:disabled { opacity: .42; cursor: not-allowed; border-style: dashed; }
+.sku-tag:focus-visible, .sku-option:focus-visible { outline: 2px solid #278763; outline-offset: 3px; }
+.selected-sku-code { margin: 12px 4px; color: #697586; font-size: 13px; overflow-wrap: anywhere; }
 </style>

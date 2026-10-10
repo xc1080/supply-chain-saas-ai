@@ -26,6 +26,7 @@ from customer_identity import CustomerIdentityStore, initialize_identity
 from maintenance import PeriodicMaintenance
 from business_catalog import profile_for, evidence_snapshot, registry_version
 from product_media import IMAGES, product_cover
+from sku_catalog import public_sku_catalog, property_data, selection_key, validate_cart_selection, selection_input, detail_payload
 from execution_runtime import (initialize_messages, expire_messages, retain_messages, create_message,
                                renew_message, finish_message, cancel_message, LostLease, redact, CURRENT_MESSAGE, bind_message_run)
 
@@ -137,7 +138,8 @@ def product_shape(product):
             "availableStock": product["stock"], "stockLabel": "可售库存",
             "status": 1, "description": product["remark"], "productDesc": f"{product['remark']}\n\n规格：{product['spec']}",
             "spec": product["spec"], "technicalProfile": profile, "imageIsIllustration": True,
-            "demo": product["code"].startswith("DEMO-")}
+            "skuCatalog": product.get("skuCatalog"),
+            "propertyData": property_data(product), "demo": product["code"].startswith("DEMO-")}
 
 
 def address_input(params, address_id):
@@ -319,7 +321,8 @@ def build_store_router(service):
                             "price": float(stock["price"]) if stock.get("price") is not None else None,
                             "category": str(stock.get("categoryName") or "智能家居"),
                             "remark": str(stock.get("description") or ""), "stock": float(stock["availableStock"]),
-                            "stock_kind": "可售库存", "profile": profile_for(stock["productCode"])})
+                            "stock_kind": "可售库存", "profile": profile_for(stock["productCode"]),
+                            "skuCatalog": public_sku_catalog(stock.get("skuCatalog"))})
         return catalog
 
     async def public_campaigns():
@@ -607,6 +610,45 @@ def build_store_router(service):
                 response.delete_cookie(COOKIE, path="/")
                 return response
             session = await current_session(request)
+            if path in ("pricing/promotions", "pricing/quote"):
+                if path == "pricing/promotions":
+                    if request.method != "GET": raise HTTPException(405, "请使用GET查询优惠")
+                    return ok(await commerce.request("GET", "/commerce/pricing/promotions"))
+                if request.method != "POST": raise HTTPException(405, "请使用POST查询报价")
+                rows = params.get("orderList")
+                if not isinstance(rows, list) or not 1 <= len(rows) <= 30 or not all(isinstance(row, dict) for row in rows):
+                    raise HTTPException(422, "报价商品无效")
+                quantities = {}
+                for row in rows:
+                    pid = str(row.get("productId") or "")
+                    count = integer(row.get("buyCount", 0))
+                    if not pid or not 1 <= count <= 99: raise HTTPException(422, "报价商品数量无效")
+                    quantities[pid] = quantities.get(pid, 0) + count
+                    if quantities[pid] > 99: raise HTTPException(422, "单个报价商品数量不能超过99")
+                promotion = params.get("promotionId")
+                if promotion is not None and (not isinstance(promotion, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", promotion)):
+                    raise HTTPException(422, "优惠标识无效")
+                body = {"items": [{"productId": pid, "quantity": count} for pid, count in sorted(quantities.items())]}
+                if promotion is not None: body["promotionId"] = promotion
+                return ok(await commerce.request("POST", "/commerce/pricing/quote", body=body))
+            if path == "order/shipmentTracking":
+                if request.method != "GET": raise HTTPException(405, "请使用GET查询包裹轨迹")
+                from commerce_api import owner_id
+                shipment = str(params.get("shipmentId") or "")
+                if not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", shipment): raise HTTPException(422, "包裹编号无效")
+                return ok(await commerce.request("GET", "/commerce/shipments/" + shipment + "/tracking", params={"ownerId": owner_id(session)}))
+            if path == "afterSales/returnParcel":
+                if request.method != "POST": raise HTTPException(405, "请使用POST登记寄回凭证")
+                from commerce_api import owner_id
+                identity = str(params.get("afterSalesId") or "")
+                if not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", identity): raise HTTPException(422, "售后编号无效")
+                payload = {"ownerId": owner_id(session)}
+                for name, maximum in (("carrierCode", 32), ("trackingNo", 80), ("requestKey", 80)):
+                    value = params.get(name)
+                    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1," + str(maximum) + r"}", value):
+                        raise HTTPException(422, "寄回凭证格式无效")
+                    payload[name] = value
+                return ok(await commerce.request("POST", "/commerce/after-sales/" + identity + "/return-parcel", body=payload))
             if path == "account/getUserInfo":
                 return ok(request.state.customer_user)
             if path == "product/loadCategory":
@@ -620,8 +662,7 @@ def build_store_router(service):
                     product = next((p for p in catalog if p["id"] == str(params.get("productId"))), None)
                     if not product:
                         raise HTTPException(404, "该商品不存在或已下架")
-                    return ok({"productInfo": product_shape(product), "productPropertyList": [{"propertyId": "spec", "propertyName": "规格", "propertyValues": [{"propertyValueId": "default", "propertyValue": product["spec"]}]}],
-                               "skuList": [{"skuId": product["id"], "propertyValueIds": "default", "propertyValueIdHash": "default", "price": product["price"], "stock": product["stock"]}]})
+                    return ok(detail_payload(product, catalog, product_shape))
                 keyword = str(params.get("keyword") or "").strip().lower()
                 category = str(params.get("categoryId") or "")
                 selected = [p for p in catalog if (not category or product_shape(p)["categoryId"] == category) and (not keyword or keyword in " ".join(str(p.get(k) or "") for k in ("name", "remark", "spec", "category")).lower())]
@@ -648,7 +689,7 @@ def build_store_router(service):
                     pid = str(params.get("productId") or "")
                     product = catalog.get(pid)
                     if not product: raise HTTPException(404, "货品不存在或已下架")
-                    if params.get("propertyValueIds") not in (None, "", "default"): raise HTTPException(422, "商品规格不存在")
+                    validate_cart_selection(product, selection_input(params.get("propertyValueIds")))
                     delta = integer(params.get("buyCount", 1))
                     if delta == 0 or abs(delta) > 1000: raise HTTPException(422, "购买数量无效")
                     await shared_store.add_cart(session, pid, delta, product["stock"])
@@ -661,7 +702,7 @@ def build_store_router(service):
                 for row in rows:
                     product = catalog.get(row["product_id"])
                     if not product: continue
-                    entries.append({"cartId": row["id"], "productId": product["id"], "productName": product["name"], "productCover": product_shape(product)["cover"], "productOnSale": True, "propertyValueIds": "default", "propertyValueIdHash": "default", "propertyData": [{"propertyName": "规格", "propertyValue": product["spec"]}], "price": product["price"], "addPrice": product["price"], "stock": product["stock"], "buyCount": row["quantity"]})
+                    entries.append({"cartId": row["id"], "productId": product["id"], "productName": product["name"], "productCover": product_shape(product)["cover"], "productOnSale": True, "propertyValueIds": selection_key(product), "propertyValueIdHash": selection_key(product), "propertyData": property_data(product), "price": product["price"], "addPrice": product["price"], "stock": product["stock"], "buyCount": row["quantity"]})
                 return ok(page(entries, params))
             if path == "userAddress/loadDataList":
                 return ok(await shared_store.addresses(session))
@@ -689,16 +730,23 @@ def build_store_router(service):
                 if not isinstance(lines, list) or not 1 <= len(lines) <= 30 or not all(isinstance(line, dict) for line in lines): raise HTTPException(422, "订单商品无效")
                 request_key = str(params.get("clientRequestId") or secrets.token_hex(16))
                 if not 1 <= len(request_key) <= 80: raise HTTPException(422, "下单请求标识无效")
-                quantities = {}
+                quantities, selections = {}, {}
                 for line in lines:
                     pid = str(line.get("productId"))
                     count = integer(line.get("buyCount", 0))
                     if not 1 <= count <= 99: raise HTTPException(422, "单个商品数量须为1至99的整数")
                     quantities[pid] = quantities.get(pid, 0) + count
-                    if line.get("propertyValueIds") not in (None, "", "default"): raise HTTPException(422, "商品规格不存在")
+                    chosen = selection_input(line.get("propertyValueIds"))
+                    if chosen is not None:
+                        if pid in selections and selections[pid] != chosen:
+                            raise HTTPException(422, "同一货品不能提交不同规格")
+                        selections[pid] = chosen
                 # Java validates price, eligibility, stock and idempotency under
                 # product locks. Replaying a successful request needs no stock.
-                order = await commerce.create(session, request_key, quantities, shipping_address)
+                promotion = params.get("promotionId")
+                if promotion is not None and (not isinstance(promotion, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", promotion)):
+                    raise HTTPException(422, "优惠标识无效")
+                order = await commerce.create(session, request_key, quantities, shipping_address, selections, promotion)
                 invalidate_public_reads()
                 if str(params.get("orderFrom")) == "0":
                     await shared_store.consume_cart(session, request_key, quantities)

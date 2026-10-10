@@ -203,6 +203,12 @@
         )
     </insert>
 
+    <select id="selectProductsByCode" parameterType="String" resultMap="ProductResult">
+        <include refid="selectProductVo"/>
+        WHERE p.product_code = #{productCode}
+        ORDER BY p.product_id
+    </select>
+
     <!--    货品资料修改      -->
     <update id="updateProduct" parameterType="Product">
         update product

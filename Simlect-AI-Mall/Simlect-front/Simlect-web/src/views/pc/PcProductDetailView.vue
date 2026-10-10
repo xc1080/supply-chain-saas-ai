@@ -104,6 +104,9 @@
                 type="button"
                 class="sku-option"
                 :class="{ active: selectedProperty[prop.propertyId] === val.propertyValueId }"
+                :aria-pressed="selectedProperty[prop.propertyId] === val.propertyValueId"
+                :disabled="isPropertyDisabled(prop, val)"
+                :title="propertyUnavailableReason(prop, val)"
                 @click="selectProperty(prop, val)"
               >
                 <!-- [zh] 开始标签 `<ProductImage>` -->
@@ -139,7 +142,7 @@
                 <!-- [zh] 可售库存已扣除未出库订单的预留数量。 -->
                 {{ selectedCampaign ? '普通可售' : DEMO_MODE ? '可售库存' : '库存' }} {{ selectedSku?.stock ?? '--' }}
                 <!-- [zh] 开始标签 `<em>` -->
-                <em v-if="selectedSku?.stock != null && selectedSku.stock <= 5">紧张</em>
+                <em v-if="Number(selectedSku?.stock) > 0 && Number(selectedSku?.stock) <= 5">紧张</em>
               <!-- [zh] 闭合标签 `</span>` -->
               </span>
             <!-- [zh] 闭合标签 `</div>` -->
@@ -185,13 +188,13 @@
           <!-- [zh] 开始标签 `<div>` -->
           <div class="action-main" :class="{ 'has-campaign': selectedCampaign }">
             <!-- [zh] 开始标签 `<el-button>` -->
-            <el-button class="btn-cart" type="primary" size="large" :disabled="Number(selectedSku?.stock) <= 0" @click="openAddCartSheet">
+            <el-button class="btn-cart" type="primary" size="large" :disabled="!canBuy" @click="openAddCartSheet">
               <!-- [zh] 模板内容：`加入购物车` -->
               加入购物车
             <!-- [zh] 闭合标签 `</el-button>` -->
             </el-button>
             <!-- [zh] 开始标签 `<el-button>` -->
-            <el-button class="btn-buy" type="danger" size="large" :disabled="Number(selectedSku?.stock) <= 0" @click="buyNow">{{ selectedCampaign ? `普通购买 ¥${displayPrice}` : '立即购买' }}</el-button>
+            <el-button class="btn-buy" type="danger" size="large" :disabled="!canBuy" @click="buyNow">{{ selectedCampaign ? `普通购买 ¥${displayPrice}` : '立即购买' }}</el-button>
           <!-- [zh] 闭合标签 `</div>` -->
           </div>
         <!-- [zh] 闭合标签 `</div>` -->
@@ -208,7 +211,8 @@
         <!-- [zh] 开始标签 `<el-tab-pane>` -->
         <el-tab-pane label="图文详情" name="desc">
           <!-- [zh] 开始标签 `<MarkdownContent>` -->
-          <ProductTechnicalProfile :profile="productInfo.technicalProfile" />
+          <p class="selected-sku-code">{{ productInfo.productCode || productInfo.code }}<span v-if="productInfo.spec"> · {{ productInfo.spec }}</span></p>
+          <ProductTechnicalProfile :key="String(selectedSku.skuId || productInfo.productId)" :profile="productInfo.technicalProfile" />
           <MarkdownContent :content="productInfo.productDesc" class="desc-content" center-images />
         <!-- [zh] 闭合标签 `</el-tab-pane>` -->
         </el-tab-pane>
@@ -334,6 +338,9 @@ const {
   commentImageCount,
   quantity,
   selectedSku,
+  canBuy,
+  isPropertyDisabled,
+  propertyUnavailableReason,
   selectedProperty,
   activeImageIndex,
   favorited,
@@ -1487,4 +1494,8 @@ const openReport = (payload: { orderId: string; commentContent?: string }) => {
   }
 /* [zh] 样式规则 `}` */
 }
+
+.sku-tag:disabled, .sku-option:disabled { opacity: .42; cursor: not-allowed; border-style: dashed; }
+.sku-tag:focus-visible, .sku-option:focus-visible { outline: 2px solid #278763; outline-offset: 3px; }
+.selected-sku-code { margin: 12px 4px; color: #697586; font-size: 13px; overflow-wrap: anywhere; }
 </style>

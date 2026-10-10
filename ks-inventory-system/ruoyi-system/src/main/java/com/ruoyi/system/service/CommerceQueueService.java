@@ -74,6 +74,8 @@ public class CommerceQueueService {
     public Map<String, Object> submit(String activityId, Map<String, Object> request) {
         require(activityId != null && activityId.matches("[A-Za-z0-9_-]{1,32}"), "活动不存在", 404);
         require(request != null, "请求内容错误", 400);
+        // The queue schema persists activity/address only. Do not silently discard a pricing choice.
+        require(request.get("promotionId")==null,"排队秒杀暂不支持叠加店铺优惠，请取消优惠后重试",400);
         String owner = owner(request.get("ownerId"));
         String key = requestKey(request.get("requestKey"));
         String shop = CommerceShopContext.id();

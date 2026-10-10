@@ -27,12 +27,15 @@ public class CommerceAfterSalesService {
     private final CommerceMerchantService merchants;
     private final CommercePaymentService payments;
     private final CommerceDeliveryService delivery;
+    private final CommerceOrderAmountService amounts;
     private CommerceCostService costs;
     @Autowired public void configureCosts(CommerceCostService costs) { this.costs=costs; }
+    private CommerceLogisticsService logistics;
+    @Autowired public void configureLogistics(CommerceLogisticsService logistics) { this.logistics=logistics; }
     public CommerceAfterSalesService(DataSource source){this(source,new CommerceInventoryService(source),new CommerceMerchantService(source));}
     public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants){this(source,stock,merchants,new CommercePaymentService(source));}
     public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants,CommercePaymentService payments){this(source,stock,merchants,payments,new CommerceDeliveryService(source));}
-    @Autowired public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants,CommercePaymentService payments,CommerceDeliveryService delivery){this.jdbc=new JdbcTemplate(source);this.stock=stock;this.merchants=merchants;this.payments=payments;this.delivery=delivery;}
+    @Autowired public CommerceAfterSalesService(DataSource source,CommerceInventoryService stock,CommerceMerchantService merchants,CommercePaymentService payments,CommerceDeliveryService delivery){this.jdbc=new JdbcTemplate(source);this.stock=stock;this.merchants=merchants;this.payments=payments;this.delivery=delivery;this.amounts=new CommerceOrderAmountService(source,merchants);}
 
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public Map<String,Object> apply(String orderId,Map<String,Object> request) {
@@ -56,19 +59,22 @@ public class CommerceAfterSalesService {
         Map<Long,Map<String,Object>> index=new TreeMap<>();SortedMap<Long,Long> chosen=new TreeMap<>();
         for(Map<String,Object> fact:facts){long product=number(fact.get("product_id")),available=number(fact.get(returning?"return_available":"unshipped_available"));index.put(product,fact);if(requested==null&&available>0)chosen.put(product,available);}
         if(requested!=null)chosen.putAll(requested);
-        require(!chosen.isEmpty(),"没有符合该售后类型的剩余商品数量",409);BigDecimal amount=BigDecimal.ZERO;
+        require(!chosen.isEmpty(),"没有符合该售后类型的剩余商品数量",409);
         for(Map.Entry<Long,Long> entry:chosen.entrySet()){
             Map<String,Object> fact=index.get(entry.getKey());require(fact!=null&&number(fact.get(returning?"return_available":"unshipped_available"))>=entry.getValue(),"售后数量超过剩余可申请数量或已被其他售后锁定",409);
-            amount=amount.add(decimal(fact.get("unit_price")).multiply(BigDecimal.valueOf(entry.getValue())));
         }
+        SortedMap<Long,BigDecimal> refunds=amounts.refundAmounts(orderId,chosen);
+        BigDecimal amount=BigDecimal.ZERO;for(BigDecimal refund:refunds.values())amount=amount.add(refund);
         BigDecimal pending=jdbc.queryForObject("SELECT COALESCE(SUM(refund_amount),0) FROM commerce_after_sales_case WHERE order_id=? AND status NOT IN('REFUNDED','REJECTED')",BigDecimal.class,orderId);
         require(decimal(order.get("total_amount")).subtract(decimal(order.get("refunded_amount"))).subtract(pending).compareTo(amount)>=0,"售后金额超过尚未被其他申请占用的已付余额",409);
         String id=newId("AS");
         jdbc.update("INSERT INTO commerce_after_sales_case(after_sales_id,order_id,shop_id,owner_id,request_key,request_hash,kind,reason,status,original_order_status,return_required,refund_amount,created_at) VALUES (?,?,?,?,?,?,?,?,'REQUESTED',?,?,?,CURRENT_TIMESTAMP)",id,orderId,CommerceShopContext.id(),owner,key,CommerceService.requestHash(chosen),kind,reason,state,returning?1:0,amount);
+        if(logistics!=null)jdbc.update("UPDATE commerce_after_sales_case SET return_evidence_version=1 WHERE after_sales_id=?",id);
         for(Map.Entry<Long,Long> entry:chosen.entrySet()){
             Map<String,Object> fact=index.get(entry.getKey());BigDecimal price=decimal(fact.get("unit_price"));
-            jdbc.update("INSERT INTO commerce_after_sales_item(after_sales_id,product_id,product_code,product_name,spec,quantity,unit_price,amount) VALUES (?,?,?,?,?,?,?,?)",id,entry.getKey(),fact.get("product_code"),fact.get("product_name"),fact.get("spec"),entry.getValue(),price,price.multiply(BigDecimal.valueOf(entry.getValue())));
+            jdbc.update("INSERT INTO commerce_after_sales_item(after_sales_id,product_id,product_code,product_name,spec,quantity,unit_price,amount) VALUES (?,?,?,?,?,?,?,?)",id,entry.getKey(),fact.get("product_code"),fact.get("product_name"),fact.get("spec"),entry.getValue(),price,refunds.get(entry.getKey()));
         }
+        amounts.reserveRefund(orderId,id,chosen);
         header(orderId,id,"REQUESTED");event(id,"REQUEST","REQUESTED",null,reason);return detail(id,owner);
     }
 
@@ -82,6 +88,10 @@ public class CommerceAfterSalesService {
         return map("rows",result,"total",total);
     }
     @Transactional(readOnly=true)public Map<String,Object> detail(String id,String ownerId){return shape(find(id,ownerId,false),true);}
+
+    public Map<String,Object> registerReturnParcel(String id,Map<String,Object> request){
+        require(logistics!=null,"寄回凭证服务尚未就绪",503);return logistics.registerReturnParcel(id,request);
+    }
 
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public Map<String,Object> review(String id,Map<String,Object> request,long actor){
@@ -97,8 +107,10 @@ public class CommerceAfterSalesService {
     public Map<String,Object> acceptReturn(String id,Map<String,Object> request,long actor){
         merchants.requireCapability(CommerceShopContext.id(),actor,CommerceCapability.FULFILMENT);String key=key(request.get("requestKey")),condition=String.valueOf(request.get("condition"));
         require(Arrays.asList("SELLABLE","QUALITY_HOLD","DAMAGED").contains(condition),"退货验收状态无效",409);
-        Map<String,Object> row=lock(id);if(row.get("return_key")!=null){require(key.equals(row.get("return_key"))&&condition.equals(row.get("return_condition")),"退货已验收，不能更改请求编号或验收状态",409);return detail(id,null);}
+        Map<String,Object> row=lock(id);if(row.get("return_key")!=null){require(key.equals(row.get("return_key"))&&condition.equals(row.get("return_condition")),"退货已验收，不能更改请求编号或验收状态",409);if(logistics!=null&&request.get("receiptEvidence")!=null)logistics.requireReceiptEvidence(row,request,actor);return detail(id,null);}
         require("AWAITING_RETURN".equals(row.get("status"))&&number(row.get("return_required"))==1,"只有审核通过的已发货售后可以验收返库",409);
+        if(number(row.get("return_evidence_version"))>0)require(logistics!=null,"寄回凭证服务尚未就绪",503);
+        if(logistics!=null)logistics.requireReceiptEvidence(row,request,actor);
         String orderId=String.valueOf(row.get("order_id")),receipt="RT"+id.substring(2);List<Map<String,Object>> caseItems=items(id);SortedMap<Long,Long> requested=quantities(caseItems);
         List<Map<String,Object>> dispatch=jdbc.queryForList("SELECT l.receipt_id,l.product_id,l.warehouse_id,-SUM(l.delta_quantity) AS quantity FROM commerce_warehouse_ledger l JOIN head_receipt h ON h.systematic_receipt=l.receipt_id WHERE h.original_receipt=? AND h.receipt_type='3' AND l.operation='DISPATCH' GROUP BY l.receipt_id,l.product_id,l.warehouse_id ORDER BY MIN(l.ledger_id),l.product_id,l.warehouse_id",orderId);
         SortedMap<Long,Long> remaining=new TreeMap<>(requested);List<Map<String,Object>> allocations=new ArrayList<>();Set<String> sources=new LinkedHashSet<>();
@@ -212,6 +224,10 @@ public class CommerceAfterSalesService {
         for(Map<String,Object> item:items(id))lines.add(map("productId",item.get("product_id"),"productCode",item.get("product_code"),"productName",item.get("product_name"),"spec",item.get("spec"),"quantity",item.get("quantity"),"unitPrice",item.get("unit_price"),"amount",item.get("amount")));
         List<String> actions=new ArrayList<>();if("REQUESTED".equals(status))actions.add("REVIEW");if("AWAITING_RETURN".equals(status))actions.add("ACCEPT_RETURN");if("APPROVED".equals(status)||"RETURN_RECEIVED".equals(status))actions.add("SANDBOX_REFUND");
         Map<String,Object> result=map("afterSalesId",id,"orderId",row.get("order_id"),"tenantId",TenantContext.id(),"shopId",row.get("shop_id"),"status",status,"statusName",states().get(status),"scope","ORDER_LINES","kind",row.get("kind"),"reason",row.get("reason"),"returnRequired",number(row.get("return_required"))==1,"returnCondition",row.get("return_condition"),"originalOrderStatus",row.get("original_order_status"),"refundAmount",row.get("refund_amount"),"refundedAmount",row.get("refunded_amount"),"reviewNote",row.get("review_note"),"returnReceiptId",row.get("return_receipt_id"),"refundId",row.get("refund_id"),"createdAt",time(row.get("created_at")),"reviewedAt",time(row.get("reviewed_at")),"returnedAt",time(row.get("returned_at")),"refundedAt",time(row.get("refunded_at")),"items",lines,"availableActions",actions,"paymentProvider","LOCAL_SANDBOX");
+        Map<String,Object> parcel=logistics==null?map("registered",false,"status",number(row.get("return_required"))==1?"NOT_REGISTERED":"NOT_REQUIRED","carrierCode",null,"trackingNo",null,"registeredAt",null):logistics.parcelSummary(row);
+        result.put("returnParcel",parcel);result.put("returnEvidenceRequired",number(row.get("return_required"))==1&&number(row.get("return_evidence_version"))>0);
+        result.put("receiptEvidence",logistics==null?null:logistics.receiptEvidence(id));
+        if("AWAITING_RETURN".equals(status)&&!Boolean.TRUE.equals(parcel.get("registered")))actions.add("REGISTER_RETURN");
         List<String> refundIds=jdbc.queryForList("SELECT operation_id FROM commerce_payment_operation WHERE after_sales_id=? AND kind='REFUND' ORDER BY CASE WHEN provider_reference=? THEN 0 WHEN local_status IN('PREPARED','PENDING','UNKNOWN') THEN 1 ELSE 2 END,created_at DESC,operation_id DESC LIMIT 1",String.class,id,row.get("refund_id"));
         if(!refundIds.isEmpty()) {
             Map<String,Object> refund=payments.detail(refundIds.get(0));result.put("refundOperation",refund);result.put("refundOutcome",refund.get("outcome"));

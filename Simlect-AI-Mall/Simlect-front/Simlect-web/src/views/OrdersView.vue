@@ -100,7 +100,7 @@
                     <!-- [zh] 开始标签 `<div>` -->
                     <div class="goods-price">
                       <!-- [zh] 开始标签 `<span>` -->
-                      <span class="price">¥{{ formatMoney(item.itemAmount) }}</span>
+                      <span class="price"><template v-if="DEMO_MODE && item.amountBreakdown">原价 </template>¥{{ formatMoney(item.itemAmount) }}</span>
                       <!-- [zh] 开始标签 `<span>` -->
                       <span class="qty">×{{ item.buyCount }}</span>
                     <!-- [zh] 闭合标签 `</div>` -->
