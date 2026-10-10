@@ -38,6 +38,7 @@ public class CommerceService {
     private final CommercePaymentService payments;
     private final CommerceDeliveryService delivery;
     private final CommerceWarehouseAllocationService warehouses;
+    private final CommerceOrderAmountService amounts;
     private static final Map<String, String> MEDIA = new LinkedHashMap<>();
     static {
         MEDIA.put("DEMO-LAMP-ZB", "lamp-zb");
@@ -64,6 +65,8 @@ public class CommerceService {
 
     private CommerceCostService costs;
     @Autowired public void configureCosts(CommerceCostService costs) { this.costs=costs; }
+    private CommerceSkuCatalogService skuCatalog;
+    @Autowired public void configureSkuCatalog(CommerceSkuCatalogService skuCatalog) { this.skuCatalog=skuCatalog; }
 
     public CommerceService(DataSource dataSource) {
         this(dataSource, new CommerceInventoryService(dataSource), new CommerceMerchantService(dataSource));
@@ -80,6 +83,7 @@ public class CommerceService {
         this.jdbc = new JdbcTemplate(dataSource);
         this.stock = stock; this.merchants = merchants;this.payments=payments;this.delivery=delivery;
         this.warehouses=new CommerceWarehouseAllocationService(dataSource);
+        this.amounts=new CommerceOrderAmountService(dataSource,merchants);
     }
 
     public void initializeSchema() {
@@ -111,6 +115,7 @@ public class CommerceService {
         }catch(java.sql.SQLException exception){throw new IllegalStateException("Return condition migration failed",exception);}
         TransactionTemplate transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         transaction.execute(status->{CommercePartialSupport.migrate(jdbc);return null;});
+        amounts.initializeSchema();
         for (Long id : jdbc.queryForList("SELECT product_id FROM commerce_product_shop ORDER BY product_id",Long.class))
             transaction.execute(status -> stock.ensureStock(id));
     }
@@ -138,8 +143,10 @@ public class CommerceService {
         String owner = owner(request.get("ownerId"));
         String key = key(request.get("requestKey"), "requestKey");
         String address=shippingSnapshot(request.get("shippingAddress"),false);
+        String promotionId=CommerceOrderAmountService.promotionSelection(request.get("promotionId"));
         SortedMap<Long, Long> quantities = normalizeItems(request.get("items"));
         merchants.requireProducts(quantities.keySet());
+        if(skuCatalog!=null)skuCatalog.validateSelection(request.get("items"));
         String hash = shopHash(activity == null ? requestHash(quantities) : activityHash(quantities, String.valueOf(activity.get("activity_id"))));
         // A unique request row serializes retries even when their product sets differ.
         jdbc.update("INSERT INTO commerce_request(owner_id,request_key) VALUES (?,?) ON DUPLICATE KEY UPDATE request_key=VALUES(request_key)", owner, key);
@@ -148,13 +155,14 @@ public class CommerceService {
             require(CommerceShopContext.id().equals(existing.get(0).get("shop_id")), "请求编号已用于其他店铺",409);
             require(hash.equals(existing.get(0).get("request_hash")), "同一请求编号不能提交不同商品", 409);
             require(Objects.equals(address,existing.get(0).get("shipping_address")),"同一请求编号不能更换收货地址",409);
+            amounts.requireReplayPromotion(String.valueOf(existing.get(0).get("order_id")),promotionId);
             return shape(existing.get(0));
         }
         require(address!=null,"请提供收货地址",400);
         String orderId = "SC" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + random(10);
         delivery.reserveOrder(orderId,quantities.values().stream().mapToLong(Long::longValue).sum(),activity==null?null:String.valueOf(activity.get("activity_id")));
         List<Map<String, Object>> products = lockProducts(quantities.keySet());
-        BigDecimal total = BigDecimal.ZERO;
+        if(skuCatalog!=null)skuCatalog.validateSelection(request.get("items"));
         for (Map<String, Object> product : products) {
             long id = number(product.get("product_id"));
             require("0".equals(String.valueOf(product.get("status"))), "商品已停用", 409);
@@ -163,8 +171,9 @@ public class CommerceService {
             require(available >= quantities.get(id), product.get("product_name") + "可售库存不足", 409);
             BigDecimal price = decimal(activity == null ? product.get("univalence") : activity.get("price"));
             require(price.signum() > 0, "商品售价未配置", 409);
-            total = total.add(price.multiply(BigDecimal.valueOf(quantities.get(id))));
         }
+        CommerceOrderAmountService.AmountQuote quote=amounts.calculate(products,quantities,activity==null?null:decimal(activity.get("price")),promotionId);
+        BigDecimal total=CommerceOrderAmountService.money(quote.payable);
         jdbc.update("INSERT INTO commerce_order(order_id,owner_id,request_key,request_hash,status,total_amount,create_time,expires_at,shop_id,shipping_address) VALUES (?,?,?,?,0,?,CURRENT_TIMESTAMP,?,?,?)", orderId, owner, key, hash, total, LocalDateTime.now().plusSeconds(paymentTimeoutSeconds),CommerceShopContext.id(),address);
         for (Map<String, Object> product : products) {
             long id = number(product.get("product_id"));
@@ -173,6 +182,8 @@ public class CommerceService {
                     orderId, id, product.get("product_code"), product.get("product_name"), product.get("product_specifications"), quantities.get(id), price, price.multiply(BigDecimal.valueOf(quantities.get(id))));
         }
         if (activity != null) jdbc.update("UPDATE commerce_order SET activity_id=? WHERE order_id=?", activity.get("activity_id"), orderId);
+        amounts.snapshot(orderId,quote);
+        if(skuCatalog!=null)skuCatalog.snapshot(orderId,quantities.keySet());
         stock.reserve(orderId, quantities, activity == null ? null : String.valueOf(activity.get("activity_id")));
         return detail(orderId, owner);
     }
@@ -351,6 +362,7 @@ public class CommerceService {
                     "bookStock",onHand,"onHand",onHand,"reservedStock",reserved,"activityStock",activity,
                     "unavailableStock",number(row.get("unavailable")),"availableStock",onHand-reserved-activity-number(row.get("unavailable")),"version",number(row.get("version")),"snapshotReady",row.get("snapshot_id")!=null));
         }
+        if(skuCatalog!=null)skuCatalog.enrich(result);
         return result;
     }
     @Transactional(readOnly=true)
@@ -407,15 +419,16 @@ public class CommerceService {
         int status = (int) number(row.get("status"));
         String[] names = {"待支付（本地沙箱）", "沙箱已支付·待发货", "已发货（演示登记）", "已收货", "已取消"};
         List<Map<String, Object>> items = new ArrayList<>();
+        Map<Long,Map<String,Object>> snapshots=skuCatalog==null?Collections.emptyMap():skuCatalog.orderSnapshots(id);
         for (Map<String,Object> item:lines) {
-            items.add(map("productId", item.get("product_id"), "productCode", item.get("product_code"), "productName", item.get("product_name"), "spec", item.get("spec"), "quantity", item.get("quantity"), "unitPrice", item.get("unit_price"), "amount", item.get("amount"), "cover", cover(String.valueOf(item.get("product_code")))));
+            items.add(map("productId", item.get("product_id"), "productCode", item.get("product_code"), "productName", item.get("product_name"), "spec", item.get("spec"), "quantity", item.get("quantity"), "unitPrice", item.get("unit_price"), "amount", item.get("amount"), "cover", cover(String.valueOf(item.get("product_code"))),"skuSnapshot",snapshots.get(number(item.get("product_id")))));
         }
         Map<String,Object> result=map("orderId", id, "tenantId", TenantContext.id(), "shopId",row.get("shop_id"), "activityId", row.get("activity_id"), "expiresAt", time(row.get("expires_at")), "closeReason", row.get("close_reason"), "status", status, "orderStatus", status, "statusName", names[status], "totalAmount", row.get("total_amount"), "createTime", time(row.get("create_time")), "paidTime", time(row.get("paid_time")), "shippedTime", time(row.get("shipped_time")), "receivedTime", time(row.get("received_time")), "cancelledTime", time(row.get("cancelled_time")), "transactionId", row.get("transaction_id"), "receiptId", row.get("receipt_id"), "carrier", row.get("carrier"), "trackingNo", row.get("tracking_no"), "shippingAddress",row.get("shipping_address")==null?null:JSON.parseObject(String.valueOf(row.get("shipping_address"))), "afterSalesId",row.get("after_sales_id"),"afterSalesStatus",row.get("after_sales_status"),"refundedAmount",row.get("refunded_amount"), "demo", true, "paymentProvider", "LOCAL_SANDBOX", "reservationActive", (status == 0 || status == 1) && !"REFUNDED".equals(row.get("after_sales_status")), "items", items);
         result.put("dispatchPromise",delivery.orderPromise(id));
         result.put("warehouseAllocations",warehouses.allocations(id));
         List<String> paymentIds=jdbc.queryForList("SELECT operation_id FROM commerce_payment_operation WHERE order_id=? AND kind='PAYMENT' ORDER BY CASE WHEN provider_reference=? THEN 0 WHEN local_status IN('PREPARED','PENDING','UNKNOWN','COMPENSATION_PENDING') THEN 1 ELSE 2 END,created_at DESC,operation_id DESC LIMIT 1",String.class,id,row.get("transaction_id"));
         if(!paymentIds.isEmpty()){Map<String,Object> payment=payments.detail(paymentIds.get(0));result.put("paymentOperation",payment);result.put("paymentOutcome",payment.get("outcome"));}
-        CommercePartialSupport.decorate(jdbc,result);return result;
+        CommercePartialSupport.decorate(jdbc,result);amounts.decorate(result);return result;
     }
 
     @Transactional(readOnly = true)
@@ -496,7 +509,7 @@ public class CommerceService {
         Map<String, Object> activity = activity(activityId, true);
         SortedMap<Long, Long> quantities = new TreeMap<>(); quantities.put(number(activity.get("product_id")), 1L);
         List<Map<String, Object>> old = jdbc.queryForList("SELECT * FROM commerce_order WHERE owner_id=? AND request_key=?", owner, requestKey);
-        if (!old.isEmpty()) { require(CommerceShopContext.id().equals(old.get(0).get("shop_id")) && shopHash(activityHash(quantities, activityId)).equals(old.get(0).get("request_hash")), "请求编号已用于其他订单", 409); require(Objects.equals(shippingSnapshot(request.get("shippingAddress"),false),old.get(0).get("shipping_address")),"同一请求编号不能更换收货地址",409); return shape(old.get(0)); }
+        if (!old.isEmpty()) { require(CommerceShopContext.id().equals(old.get(0).get("shop_id")) && shopHash(activityHash(quantities, activityId)).equals(old.get(0).get("request_hash")), "请求编号已用于其他订单", 409); require(Objects.equals(shippingSnapshot(request.get("shippingAddress"),false),old.get(0).get("shipping_address")),"同一请求编号不能更换收货地址",409); amounts.requireReplayPromotion(String.valueOf(old.get(0).get("order_id")),CommerceOrderAmountService.promotionSelection(request.get("promotionId"))); return shape(old.get(0)); }
         LocalDateTime now = LocalDateTime.now();
         require(!now.isBefore(dateTime(activity.get("starts_at"))) && now.isBefore(dateTime(activity.get("ends_at"))), "活动尚未开始或已结束", 409);
         require(number(activity.get("remaining")) > 0, "活动库存已抢完", 409);

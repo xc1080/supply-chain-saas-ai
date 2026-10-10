@@ -119,6 +119,7 @@
         </p>
       </section>
 
+      <section v-if="DEMO_MODE && !isCouponRush" class="block card-flat"><h3 class="block-title">订单金额</h3><CheckoutPricing v-model:promotion-id="promotionId" :quote="pricingQuote" :promotions="promotions" :loading="pricingLoading" :error="pricingError" :disabled="submitting" @retry="refreshPricing" /></section>
       <section class="block card-flat">
         <h3 class="block-title">{{ DEMO_MODE ? '本地支付沙箱' : '支付方式' }}</h3>
         <p v-if="DEMO_MODE">提交订单后预留库存，取消未付款订单会释放预留。可在订单详情模拟付款，不扣真钱；发货由供应链工作台处理。</p>
@@ -151,7 +152,7 @@
         class="btn-submit"
         round
         :loading="submitting"
-        :disabled="isCouponRush && payCountdownMs <= 0"
+        :disabled="(isCouponRush && payCountdownMs <= 0) || (DEMO_MODE && !isCouponRush && (pricingLoading || !pricingQuote))"
         @click="submit"
       >
         {{ submitButtonText }}
@@ -237,6 +238,7 @@ import LiquidGlassSurface from '@/components/common/LiquidGlassSurface.vue';
 import AddressCardBody from '@/components/business/AddressCardBody.vue';
 import ProductImage from '@/components/common/ProductImage.vue';
 import { useCheckoutPage } from '@/composables/useCheckoutPage';
+import CheckoutPricing from '@/components/business/CheckoutPricing.vue';
 
 const router = useRouter();
 
@@ -259,6 +261,7 @@ const {
   usableCoupons,
   selectedUserCouponId,
   couponDiscount,
+  promotions, promotionId, pricingQuote, pricingLoading, pricingError, refreshPricing,
   payableAmount,
   minPayAmountText,
   showMinPayTip,

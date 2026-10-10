@@ -17,6 +17,7 @@ from urllib.parse import quote, urlparse
 import httpx
 from fastapi import HTTPException
 from product_media import product_cover
+from sku_catalog import public_sku_catalog
 
 
 def owner_id(session: str) -> str:
@@ -28,23 +29,26 @@ def store_order(order: dict) -> dict:
     items = [{"orderItemId": order_id + ":" + str(item["productId"]),
               "productId": str(item["productId"]), "productName": item["productName"],
               "productCode": item["productCode"], "cover": product_cover(item["productCode"], item.get("cover")),
-              "propertyInfo": item["spec"], "itemAmount": float(item["unitPrice"]),
+              "propertyInfo": item["spec"], "skuSnapshot": public_sku_catalog(item.get("skuSnapshot")), "itemAmount": float(item["unitPrice"]),
+              "amountBreakdown": item.get("amountBreakdown"),
               "buyCount": int(item.get("orderedQuantity", item["quantity"])), "remark": "",
               **{key: item.get(key) for key in (
                   "orderedQuantity", "shippedQuantity", "returnedQuantity", "cancelledQuantity", "refundedQuantity",
                   "unshippedQuantity", "shippableQuantity", "afterSalesAvailableQuantity", "unshippedRefundAvailableQuantity", "returnAvailableQuantity")},
               "orderItemStatus": int(order["orderStatus"])} for item in order["items"]]
     total = float(order["totalAmount"])
+    breakdown = order.get("amountBreakdown") or {}
+    original = float(breakdown.get("originalAmount", total))
     shipping = order.get("shippingAddress") or {}
     return {**{key: order.get(key) for key in (
                 "activityId", "tenantId", "shopId", "expiresAt", "closeReason", "statusName", "paymentProvider", "paidTime", "shippedTime", "receivedTime",
                 "transactionId", "receiptId", "carrier", "trackingNo", "paymentOutcome", "afterSalesId", "afterSalesStatus", "refundedAmount",
                 "fulfillmentStatus", "shippedAmount", "returnedAmount", "shipments", "afterSales", "afterSalesCases",
-                "dispatchPromise", "paymentOperation", "refundOperation")},
+                "dispatchPromise", "paymentOperation", "refundOperation", "amountBreakdown", "amountSnapshotVersion")},
             "orderId": order_id, "payOrderId": order_id,
             "orderTime": order["createTime"], "createTime": order["createTime"],
             "orderStatus": int(order["orderStatus"]), "amount": total,
-            "originalAmount": total, "totalAmount": total, "goodsAmount": total, "payAmount": total,
+            "originalAmount": original, "totalAmount": total, "goodsAmount": original, "payAmount": total,
             "orderItemList": items, "shippingAddress": order.get("shippingAddress"),
             **{key: shipping.get(key, "") for key in ("addressId", "addressee", "phone", "address")},
             "afterSale": order.get("afterSale"), "availableActions": order.get("availableActions"),
@@ -140,10 +144,14 @@ class CommerceAPI:
         return store_order(await self.request("GET", "/commerce/orders/" + quote(order_id, safe=""),
                                               params={"ownerId": owner_id(session)}))
 
-    async def create(self, session, key, quantities, shipping_address):
+    async def create(self, session, key, quantities, shipping_address, selections=None, promotion_id=None):
+        selections = selections or {}
         return store_order(await self.request("POST", "/commerce/orders", body={
             "ownerId": owner_id(session), "requestKey": key, "shippingAddress": shipping_address,
-            "items": [{"productId": pid, "quantity": qty} for pid, qty in sorted(quantities.items())]}))
+            **({"promotionId": promotion_id} if promotion_id is not None else {}),
+            "items": [{"productId": pid, "quantity": qty,
+                       **({"propertyValueIds": selections[pid]} if pid in selections else {})}
+                      for pid, qty in sorted(quantities.items())]}))
 
     async def action(self, session, order_id, action, **extra):
         return store_order(await self.request("POST", "/commerce/orders/" + quote(order_id, safe="") + "/" + action,

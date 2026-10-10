@@ -8,6 +8,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 from business_catalog import profile_for
+from sku_catalog import property_data
 
 # Reuse the upstream implementation rather than approximating its ranking.
 SIMLECT_AGENT = Path(__file__).resolve().parent.parent / "Simlect-AI-Mall" / "Simlect-backend" / "Simlect-agent"
@@ -69,6 +70,9 @@ def lexical_similarity(query: str, text: str) -> float:
 def product_text(product: dict) -> str:
     # Only catalog attributes; no business customer/supplier objects.
     text = " ".join(str(product.get(k) or "") for k in ("name", "spec", "category", "remark"))
+    if product.get("skuCatalog"):
+        text += " " + str(product["skuCatalog"]["spuName"]) + " " + " ".join(
+            item["propertyName"] + " " + item["propertyValue"] for item in property_data(product))
     profile = profile_for(str(product.get("code", "")))
     if profile:
         text += " " + " ".join([profile["brand"], profile["model"], *profile.get("facts", [])])
@@ -80,7 +84,8 @@ def product_protocols(product: dict) -> set[str]:
     if profile:
         return set(profile.get("protocols", []))
     # A remark explaining a gateway must not turn Wi-Fi into Zigbee.
-    text = " ".join(str(product.get(k) or "") for k in ("name", "spec")).lower()
+    text = (" ".join(str(product.get(k) or "") for k in ("name", "spec")) + " " +
+            " ".join(item["propertyValue"] for item in property_data(product))).lower()
     text = re.sub(r"(?:无需|不用|不需要|无)[^，。；,;]{0,12}网关", "", text)
     return {key for key, aliases in PROTOCOLS.items() if any(alias in text for alias in aliases)}
 

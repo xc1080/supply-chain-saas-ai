@@ -8,6 +8,10 @@ export interface AgentConsultProduct {
 
   cover?: string;
 
+  productCode?: string;
+
+  spec?: string;
+
   minPrice?: number | string;
 
 }
@@ -46,11 +50,15 @@ export function buildProductConsultMessage(product: AgentConsultProduct): string
 
     cover: product.cover || '',
 
+    productCode: product.productCode || '',
+
+    spec: product.spec || '',
+
     minPrice: product.minPrice != null && product.minPrice !== '' ? Number(product.minPrice) : null
 
   });
 
-  const line = `【商品咨询】我想了解「${product.productName}」（商品编号：${product.productId}）`;
+  const line = `【商品咨询】我想了解「${product.productName}」（商品编号：${product.productId}${product.spec ? `，规格：${product.spec}` : ''}）`;
 
   return `${CARD_START}${payload}${CARD_END}\n${line}`;
 
@@ -93,6 +101,10 @@ export function parseProductConsultMessage(userMessage?: string | null): {
         productName: String(obj.productName),
 
         cover: obj.cover ? String(obj.cover) : undefined,
+
+        productCode: obj.productCode ? String(obj.productCode) : undefined,
+
+        spec: obj.spec ? String(obj.spec) : undefined,
 
         minPrice: obj.minPrice
 
@@ -145,6 +157,10 @@ export function loadAgentConsultProduct(userId?: string | null): AgentConsultPro
         productName: String(o.productName),
 
         cover: o.cover,
+
+        productCode: o.productCode,
+
+        spec: o.spec,
 
         minPrice: o.minPrice
 

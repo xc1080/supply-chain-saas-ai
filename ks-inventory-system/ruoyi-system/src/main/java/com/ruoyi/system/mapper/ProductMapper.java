@@ -46,6 +46,8 @@ public interface ProductMapper {
      */
     Product selectProductByProductName(String productName);
 
+    List<Product> selectProductsByCode(String productCode);
+
     /**
      * 货品资料新增
      */

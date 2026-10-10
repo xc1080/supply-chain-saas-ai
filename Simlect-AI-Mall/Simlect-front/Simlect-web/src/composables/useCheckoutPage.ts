@@ -1,6 +1,6 @@
-import { computed, onActivated, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onActivated, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { addressApi, couponApi, orderApi } from '@/api/modules';
+import { addressApi, couponApi, orderApi, pricingApi } from '@/api/modules';
 import {
   PAY_METHOD_ALIPAY_PC,
   PAY_METHOD_ALIPAY_WAP
@@ -91,6 +91,27 @@ export function useCheckoutPage(mode: CheckoutPageMode = 'mobile') {
   const couponLoading = ref(false);
   const couponList = ref<any[]>([]);
   const selectedUserCouponId = ref<string>('');
+  const promotions = ref<Record<string, any>[]>([]);
+  const promotionId = ref('');
+  const pricingQuote = ref<Record<string, any> | null>(null);
+  const pricingLoading = ref(false), pricingError = ref('');
+  let pricingGeneration = 0;
+  const refreshPricing = async () => {
+    if (!DEMO_MODE || isCouponRush.value || !items.value.length) return;
+    const current = ++pricingGeneration;
+    pricingLoading.value = true; pricingError.value = ''; pricingQuote.value = null;
+    try {
+      const result = await pricingApi.quote({ orderList: items.value.map(item => ({ productId: String(item.productId), buyCount: Math.min(99, Math.max(1, Math.trunc(Number(item.buyCount) || 1))) })), promotionId: promotionId.value || undefined });
+      if (current === pricingGeneration) pricingQuote.value = result;
+    } catch (failure: any) { if (current === pricingGeneration) pricingError.value = failure?.message || failure?.info || '订单金额读取失败，请重试'; }
+    finally { if (current === pricingGeneration) pricingLoading.value = false; }
+  };
+  const loadPricing = async () => {
+    try { promotions.value = await pricingApi.promotions() || []; }
+    catch (failure: any) { pricingError.value = failure?.message || failure?.info || '优惠读取失败'; }
+    await refreshPricing();
+  };
+  watch(promotionId, () => { void refreshPricing(); });
 
   const totalCount = computed(() =>
     items.value.reduce((sum, row) => sum + (Number(row.buyCount) || 0), 0)
@@ -148,9 +169,9 @@ export function useCheckoutPage(mode: CheckoutPageMode = 'mobile') {
     selectedCoupon.value ? calcCouponDiscount(selectedCoupon.value) : 0
   );
 
-  const payableAmount = computed(() =>
-    calcPayableAfterCoupon(goodsAmountNum.value, couponDiscount.value).toFixed(2)
-  );
+  const payableAmount = computed(() => DEMO_MODE && !isCouponRush.value
+    ? pricingQuote.value ? Number(pricingQuote.value.payableAmount).toFixed(2) : '—'
+    : calcPayableAfterCoupon(goodsAmountNum.value, couponDiscount.value).toFixed(2));
 
   const minPayAmountText = MIN_ORDER_PAY_AMOUNT.toFixed(2);
 
@@ -276,6 +297,7 @@ export function useCheckoutPage(mode: CheckoutPageMode = 'mobile') {
         couponRushMeta.value = null;
         await loadAddresses();
         if (!DEMO_MODE) loadCoupons();
+        else await loadPricing();
       }
     } catch (e: any) {
       initError.value = e?.info || '加载结账信息失败，请重试';
@@ -313,6 +335,8 @@ export function useCheckoutPage(mode: CheckoutPageMode = 'mobile') {
   };
 
   const submit = async () => {
+    if (submitting.value || pricingLoading.value) return;
+    if (DEMO_MODE && !isCouponRush.value && !pricingQuote.value) { await refreshPricing(); if (!pricingQuote.value) return; }
     if (!items.value.length) {
       toast.warning('没有可结算的商品');
       return;
@@ -338,6 +362,7 @@ export function useCheckoutPage(mode: CheckoutPageMode = 'mobile') {
     }
 
     const minPayHint = showMinPayTip.value ? `（已使用优惠券，最低实付 ¥${minPayAmountText}）` : '';
+    submitting.value = true;
     const confirmText = DEMO_MODE
       ? `共 ${totalCount.value} 件商品，合计 ¥${payableAmount.value}。提交后预留库存；在订单详情使用本地支付沙箱付款，不扣真钱。`
       : isCouponRush.value
@@ -347,7 +372,7 @@ export function useCheckoutPage(mode: CheckoutPageMode = 'mobile') {
       title: isCouponRush.value ? '去支付' : '提交订单',
       confirmButtonText: isCouponRush.value ? '去支付' : '提交订单'
     });
-    if (!ok) return;
+    if (!ok) { submitting.value = false; return; }
 
     submitting.value = true;
     try {
@@ -389,7 +414,7 @@ export function useCheckoutPage(mode: CheckoutPageMode = 'mobile') {
           ...(DEMO_MODE ? {} : { remark: item.remark?.trim() || remark.value.trim() || '' })
         }));
         payInfo = await orderApi.postOrder({
-          ...(DEMO_MODE ? { clientRequestId: clientRequestId.value } : {}),
+          ...(DEMO_MODE ? { clientRequestId: clientRequestId.value, promotionId: promotionId.value || undefined } : {}),
           payMethod: payMethod.value,
           addressId: addressId.value,
           orderFrom: orderFrom.value,
@@ -428,6 +453,7 @@ export function useCheckoutPage(mode: CheckoutPageMode = 'mobile') {
   onActivated(() => {
     if (!pageLoading.value && !isCouponRush.value && items.value.length) {
       void loadAddresses();
+      if (DEMO_MODE) void loadPricing();
     }
   });
 
@@ -460,6 +486,12 @@ export function useCheckoutPage(mode: CheckoutPageMode = 'mobile') {
     usableCoupons,
     selectedUserCouponId,
     couponDiscount,
+    promotions,
+    promotionId,
+    pricingQuote,
+    pricingLoading,
+    pricingError,
+    refreshPricing,
     payableAmount,
     minPayAmountText,
     showMinPayTip,

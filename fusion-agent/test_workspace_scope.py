@@ -13,12 +13,15 @@ from fastapi import HTTPException
 import main
 import planner
 
+ORDER = "SC20261011ABC"
+
 
 class WorkspaceScopeTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.env = patch.dict(os.environ, {"FUSION_AGENT_DB": str(Path(self.temp.name) / "runs.sqlite3"),
-            "FUSION_LLM_KEY": "", "AI_BAILIAN_API_KEY": "", "DEEPSEEK_API_KEY": "", "FUSION_EMBEDDING_KEY": ""})
+            "FUSION_LLM_KEY": "", "AI_BAILIAN_API_KEY": "", "DEEPSEEK_API_KEY": "", "FUSION_EMBEDDING_KEY": "",
+            "FUSION_DISABLED_TOOLS": ""})
         self.env.start()
         self.calls = []
         self.shops = [{"shopId": "east", "shopName": "东店", "status": "ENABLED", "capabilities": ["READ"]}]
@@ -49,6 +52,16 @@ class WorkspaceScopeTests(unittest.IsolatedAsyncioTestCase):
         elif request.url.path == "/commerce/planning/replenishment":
             self.assertEqual(request.headers.get("x-shop-id"), "east")
             value = {"items": []}
+        elif request.url.path == f"/commerce/settlements/orders/{ORDER}/stock-explanation":
+            self.assertEqual(request.headers.get("x-shop-id"), "east")
+            value = {"orderId": ORDER, "products": [], "warehouseEvents": [], "holds": []}
+        elif request.url.path == f"/commerce/settlements/orders/{ORDER}":
+            self.assertEqual(request.headers.get("x-shop-id"), "east")
+            value = {"orderId": ORDER, "currency": "CNY", "provider": "LOCAL_SANDBOX", "externalChannel": False,
+                "grossPaid": 199, "refundedAmount": 0, "netReceipts": 199, "netStockCost": 60,
+                "costComplete": True, "moneyComplete": True, "approvedExpenseAmount": 9,
+                "settledExpenseAmount": 9, "outstandingExpenseAmount": 0, "operatingResult": 130,
+                "resultStatus": "CLOSED", "expenses": []}
         else:
             self.fail("Workspace must not call legacy ERP or an unscoped endpoint: " + request.url.path)
         return httpx.Response(200, json={"code": 200, "data": value})
@@ -112,6 +125,120 @@ class WorkspaceScopeTests(unittest.IsolatedAsyncioTestCase):
                 await endpoint("saved", "Bearer human", None)
             self.assertEqual(error.exception.status_code, 403)
         self.assertEqual(planner.inspect_run("saved", "demo", planner.owner_key("workspace:88"))["status"], "COMPLETED")
+
+    async def completed_financial_run(self):
+        self.shops[0]["capabilities"] = ["READ", "REFUND_REVIEW"]
+        result = await main.chat(main.ChatRequest(message=f"分析订单 {ORDER} 的费用结算和库存流转", shopId="east"), "Bearer human")
+        self.assertEqual(result["businessPlan"]["type"], "ORDER_REVIEW")
+        self.assertEqual(result["businessPlan"]["facts"]["settlement"]["operatingResult"], 130)
+        self.assertEqual(planner.inspect_run(result["runId"], "demo", planner.owner_key("workspace:88"))["status"], "COMPLETED")
+        self.calls.clear()
+        return result
+
+    async def test_completed_financial_run_denies_inspection_and_resume_after_role_downgrade(self):
+        result = await self.completed_financial_run()
+        self.shops[0]["capabilities"] = ["READ"]
+        with patch.object(planner, "run_agent", new_callable=AsyncMock) as execute:
+            for endpoint in (main.inspect_agent, main.resume_agent):
+                with self.subTest(endpoint=endpoint.__name__):
+                    with self.assertRaises(HTTPException) as error:
+                        await endpoint(result["runId"], "Bearer human", "east")
+                    self.assertEqual(error.exception.status_code, 403)
+            execute.assert_not_called()
+        self.assertTrue(all(request.url.path in ("/commerce/context", "/commerce/shops") for request in self.calls))
+        self.assertEqual(planner.inspect_run(result["runId"], "demo", planner.owner_key("workspace:88"))["status"], "COMPLETED")
+
+    async def test_completed_financial_run_allows_either_current_finance_capability(self):
+        result = await self.completed_financial_run()
+        for capability in ("REFUND_REVIEW", "REFUND_EXECUTE"):
+            with self.subTest(capability=capability):
+                self.shops[0]["capabilities"] = ["READ", capability]
+                inspection = await main.inspect_agent(result["runId"], "Bearer human", "east")
+                self.assertEqual(inspection["status"], "COMPLETED")
+                restored = await main.resume_agent(result["runId"], "Bearer human", "east")
+                self.assertEqual(restored["businessPlan"], result["businessPlan"])
+        self.assertTrue(all(request.url.path in ("/commerce/context", "/commerce/shops") for request in self.calls))
+        self.assertTrue(all(request.method == "GET" for request in self.calls))
+
+    async def test_other_shop_finance_capability_cannot_authorize_cached_result(self):
+        result = await self.completed_financial_run()
+        self.shops = [{**self.shops[0], "capabilities": ["READ"]},
+                      {**self.shops[0], "shopId": "west", "capabilities": ["READ", "REFUND_EXECUTE"]}]
+        for endpoint in (main.inspect_agent, main.resume_agent):
+            with self.assertRaises(HTTPException) as error:
+                await endpoint(result["runId"], "Bearer human", "east")
+            self.assertEqual(error.exception.status_code, 403)
+
+    async def test_disabled_financial_tool_blocks_cached_inspection_and_resume(self):
+        result = await self.completed_financial_run()
+        with patch.dict(os.environ, {"FUSION_DISABLED_TOOLS": "read_order_stock, read_order_settlement"}):
+            for endpoint in (main.inspect_agent, main.resume_agent):
+                with self.assertRaises(HTTPException) as error:
+                    await endpoint(result["runId"], "Bearer human", None)
+                self.assertEqual(error.exception.status_code, 403)
+
+    async def test_cached_financial_plan_and_completed_tool_independently_require_finance(self):
+        result = await self.completed_financial_run()
+        row = planner.inspect_run(result["runId"], "demo", planner.owner_key("workspace:88"))
+        original = json.loads(row["state"])
+        self.shops[0]["capabilities"] = ["READ"]
+        for marker in ("plan", "completed", "result_completed"):
+            with self.subTest(marker=marker):
+                state = json.loads(json.dumps(original))
+                if marker != "plan":
+                    state["result"].pop("businessPlan", None)
+                if marker != "completed":
+                    state.pop("completed", None)
+                if marker != "result_completed":
+                    state["result"].pop("completed", None)
+                with planner.database() as connection:
+                    connection.execute("UPDATE agent_runs SET state=? WHERE run_id=?", (json.dumps(state), result["runId"]))
+                for endpoint in (main.inspect_agent, main.resume_agent):
+                    with self.assertRaises(HTTPException) as error:
+                        await endpoint(result["runId"], "Bearer human", None)
+                    self.assertEqual(error.exception.status_code, 403)
+
+    async def test_cached_finance_authority_failure_has_no_result_fallback(self):
+        result = await self.completed_financial_run()
+        for endpoint in (main.inspect_agent, main.resume_agent):
+            with self.subTest(endpoint=endpoint.__name__):
+                shop_reads = 0
+                def unavailable(request):
+                    nonlocal shop_reads
+                    if request.url.path == "/commerce/shops":
+                        shop_reads += 1
+                        if shop_reads == 2:
+                            return httpx.Response(500, json={"code": 500})
+                    return self.respond(request)
+                self.transport = httpx.MockTransport(unavailable)
+                with self.assertRaises(HTTPException) as error:
+                    await endpoint(result["runId"], "Bearer human", None)
+                self.assertEqual(error.exception.status_code, 502)
+                self.assertEqual(shop_reads, 2)
+
+    async def test_completed_nonfinancial_run_still_allows_read_only_member(self):
+        self.saved_run(status="COMPLETED")
+        with patch.dict(os.environ, {"FUSION_DISABLED_TOOLS": "read_order_settlement"}):
+            self.assertEqual((await main.inspect_agent("saved", "Bearer human", None))["status"], "COMPLETED")
+            self.assertEqual((await main.resume_agent("saved", "Bearer human", None))["answer"], "旧结果")
+
+    async def test_finance_role_revoked_between_authority_reads_denies_cached_result(self):
+        result = await self.completed_financial_run()
+        for endpoint in (main.inspect_agent, main.resume_agent):
+            with self.subTest(endpoint=endpoint.__name__):
+                shop_reads = 0
+                def revoked(request):
+                    nonlocal shop_reads
+                    if request.url.path == "/commerce/shops":
+                        shop_reads += 1
+                        capabilities = ["READ", "REFUND_REVIEW"] if shop_reads == 1 else ["READ"]
+                        return httpx.Response(200, json={"code": 200, "data": [{**self.shops[0], "capabilities": capabilities}]})
+                    return self.respond(request)
+                self.transport = httpx.MockTransport(revoked)
+                with self.assertRaises(HTTPException) as error:
+                    await endpoint(result["runId"], "Bearer human", None)
+                self.assertEqual(error.exception.status_code, 403)
+                self.assertEqual(shop_reads, 2)
 
     async def test_resume_header_cannot_switch_shop_or_claim_run(self):
         self.saved_run()

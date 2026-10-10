@@ -114,7 +114,7 @@
             <!-- [zh] 开始标签 `<div>` -->
             <div class="goods-price">
               <!-- [zh] 开始标签 `<span>` -->
-              <span class="price">¥{{ formatMoney(item.itemAmount) }}</span>
+              <span class="price"><template v-if="DEMO_MODE && item.amountBreakdown">原价 </template>¥{{ formatMoney(item.itemAmount) }}</span>
               <!-- [zh] 开始标签 `<span>` -->
               <span class="qty">×{{ item.buyCount }}</span>
             <!-- [zh] 闭合标签 `</div>` -->
@@ -169,11 +169,7 @@
 
       <section v-if="DEMO_MODE && order.shipments?.length" class="info-card card">
         <h3 class="section-title">分次发货</h3>
-        <div v-for="shipment in order.shipments" :key="shipment.shipmentId" class="shipment-record">
-          <strong>{{ shipment.carrier || '模拟物流' }} · {{ shipment.trackingNo }}</strong>
-          <p>{{ formatTime(shipment.createdAt) }} · 出库单 {{ shipment.receiptId }}</p>
-          <p v-for="line in shipment.items || []" :key="line.productId">{{ itemList.find(item => String(item.productId) === String(line.productId))?.productName || line.productId }} × {{ line.quantity }}</p>
-        </div>
+        <ShipmentTracking v-for="shipment in order.shipments" :key="shipment.shipmentId" :shipment="shipment" :items="itemList" />
       </section>
 
       <section v-if="DEMO_MODE && order.shippingAddress" class="info-card card">
@@ -217,6 +213,7 @@ import { toast } from '@/utils/toast';
 import { hasOrderCouponDiscount, orderCouponSummaryText } from '@/utils/orderAmount';
 import { demoOrderNote, paymentNeedsQuery, paymentState, paymentStatusLabel } from '@/utils/demoOrder';
 import OrderAfterSales from '@/components/business/OrderAfterSales.vue';
+import ShipmentTracking from '@/components/business/ShipmentTracking.vue';
 
 const route = useRoute();
 const router = useRouter();

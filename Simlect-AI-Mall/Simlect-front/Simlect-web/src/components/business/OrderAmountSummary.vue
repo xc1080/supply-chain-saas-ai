@@ -5,9 +5,9 @@
     <!-- [zh] 开始标签 `<div>` -->
     <div v-if="showOriginal" class="amount-row">
       <!-- [zh] 开始标签 `<span>` -->
-      <span class="label">{{ originalLabel }}</span>
+      <span class="label">{{ breakdown ? '商品原价' : originalLabel }}</span>
       <!-- [zh] 开始标签 `<span>` -->
-      <span class="value">¥{{ formatOrderMoney(order?.originalAmount) }}</span>
+      <span class="value">¥{{ formatOrderMoney(breakdown?.originalAmount ?? order?.originalAmount) }}</span>
     <!-- [zh] 闭合标签 `</div>` -->
     </div>
     <!-- [zh] 开始标签 `<div>` -->
@@ -15,17 +15,23 @@
       <!-- [zh] 开始标签 `<span>` -->
       <span class="label">{{ couponLabel }}</span>
       <!-- [zh] 开始标签 `<span>` -->
-      <span class="value">-¥{{ formatOrderMoney(order?.couponDiscountAmount) }}</span>
+      <span class="value">-¥{{ formatOrderMoney(breakdown?.discountAmount ?? order?.couponDiscountAmount) }}</span>
     <!-- [zh] 闭合标签 `</div>` -->
     </div>
     <!-- [zh] 开始标签 `<div>` -->
+    <div v-if="breakdown && !compact" class="amount-row"><span class="label">运费</span><span class="value">¥{{ formatOrderMoney(breakdown.shippingAmount) }}</span></div>
     <div class="amount-row pay">
       <!-- [zh] 开始标签 `<span>` -->
       <span class="label">{{ amountLabel }}</span>
       <!-- [zh] 开始标签 `<strong>` -->
-      <strong class="value pay-value">¥{{ formatOrderMoney(order?.amount) }}</strong>
+      <strong class="value pay-value">¥{{ formatOrderMoney(breakdown?.payableAmount ?? order?.amount) }}</strong>
     <!-- [zh] 闭合标签 `</div>` -->
     </div>
+    <template v-if="breakdown && !compact">
+      <div class="amount-row"><span class="label">实付</span><span class="value">¥{{ formatOrderMoney(breakdown.paidAmount) }}</span></div>
+      <div class="amount-row"><span class="label">已退</span><span class="value">¥{{ formatOrderMoney(breakdown.refundedAmount) }}</span></div>
+      <div class="amount-row"><span class="label">可退</span><span class="value">¥{{ formatOrderMoney(breakdown.refundableAmount) }}</span></div>
+    </template>
   <!-- [zh] 闭合标签 `</div>` -->
   </div>
 </template>
@@ -54,16 +60,19 @@ const props = withDefaults(
   }
 );
 
-const showCoupon = computed(() => hasOrderCouponDiscount(props.order));
+const breakdown = computed(() => props.order?.amountBreakdown);
+const showCoupon = computed(() => breakdown.value ? Number(breakdown.value.discountAmount) > 0 : hasOrderCouponDiscount(props.order));
 const amountLabel = computed(() => {
+  if (breakdown.value) return '应付';
   if (!DEMO_MODE) return props.payLabel;
   if (props.order?.legacy) return '历史参考金额';
   return [1, 2, 3].includes(Number(props.order?.orderStatus)) ? '沙箱付款金额' : '订单金额';
 });
 
-const showOriginal = computed(() => showCoupon.value);
+const showOriginal = computed(() => !!breakdown.value && !props.compact || showCoupon.value);
 
 const couponLabel = computed(() => {
+  if (breakdown.value) return props.order?.promotionTitle || '优惠';
   const summary = orderCouponSummaryText(props.order);
   return summary ? `优惠券：${summary}` : '优惠券';
 });

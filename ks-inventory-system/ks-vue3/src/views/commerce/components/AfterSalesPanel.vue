@@ -22,6 +22,9 @@
             <el-descriptions-item label="售后原因">{{ detail.reason }}</el-descriptions-item>
             <el-descriptions-item label="退款金额">{{ money(detail.refundAmount) }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.reviewNote" label="审核说明">{{ detail.reviewNote }}</el-descriptions-item>
+            <el-descriptions-item v-if="detail.kind === 'RETURN_REFUND'" label="寄回凭证">{{ detail.returnParcel?.registered ? `${detail.returnParcel.carrierCode} · ${detail.returnParcel.trackingNo}` : '顾客尚未登记' }}</el-descriptions-item>
+            <el-descriptions-item v-if="detail.returnParcel?.registeredAt" label="寄回登记时间">{{ detail.returnParcel.registeredAt }}</el-descriptions-item>
+            <el-descriptions-item v-if="detail.receiptEvidence" label="人工实收依据">{{ detail.receiptEvidence }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.returnReceiptId" label="退货入库单">{{ detail.returnReceiptId }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.returnCondition" label="验收结果">{{ conditionLabels[detail.returnCondition] || detail.returnCondition }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.refundId" label="沙箱退款凭证">{{ detail.refundId }}</el-descriptions-item>
@@ -50,8 +53,9 @@
       <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
       <p>请按实际商品状态选择验收结果。</p>
       <el-select v-model="returnCondition" placeholder="选择验收结果" aria-label="退货验收结果" :disabled="acting" style="width:100%"><el-option v-for="(label, value) in conditionLabels" :key="value" :value="value" :label="label" /></el-select>
+      <el-form v-if="requiresReceiptEvidence" label-position="top" style="margin-top:18px"><el-form-item label="人工实收依据" required><el-input v-model="receiptEvidence" type="textarea" :rows="2" maxlength="200" placeholder="填写实收凭证编号或验收依据" :disabled="acting" /></el-form-item></el-form>
       <p class="records">待质检与损坏商品入库后保持不可售，退款另行处理。</p>
-      <template #footer><el-button :disabled="acting" @click="acceptVisible = false">返回</el-button><el-button type="primary" :disabled="!returnCondition" :loading="acting" @click="submitReturn">确认验收并入库</el-button></template>
+      <template #footer><el-button :disabled="acting" @click="acceptVisible = false">返回</el-button><el-button type="primary" :disabled="!returnCondition || (requiresReceiptEvidence && !receiptEvidence.trim())" :loading="acting" @click="submitReturn">确认验收并入库</el-button></template>
     </el-dialog>
   </section>
 </template>
@@ -65,6 +69,10 @@ const emit = defineEmits(['updated'])
 const rows = ref([]), total = ref(0), page = ref(1), pageSize = ref(20), loading = ref(false), error = ref('')
 const visible = ref(false), detail = ref(null), detailLoading = ref(false), detailError = ref(''), acting = ref(false), note = ref('')
 const acceptVisible = ref(false), returnCondition = ref('')
+const receiptEvidence = ref('')
+const requiresReceiptEvidence = computed(() => !!detail.value?.returnEvidenceRequired && !detail.value?.returnParcel?.registered)
+let detailGeneration = 0
+let listGeneration = 0
 const conditionLabels = {SELLABLE:'完好可售',QUALITY_HOLD:'待质检',DAMAGED:'损坏'}
 const labels = {REQUESTED:'待审核',APPROVED:'待退款',AWAITING_RETURN:'待退货验收',RETURN_RECEIVED:'已验收，待退款',REFUNDED:'已退款',REJECTED:'已拒绝'}
 const outcomeLabels = {PREPARED:'请求待确认',PENDING:'退款处理中',UNKNOWN:'退款结果待确认',SUCCEEDED:'退款成功',FAILED:'退款失败'}
@@ -83,26 +91,28 @@ const money = value => new Intl.NumberFormat('zh-CN',{style:'currency',currency:
 const operationKeys = new Map()
 const keyFor = action => {const key = detail.value.afterSalesId + ':' + action;if (!operationKeys.has(key)) operationKeys.set(key,crypto.randomUUID());return operationKeys.get(key)}
 async function refresh() {
-  if (loading.value) return
+  const current = ++listGeneration
   loading.value = true; error.value = ''; const shop = props.shopId
-  try {const response = await listCommerceAfterSales({pageNum:page.value,pageSize:pageSize.value});if (shop !== props.shopId) return;rows.value = response.data.rows;total.value = Number(response.data.total)}
-  catch (failure) {if (shop === props.shopId) error.value = failure?.message || '售后记录读取失败'}
-  finally {loading.value = false;if (shop !== props.shopId) void refresh()}
+  try {const response = await listCommerceAfterSales({pageNum:page.value,pageSize:pageSize.value});if (shop !== props.shopId || current !== listGeneration) return;rows.value = response.data.rows;total.value = Number(response.data.total)}
+  catch (failure) {if (shop === props.shopId && current === listGeneration) error.value = failure?.message || '售后记录读取失败'}
+  finally {if (current === listGeneration) loading.value = false}
 }
 async function open(row) {
+  const current = ++detailGeneration
+  receiptEvidence.value = ''
   visible.value = true; detail.value = null; detailError.value = ''; note.value = ''; returnCondition.value = ''; acceptVisible.value = false; detailLoading.value = true; const shop = props.shopId
-  try {const response = await getCommerceAfterSales(row.afterSalesId);if (shop === props.shopId) detail.value = response.data}
-  catch (failure) {if (shop === props.shopId) detailError.value = failure?.message || '售后详情读取失败'}
-  finally {detailLoading.value = false}
+  try {const response = await getCommerceAfterSales(row.afterSalesId);if (shop === props.shopId && current === detailGeneration) detail.value = response.data}
+  catch (failure) {if (shop === props.shopId && current === detailGeneration) detailError.value = failure?.message || '售后详情读取失败'}
+  finally {if (current === detailGeneration) detailLoading.value = false}
 }
 async function perform(action, operation) {
   if (acting.value || !detail.value) return
-  acting.value = true; detailError.value = ''; const shop = props.shopId
-  try {await operation(keyFor(action));if (shop !== props.shopId) return;detail.value = (await getCommerceAfterSales(detail.value.afterSalesId)).data;ElMessage.success('处理结果已更新');emit('updated');await refresh()}
+  acting.value = true; detailError.value = ''; const shop = props.shopId, id = detail.value.afterSalesId, current = detailGeneration
+  try {await operation(keyFor(action));if (shop !== props.shopId || current !== detailGeneration) return;const response = await getCommerceAfterSales(id);if (shop !== props.shopId || current !== detailGeneration) return;detail.value = response.data;ElMessage.success('处理结果已更新');emit('updated');await refresh()}
   catch (failure) {
-    if (shop !== props.shopId) return
+    if (shop !== props.shopId || current !== detailGeneration) return
     detailError.value = failure?.message || '处理结果暂未确认，请重试原操作'
-    try {const response = await getCommerceAfterSales(detail.value.afterSalesId);if (shop === props.shopId) detail.value = response.data} catch {}
+    try {const response = await getCommerceAfterSales(id);if (shop === props.shopId && current === detailGeneration) detail.value = response.data} catch {}
   }
   finally {acting.value = false}
 }
@@ -117,8 +127,10 @@ async function acceptReturn() {
 }
 async function submitReturn() {
   if (!can('ACCEPT_RETURN') || !conditionLabels[returnCondition.value] || acting.value) return
+  if (requiresReceiptEvidence.value && !receiptEvidence.value.trim()) { detailError.value = '请填写人工实收依据'; return }
   const condition = returnCondition.value
-  await perform('accept-return-' + condition,requestKey => acceptCommerceReturn(detail.value.afterSalesId,{requestKey,condition}))
+  const evidence = receiptEvidence.value.trim()
+  await perform('accept-return-' + condition + ':' + evidence,requestKey => acceptCommerceReturn(detail.value.afterSalesId,{requestKey,condition,receiptEvidence:evidence || undefined}))
   if (detail.value?.status !== 'AWAITING_RETURN') acceptVisible.value = false
 }
 async function refund() {
@@ -130,7 +142,7 @@ async function queryRefund() {
   if (!can('QUERY_REFUND')) return
   await perform('query', () => queryCommercePayment(detail.value.refundOperation.operationId))
 }
-watch(() => props.shopId, () => {visible.value = false;acceptVisible.value = false;detail.value = null;rows.value = [];total.value = 0;page.value = 1;void refresh()})
+watch(() => props.shopId, () => {listGeneration++;detailGeneration++;visible.value = false;acceptVisible.value = false;detail.value = null;rows.value = [];total.value = 0;page.value = 1;void refresh()})
 onMounted(refresh)
 defineExpose({refresh})
 </script>

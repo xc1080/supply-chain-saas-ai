@@ -16,9 +16,16 @@ export function listCommerceInventory() {
   return request({ url: '/commerce/inventory', method: 'get' })
 }
 
+export const listCommerceSpus = () => request({ url: '/commerce/spus', method: 'get' })
+export const createCommerceSpu = data => request({ url: '/commerce/spus', method: 'post', data })
+export const appendCommerceSkus = (id, data) => request({ url: `/commerce/spus/${encodeURIComponent(id)}/skus`, method: 'post', data })
+
 export function shipCommerceOrder(orderId, data) {
   return request({ url: `/commerce/orders/${encodeURIComponent(orderId)}/ship`, method: 'post', data })
 }
+
+export const getCommerceShipmentTracking = (shopId, id) => baseRequest({ url: `/commerce/shipments/${encodeURIComponent(id)}/tracking`, method: 'get', headers: { 'X-Shop-ID': shopId } })
+export const addCommerceShipmentEvent = (shopId, id, data) => baseRequest({ url: `/commerce/shipments/${encodeURIComponent(id)}/tracking/sandbox-events`, method: 'post', headers: { 'X-Shop-ID': shopId }, data })
 
 export const getCommerceContext = () => request({ url: '/commerce/context', method: 'get' })
 export const listCommerceActivities = () => request({ url: '/commerce/activities', method: 'get' })

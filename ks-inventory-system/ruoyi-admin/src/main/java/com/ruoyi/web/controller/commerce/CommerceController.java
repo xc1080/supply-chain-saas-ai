@@ -100,6 +100,9 @@ public class CommerceController {
     @GetMapping("/after-sales/{afterSalesId}")
     @CommercePermission(customer=true,ownerScoped=true)
     public AjaxResult afterSalesDetail(@PathVariable String afterSalesId,@RequestParam(required=false) String ownerId) { return AjaxResult.success(afterSales.detail(afterSalesId,ownerId)); }
+    @PostMapping("/after-sales/{afterSalesId}/return-parcel")
+    @CommercePermission(value=CommerceCapability.FULFILMENT,customer=true,ownerScoped=true)
+    public AjaxResult registerAfterSalesReturn(@PathVariable String afterSalesId,@RequestBody Map<String,Object> body) { customerOwner(body); return AjaxResult.success(afterSales.registerReturnParcel(afterSalesId,body)); }
     @PostMapping("/after-sales/{afterSalesId}/review")
     @CommercePermission(CommerceCapability.REFUND_REVIEW)
     public AjaxResult reviewAfterSales(@PathVariable String afterSalesId,@RequestBody Map<String,Object> body) { return AjaxResult.success(afterSales.review(afterSalesId,body,SecurityUtils.getUserId())); }
@@ -155,7 +158,11 @@ public class CommerceController {
         for(Map<String,Object> stock:service.inventory()) {
             if(!java.util.Arrays.asList(1,1L,true,"1").contains(stock.get("listed")) || !"0".equals(String.valueOf(stock.get("productStatus"))) || !Boolean.TRUE.equals(stock.get("snapshotReady")))continue;
             Map<String,Object> row=new java.util.LinkedHashMap<>();
-            for(String key:java.util.Arrays.asList("productId","productCode","productName","cover","spec","price","description","categoryName","productStatus","listed","snapshotReady","availableStock"))row.put(key,stock.get(key));
+            for(String key:java.util.Arrays.asList("productId","productCode","productName","cover","spec","price","description","categoryName","productStatus","listed","snapshotReady","availableStock","skuCatalog"))row.put(key,stock.get(key));
+            if(row.get("skuCatalog") instanceof Map) {
+                Map<String,Object> publicSku=new java.util.LinkedHashMap<>((Map<String,Object>)row.get("skuCatalog"));
+                publicSku.remove("skuSignature");row.put("skuCatalog",publicSku);
+            }
             rows.add(row);
         }
         return AjaxResult.success(rows);
