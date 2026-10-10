@@ -3,7 +3,7 @@
 <mapper namespace="com.ruoyi.system.mapper.HeadOrderFormMapper">
 
     <resultMap type="HeadOrderForm" id="headOrderFormResult">
-        <result property="systematicOrderForm" column="systematic_order_form"/>
+        <id property="systematicOrderForm" column="systematic_order_form"/>
         <result property="originalOrderForm" column="original_order_form"/>
         <result property="orderFormType" column="order_form_type"/>
         <result property="orderFormStatus" column="order_form_status"/>
@@ -38,6 +38,7 @@
             <result property="retrievalName" column="retrieval_name"/>
         </collection>
         <collection property="details" ofType="DetailOrderForm">
+            <id property="systematicId" column="order_detail_id"/>
             <result property="systematicOrderForm" column="systematic_order_form"/>
             <result property="productId" column="product_id"/>
             <result property="productCode" column="product_code"/>
@@ -170,7 +171,7 @@
         hof.plan_receipt, hof.order_form_notes, hof.deposit, hof.order_form_amount, hof.order_capitalize_amount,
         hof.after_sales_installation, hof.finding_of_audit, hof.review_comments, hof.create_by, hof.create_time,
         hof.update_by, hof.update_time,
-        dof.systematic_order_form, dof.product_id, dof.warehousing_id, dof.retrieval_id, dof.supplier_id,
+        dof.systematic_id AS order_detail_id, dof.systematic_order_form, dof.product_id, dof.warehousing_id, dof.retrieval_id, dof.supplier_id,
         dof.customer_id,
         dof.current_inventory, dof.actual_inventory, dof.plan_quantity, dof.univalence, dof.discount, dof.money,
         dof.cost,

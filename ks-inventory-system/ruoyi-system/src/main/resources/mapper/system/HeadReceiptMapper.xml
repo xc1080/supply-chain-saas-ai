@@ -50,6 +50,7 @@
             <result property="retrievalName"            column="retrieval_name"/>
         </collection>
         <collection property="details" ofType="detailReceipt">
+            <id property="systematicId" column="receipt_detail_id"/>
             <result property="systematicReceipt"        column="systematic_receipt"/>
             <result property="productId"                column="product_id"/>
             <result property="productCode" column="product_code"/>
@@ -223,7 +224,7 @@
         hr.plan_receipt, hr.receipt_notes, hr.deposit, hr.total_amount, hr.capitalize_total_amount,
         hr.after_sales_installation, hr.finding_of_audit, hr.review_comments, hr.create_by, hr.create_time,
         hr.update_by, hr.update_time,
-        dr.systematic_receipt, dr.product_id, dr.warehousing_id, dr.retrieval_id, dr.supplier_id, dr.customer_id,
+        dr.systematic_id AS receipt_detail_id, dr.systematic_receipt, dr.product_id, dr.warehousing_id, dr.retrieval_id, dr.supplier_id, dr.customer_id,
         dr.current_inventory, dr.actual_inventory, dr.plan_quantity, dr.univalence, dr.discount, dr.money, dr.cost,
         dr.remarks, dr.product_specifications, dr.measure_unit,
         (SELECT w1.warehouse_name FROM warehouse w1 WHERE w1.warehouse_id = hr.warehousing_ids) AS warehousing_name,

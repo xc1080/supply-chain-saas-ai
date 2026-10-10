@@ -1,6 +1,6 @@
 <template>
   <!-- 采购订单制作 -->
-  <div class="app-container">
+  <div class="app-container" v-loading="detailLoading">
     <el-row :gutter="10">
       <el-col :span="24" :xs="24">
         <el-form
@@ -9,6 +9,7 @@
           :model="form"
           ref="orderRef"
           :rules="rules"
+          :disabled="isApprovedOrder || orderSubmitting || detailLoading"
         >
           <el-form-item label="系统单号" prop="systematicOrderForm" ref="ref1">
             <el-input
@@ -166,21 +167,6 @@
           <div v-if="finding">
             <el-divider />
             <el-form-item
-              label="采购入库单据"
-              prop="isWarehousing"
-              :disabled="['purchase:purchaseOrderProcessing:takeEffect']"
-              ref="ref12"
-            >
-              <el-radio-group class="form-item" v-model="form.isWarehousing">
-                <el-radio-button label="1" :value="1"
-                  >创建/更新</el-radio-button
-                >
-                <el-radio-button label="2" :value="2"
-                  >不创建/更新</el-radio-button
-                >
-              </el-radio-group>
-            </el-form-item>
-            <el-form-item
               label="审核结果"
               prop="findingOfAudit"
               :disabled="['purchase:purchaseOrderProcessing:takeEffect']"
@@ -214,6 +200,26 @@
             </el-form-item>
           </div>
         </el-form>
+        <section v-if="Number(form.orderFormStatus) === 2" class="purchase-progress">
+          <div class="purchase-progress-header">
+            <span>收货进度</span>
+            <div>
+              <el-button :loading="progressLoading" @click="loadProgress">刷新</el-button>
+              <el-button type="primary" :disabled="!canReceive || progressLoading" @click="openProcurementDialog('receipt')" v-hasPermi="['purchase:purchaseReceiptProcessing:save']">分批收货</el-button>
+              <el-button @click="openProcurementDialog('return')" v-hasPermi="['purchase:purchaseReceiptProcessing:save']">退给供应商</el-button>
+            </div>
+          </div>
+          <el-table :data="progressLines" v-loading="progressLoading" border row-key="purchaseLineId">
+            <el-table-column label="货品" min-width="240"><template #default="{ row }"><ProductIdentity :product="progressProduct(row)" /></template></el-table-column>
+            <el-table-column label="订购" prop="quantity" width="85" align="right" />
+            <el-table-column label="收货草稿" prop="draftReceived" width="100" align="right" />
+            <el-table-column label="已收货" prop="receivedQuantity" width="95" align="right" />
+            <el-table-column label="退供草稿" prop="draftReturned" width="100" align="right" />
+            <el-table-column label="已退供" prop="returnedQuantity" width="95" align="right" />
+            <el-table-column label="净收货" prop="netReceived" width="95" align="right" />
+            <el-table-column label="还可收货" prop="remainingToReceive" width="110" align="right" />
+          </el-table>
+        </section>
         <div>
           <div>
             <el-row :gutter="10">
@@ -245,6 +251,7 @@
                 <template #default="scope">
                   <el-select
                     v-model="scope.row.productCode"
+                    :disabled="isApprovedOrder || orderSubmitting"
                     placeholder="请输入货品编号"
                     @change="changeProduct(scope.$index, scope.row)"
                     filterable
@@ -272,6 +279,7 @@
                   <ProductIdentity :product="scope.row">
                   <el-select
                     v-model="scope.row.productName"
+                    :disabled="isApprovedOrder || orderSubmitting"
                     placeholder="请输入货品名称"
                     @change="changeProduct(scope.$index, scope.row)"
                     filterable
@@ -304,12 +312,13 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.productSpecifications"
+                    :disabled="isApprovedOrder || orderSubmitting"
                   ></el-input>
                 </template>
               </el-table-column>
               <el-table-column label="单位" align="center" prop="measureUnit">
                 <template #default="scope">
-                  <el-input v-model="scope.row.measureUnit"></el-input>
+                  <el-input v-model="scope.row.measureUnit" :disabled="isApprovedOrder || orderSubmitting"></el-input>
                 </template>
               </el-table-column>
               <el-table-column label="产地" align="center" prop="producer" />
@@ -327,6 +336,7 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.planQuantity"
+                    :disabled="isApprovedOrder || orderSubmitting"
                     @change="calculateDetails(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2')"
                   ></el-input>
@@ -341,6 +351,7 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.univalence"
+                    :disabled="isApprovedOrder || orderSubmitting"
                     @change="calculateDetails(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
@@ -355,6 +366,7 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.discount"
+                    :disabled="isApprovedOrder || orderSubmitting"
                     @change="calculateDetails(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
@@ -369,6 +381,7 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.money"
+                    :disabled="isApprovedOrder || orderSubmitting"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
                 </template>
@@ -382,13 +395,14 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.cost"
+                    :disabled="isApprovedOrder || orderSubmitting"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
                 </template>
               </el-table-column>
               <el-table-column label="备注" align="center" width="180">
                 <template #default="scope">
-                  <el-input v-model="scope.row.remarks"></el-input>
+                  <el-input v-model="scope.row.remarks" :disabled="isApprovedOrder || orderSubmitting"></el-input>
                 </template>
               </el-table-column>
               <el-table-column fixed="right" label="操作" align="center">
@@ -398,6 +412,7 @@
                     plain
                     round
                     @click="form.details.splice(scope.$index, 1)"
+                    :disabled="isApprovedOrder || orderSubmitting"
                     >删除</el-button
                   >
                 </template>
@@ -418,6 +433,7 @@
               icon="CirclePlus"
               round
               @click="addItem"
+              :disabled="isApprovedOrder || orderSubmitting"
               v-hasPermi="['purchase:purchaseOrderProcessing:detail']"
               >添加明细</el-button
             >
@@ -439,6 +455,8 @@
             >
             <el-button
               @click="submitForm"
+              :loading="orderSubmitting"
+              :disabled="isApprovedOrder"
               type="primary"
               icon="position"
               round
@@ -451,11 +469,12 @@
               type="success"
               icon="Check"
               round
-              :disabled="takeEffectBtn"
+              :disabled="takeEffectBtn || orderSubmitting"
               v-hasPermi="['purchase:purchaseOrderProcessing:takeEffect']"
               ref="ref20"
               >审核订单</el-button
             >
+            <el-button v-if="isApprovedOrder" type="warning" round :loading="orderSubmitting" :disabled="progressLoading || hasReceiptProgress" @click="reversePurchaseApproval" v-hasPermi="['purchase:purchaseOrderProcessing:takeEffect']">反审核</el-button>
             <el-button
               @click="printOut"
               color="#626aef"
@@ -501,6 +520,25 @@
       </el-col>
     </el-row>
   </div>
+
+  <el-dialog v-model="procurementDialogOpen" :title="procurementKind === 'receipt' ? '创建分批收货单' : '创建退供单'" width="min(860px, calc(100vw - 32px))" top="8vh" append-to-body :close-on-click-modal="false" :close-on-press-escape="!procurementSubmitting" :show-close="!procurementSubmitting">
+    <el-table :data="procurementRows" row-key="sourceKey" @selection-change="rows => procurementSelection = rows" ref="procurementTable" border>
+      <el-table-column type="selection" width="45" :selectable="row => row.limit > 0 && !procurementPending" :reserve-selection="true" />
+      <el-table-column label="货品" min-width="220"><template #default="{ row }"><ProductIdentity :product="progressProduct(row)" /></template></el-table-column>
+      <el-table-column v-if="procurementKind === 'return'" label="原入库单" prop="sourceReceiptId" min-width="160" />
+      <el-table-column label="仓库" width="110"><template #default="{ row }">{{ warehouseLabel(row.warehouseId) }}</template></el-table-column>
+      <el-table-column label="来源单价" width="110" align="right"><template #default="{ row }">¥{{ Number(row.unitPrice).toFixed(2) }}</template></el-table-column>
+      <el-table-column label="折扣" prop="discount" width="75" align="right" />
+      <el-table-column :label="procurementKind === 'receipt' ? '还可收货' : '可退数量'" prop="limit" width="100" align="right" />
+      <el-table-column :label="procurementKind === 'receipt' ? '本次收货' : '本次退供'" width="175">
+        <template #default="{ row }"><el-input-number v-model="row.selectedQuantity" :min="1" :max="Math.max(1, row.limit)" :precision="0" :step="1" step-strictly controls-position="right" :disabled="row.limit <= 0 || procurementSubmitting || Boolean(procurementPending)" style="width: 150px" /></template>
+      </el-table-column>
+    </el-table>
+    <template #footer>
+      <el-button :disabled="procurementSubmitting" @click="procurementDialogOpen = false">取消</el-button>
+      <el-button type="primary" :loading="procurementSubmitting" :disabled="!procurementSelection.length && !procurementPending" @click="submitProcurementDraft">{{ procurementPending ? '重试创建' : '创建草稿' }}</el-button>
+    </template>
+  </el-dialog>
 
   <!-- 添加供应商配置对话框 -->
   <el-dialog
@@ -893,12 +931,15 @@ import {
   getPurchaseOrder,
   savePurchaseOrder,
   delPurchaseOrder,
+  getPurchaseProgress,
+  createPurchaseReceipt,
+  getPurchaseReceiptSources,
+  createPurchaseReturn,
 } from "@/api/purchase/purchaseOrderProcessing";
-import { savePurchaseReceipt } from "@/api/purchase/purchaseDocumentProcessing";
 import { viewUrl } from "@/api/jimu/jiMuReport";
 import { randomId } from "@/utils/RandomUtils";
 import RMBConverter from "@/utils/RMBConverter";
-import { ref } from "vue";
+import { ref, computed, nextTick, watch } from "vue";
 
 const { proxy } = getCurrentInstance();
 const { finding_of_audit } = proxy.useDict("finding_of_audit");
@@ -918,6 +959,21 @@ const open = ref(false);
 const title = ref("");
 const openSupplier = ref(false);
 const titleSupplier = ref("");
+const progressLines = ref([]);
+const progressLoading = ref(false);
+const orderSubmitting = ref(false);
+const procurementDialogOpen = ref(false);
+const procurementKind = ref("receipt");
+const procurementRows = ref([]);
+const procurementSelection = ref([]);
+const procurementSubmitting = ref(false);
+const procurementTable = ref();
+const procurementRequestKeys = { receipt: null, return: null };
+const pendingDrafts = reactive({ receipt: null, return: null });
+const procurementPending = computed(() => pendingDrafts[procurementKind.value]);
+const canReceive = computed(() => progressLines.value.some(line => Number(line.remainingToReceive) > 0));
+const isApprovedOrder = computed(() => Number(form.value.orderFormStatus) === 2);
+const hasReceiptProgress = computed(() => progressLines.value.some(line => Number(line.draftReceived) > 0 || Number(line.receivedQuantity) > 0 || Number(line.draftReturned) > 0 || Number(line.returnedQuantity) > 0));
 
 const data = reactive({
   userOptions: undefined,
@@ -1065,7 +1121,20 @@ const {
   rules,
 } = toRefs(data);
 
+const detailLoading = ref(false);
+let detailLoadVersion = 0;
+function currentOrder(id, version = detailLoadVersion) {
+  return version === detailLoadVersion && proxy.$route.path === '/purchase/purchaseOrderProcessing'
+    && String(proxy.$route.query.systematicOrderForm || form.value.systematicOrderForm || '') === String(id || '');
+}
+function canSubmitOrder() {
+  return !detailLoading.value && currentOrder(form.value.systematicOrderForm);
+}
 function initialization() {
+  detailLoadVersion++;
+  detailLoading.value = false;
+  procurementDialogOpen.value = false;
+  progressLines.value = [];
   const { systematicOrderForm } = proxy.$route.query;
   if (systematicOrderForm) {
     loadDetail(systematicOrderForm);
@@ -1093,7 +1162,7 @@ async function getList() {
     userOptions.value = response.rows;
   });
   getUserProfile().then((response) => {
-    form.value.userIds = response.data.userId;
+    if (!proxy.$route.query.systematicOrderForm) form.value.userIds = response.data.userId;
   });
   optionReset();
 }
@@ -1118,94 +1187,107 @@ function cancel() {
 }
 /** 提交按钮 */
 function submitForm() {
+  if (!canSubmitOrder() || isApprovedOrder.value || orderSubmitting.value) return;
   proxy.$refs["orderRef"].validate(async (valid) => {
     if (form.value.details.length === 0) {
       proxy.$modal.msgError("货品明细不能为空");
+      return;
     } else if (!valid) {
       return;
     }
-    const details = form.value.details.map((it) => {
-      return {
-        systematicOrderForm: form.value.systematicOrderForm,
-        systematicReceipt: form.value.systematicReceipt,
-        productId: it.productId,
-        warehousingId: form.value.warehousingIds,
-        retrievalId: form.value.warehousingIds,
-        supplierId: form.value.supplierIds,
-        productSpecifications: it.productSpecifications,
-        measureUnit: it.measureUnit,
-        planQuantity: it.planQuantity,
-        univalence: it.univalence,
-        discount: it.discount,
-        money: it.money,
-        cost: it.cost,
-        remarks: it.remarks,
-      };
-    });
-    const reqs = { ...form.value, details };
-    await savePurchaseOrder(reqs);
-    proxy.$modal.msgSuccess("采购订单保存成功");
-    cancel();
+    if (!canSubmitOrder() || orderSubmitting.value) return;
+    orderSubmitting.value = true;
+    try {
+      await savePurchaseOrder({ ...form.value, details: orderDetails() });
+      proxy.$modal.msgSuccess("采购订单保存成功");
+      cancel();
+    } finally {
+      orderSubmitting.value = false;
+    }
   });
 }
 /** 审核按钮 */
 function takeEffectForm() {
+  if (!canSubmitOrder() || isApprovedOrder.value || orderSubmitting.value) return;
   proxy.$refs["orderRef"].validate(async (valid) => {
     if (form.value.details.length == 0) {
       proxy.$modal.msgError("货品明细不能为空");
+      return;
     } else if (!valid) {
       return;
     }
-    const details = form.value.details.map((it) => {
-      return {
-        systematicOrderForm: form.value.systematicOrderForm,
-        systematicReceipt: form.value.systematicReceipt,
-        productId: it.productId,
-        warehousingId: form.value.warehousingIds,
-        retrievalId: form.value.warehousingIds,
-        supplierId: form.value.supplierIds,
-        productSpecifications: it.productSpecifications,
-        measureUnit: it.measureUnit,
-        planQuantity: it.planQuantity,
-        univalence: it.univalence,
-        discount: it.discount,
-        money: it.money,
-        cost: it.cost,
-        remarks: it.remarks,
-      };
-    });
-    form.value.orderFormStatus = 2;
-    const reqs = { ...form.value, details };
-    await savePurchaseOrder(reqs);
-    if (form.value.isWarehousing === 1) {
-      form.value.findingOfAudit = null;
-      form.value.reviewComments = null;
-      await savePurchaseReceipt(reqs);
-      proxy.$modal.msgSuccess("采购入库单新增/更新成功");
+    if (!canSubmitOrder() || orderSubmitting.value) return;
+    orderSubmitting.value = true;
+    try {
+      await savePurchaseOrder({ ...form.value, orderFormStatus: 2, details: orderDetails() });
+      form.value.orderFormStatus = 2;
+      proxy.$modal.msgSuccess("采购订单审核成功");
+      loadDetail(form.value.systematicOrderForm);
+    } finally {
+      orderSubmitting.value = false;
     }
-    proxy.$modal.msgSuccess("采购订单审核成功");
-    cancel();
   });
 }
+
+function orderDetails() {
+  return form.value.details.map(it => ({
+    systematicOrderForm: form.value.systematicOrderForm,
+    purchaseLineId: it.purchaseLineId,
+    systematicId: it.systematicId,
+    productId: it.productId,
+    warehousingId: isApprovedOrder.value ? (it.warehousingId || form.value.warehousingIds) : form.value.warehousingIds,
+    retrievalId: isApprovedOrder.value ? (it.retrievalId || form.value.warehousingIds) : form.value.warehousingIds,
+    supplierId: isApprovedOrder.value ? (it.supplierId || form.value.supplierIds) : form.value.supplierIds,
+    productSpecifications: it.productSpecifications,
+    measureUnit: it.measureUnit,
+    planQuantity: it.planQuantity,
+    univalence: it.univalence,
+    discount: it.discount,
+    money: it.money,
+    cost: it.cost,
+    remarks: it.remarks,
+  }));
+}
+
+async function reversePurchaseApproval() {
+  if (!canSubmitOrder() || !isApprovedOrder.value || hasReceiptProgress.value || orderSubmitting.value) return;
+  try {
+    await proxy.$modal.confirm('确认反审核当前采购订单？');
+  } catch {
+    return;
+  }
+  orderSubmitting.value = true;
+  try {
+    await savePurchaseOrder({ ...form.value, orderFormStatus: 1, details: orderDetails() });
+    form.value.orderFormStatus = 1;
+    progressLines.value = [];
+    proxy.$modal.msgSuccess('采购订单已反审核');
+    loadDetail(form.value.systematicOrderForm);
+  } finally {
+    orderSubmitting.value = false;
+  }
+}
 function loadDetail(systematicOrderForm) {
+  const version = ++detailLoadVersion;
+  detailLoading.value = true;
   getPurchaseOrder(systematicOrderForm).then((response) => {
+    if (!currentOrder(systematicOrderForm, version) || !response.data) return;
     option.value.warehouseId = response.data.warehousingIds;
     listWarehouse(option.value).then((response) => {
+      if (!currentOrder(systematicOrderForm, version)) return;
       warehouseOptions.value = response.rows;
     });
     option.value.supplierId = response.data.supplierIds;
     listSupplier(option.value).then((response) => {
+      if (!currentOrder(systematicOrderForm, version)) return;
       supplierOptions.value = response.rows;
     });
     optionReset();
-    if (response.data.orderFormStatus === 1) {
-      takeEffect.value = true;
-    } else if (response.data.orderFormStatus === 2) {
-      takeEffectBtn.value = true;
-    }
+    takeEffect.value = Number(response.data.orderFormStatus) === 1;
+    takeEffectBtn.value = Number(response.data.orderFormStatus) === 2;
     printBtn.value = false;
     finding.value = true;
-    const details = response.data.details;
+    const details = response.data.details || [];
     const product = response.data.product;
     const map = {};
     (product || []).forEach((it) => {
@@ -1223,13 +1305,119 @@ function loadDetail(systematicOrderForm) {
       receiptNotes: response.data.orderFormNotes,
       totalAmount: response.data.orderFormAmount,
       capitalizeTotalAmount: response.data.orderCapitalizeAmount,
-      details,
+      details: details.map(line => ({ ...map[line.productId], ...line })),
     };
     form.value.warehousingIds = Number(response.data.warehousingIds);
     form.value.userIds = Number(response.data.userIds);
     form.value.supplierIds = Number(response.data.supplierIds);
-    form.value.isWarehousing = 1;
-  });
+    if (Number(form.value.orderFormStatus) === 2) {
+      loadProgress();
+    } else {
+      progressLines.value = [];
+    }
+  }).finally(() => { if (version === detailLoadVersion) detailLoading.value = false; });
+}
+
+async function loadProgress() {
+  const orderId = form.value.systematicOrderForm, version = detailLoadVersion;
+  if (!currentOrder(orderId, version)) return false;
+  progressLoading.value = true;
+  try {
+    const response = await getPurchaseProgress(orderId);
+    if (!currentOrder(orderId, version)) return false;
+    progressLines.value = (response.data.lines || []).map(line => ({ ...line,
+      draftReceived: line.draftReceived ?? line.draftReceiptQuantity ?? 0,
+      draftReturned: line.draftReturned ?? line.draftReturnQuantity ?? 0,
+      netReceived: line.netReceived ?? (Number(line.receivedQuantity) - Number(line.returnedQuantity)),
+    }));
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (version === detailLoadVersion) progressLoading.value = false;
+  }
+}
+
+function progressProduct(line) {
+  const detail = form.value.details.find(item => item.purchaseLineId === (line.purchaseLineId || line.sourcePurchaseLineId))
+    || form.value.details.find(item => item.productId === line.productId);
+  return { ...detail, ...line };
+}
+
+function warehouseLabel(warehouseId) {
+  return warehouseOptions.value?.find(item => String(item.warehouseId) === String(warehouseId))?.warehouseName || warehouseId || '—';
+}
+
+async function openProcurementDialog(kind) {
+  if (!canSubmitOrder()) return;
+  const orderId = form.value.systematicOrderForm, version = detailLoadVersion;
+  if (pendingDrafts[kind] && pendingDrafts[kind].orderId !== orderId) {
+    pendingDrafts[kind] = null;
+    procurementRequestKeys[kind] = null;
+  }
+  procurementKind.value = kind;
+  if (pendingDrafts[kind]) {
+    procurementRows.value = pendingDrafts[kind].rows;
+    procurementSelection.value = pendingDrafts[kind].selection;
+  } else {
+    let lines;
+    if (kind === 'receipt') {
+      if (!await loadProgress()) return;
+      lines = progressLines.value;
+    } else {
+      const response = await getPurchaseReceiptSources(orderId);
+      if (!currentOrder(orderId, version)) return;
+      lines = response.data || [];
+    }
+    procurementRows.value = lines.map(line => {
+      const limit = Number(kind === 'receipt' ? line.remainingToReceive : line.availableReturnQuantity);
+      return { ...line, sourceKey: kind === 'receipt' ? line.purchaseLineId : line.sourceReceiptLineId,
+        limit, selectedQuantity: limit > 0 ? limit : 1 };
+    });
+    procurementSelection.value = [];
+  }
+  procurementDialogOpen.value = true;
+  await nextTick();
+  procurementTable.value?.clearSelection();
+  if (pendingDrafts[kind]) {
+    pendingDrafts[kind].selection.forEach(row => procurementTable.value?.toggleRowSelection(row, true));
+  }
+}
+
+async function submitProcurementDraft() {
+  if (!canSubmitOrder() || procurementSubmitting.value) return;
+  const kind = procurementKind.value;
+  if (!pendingDrafts[kind]) {
+    if (!procurementSelection.value.length) return;
+    if (procurementSelection.value.some(row => !Number.isInteger(row.selectedQuantity) || row.selectedQuantity <= 0 || row.selectedQuantity > row.limit)) {
+      proxy.$modal.msgError('数量需为剩余额度内的正整数');
+      return;
+    }
+    procurementRequestKeys[kind] ||= crypto.randomUUID();
+    const items = procurementSelection.value.map(row => kind === 'receipt'
+      ? { purchaseLineId: row.purchaseLineId, quantity: row.selectedQuantity, warehouseId: row.warehouseId }
+      : { sourceReceiptLineId: row.sourceReceiptLineId, quantity: row.selectedQuantity });
+    pendingDrafts[kind] = { orderId: form.value.systematicOrderForm, request: { requestKey: procurementRequestKeys[kind], items },
+      rows: procurementRows.value, selection: [...procurementSelection.value] };
+  }
+  procurementSubmitting.value = true;
+  try {
+    const create = kind === 'receipt' ? createPurchaseReceipt : createPurchaseReturn;
+    const orderId = pendingDrafts[kind].orderId;
+    const response = await create(orderId, pendingDrafts[kind].request);
+    const receiptId = response.data.receiptId;
+    pendingDrafts[kind] = null;
+    procurementRequestKeys[kind] = null;
+    procurementDialogOpen.value = false;
+    if (!currentOrder(orderId)) return;
+    proxy.$modal.msgSuccess(kind === 'receipt' ? '收货草稿已创建' : '退供草稿已创建');
+    await router.push({ path: '/purchase/purchaseDocumentProcessing', query: { systematicReceipt: receiptId } });
+  } catch (error) {
+    // 明确的业务拒绝允许调整数量；网络断开或超时保留同一请求和幂等键重试。
+    if (!error?.config || error?.response) pendingDrafts[kind] = null;
+  } finally {
+    procurementSubmitting.value = false;
+  }
 }
 //自定义合计行
 function getSummaries(param) {
@@ -1242,7 +1430,13 @@ function getSummaries(param) {
     }
 
     if (column.property !== undefined) {
-      const values = data.map((item) => Number(item[column.property]));
+      if (!['inventoryQty', 'planQuantity', 'money', 'cost'].includes(column.property)) {
+        sums[index] = '';
+        return;
+      }
+      const rows = column.property === 'inventoryQty'
+        ? [...new Map(data.map(item => [String(item.productId), item])).values()] : data;
+      const values = rows.map((item) => Number(item[column.property]));
       if (!values.every((value) => isNaN(value))) {
         sums[index] = values.reduce((prev, curr) => {
           const value = Number(curr);
@@ -1273,6 +1467,9 @@ function getSummaries(param) {
 }
 // 表单重置
 function reset() {
+  progressLines.value = [];
+  pendingDrafts.receipt = pendingDrafts.return = null;
+  procurementRequestKeys.receipt = procurementRequestKeys.return = null;
   form.value = {
     systematicOrderForm: "CR-" + randomId(),
     originalOrderForm: null,
@@ -1358,7 +1555,9 @@ function addItem() {
 }
 // 选择货品
 function changeProduct(index, row) {
+  const stableLine = { purchaseLineId: row.purchaseLineId, systematicId: row.systematicId };
   form.value.details[index] = {
+    ...stableLine,
     productId: null,
     productCode: null,
     productName: null,
@@ -1381,6 +1580,7 @@ function changeProduct(index, row) {
     }
   });
   form.value.details[index] = {
+    ...stableLine,
     systematicOrderForm: form.value.systematicOrderForm,
     systematicReceipt: form.value.systematicReceipt,
     productId: lists.productId,
@@ -1597,6 +1797,9 @@ function remoteProductName(query) {
   }
 }
 
+watch(() => [proxy.$route.path, proxy.$route.query.systematicOrderForm], () => {
+  if (proxy.$route.path === '/purchase/purchaseOrderProcessing') initialization();
+});
 initialization();
 getList();
 </script>
@@ -1609,4 +1812,9 @@ getList();
 .footer {
   text-align: center;
 }
+
+.purchase-progress { margin: 12px 0 24px; }
+.purchase-progress-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; margin-bottom: 12px; }
+.purchase-progress-header > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.purchase-progress-header :deep(.el-button + .el-button) { margin-left: 0; }
 </style>

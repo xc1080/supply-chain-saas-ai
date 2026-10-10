@@ -16,6 +16,20 @@ public class DetailReceipt extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
 
+    private Long systematicId;
+    private String purchaseReceiptLineId;
+    private String sourcePurchaseLineId;
+    private String sourceReceiptLineId;
+
+    public Long getSystematicId() { return systematicId; }
+    public void setSystematicId(Long value) { systematicId = value; }
+    public String getPurchaseReceiptLineId() { return purchaseReceiptLineId; }
+    public void setPurchaseReceiptLineId(String value) { purchaseReceiptLineId = value; }
+    public String getSourcePurchaseLineId() { return sourcePurchaseLineId; }
+    public void setSourcePurchaseLineId(String value) { sourcePurchaseLineId = value; }
+    public String getSourceReceiptLineId() { return sourceReceiptLineId; }
+    public void setSourceReceiptLineId(String value) { sourceReceiptLineId = value; }
+
     /**
      * 系统单号
      */

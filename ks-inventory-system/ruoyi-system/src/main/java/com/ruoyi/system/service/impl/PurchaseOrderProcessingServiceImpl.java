@@ -6,6 +6,7 @@ import com.ruoyi.common.core.domain.entity.OrderFrom;
 import com.ruoyi.system.mapper.DetailOrderFormMapper;
 import com.ruoyi.system.mapper.HeadOrderFormMapper;
 import com.ruoyi.system.service.PurchaseOrderProcessingService;
+import com.ruoyi.system.service.CommerceProcurementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,9 @@ import java.util.List;
 @Service
 public class PurchaseOrderProcessingServiceImpl implements PurchaseOrderProcessingService {
 
+    @Autowired(required = false)
+    private CommerceProcurementService procurement;
+
     @Autowired
     private HeadOrderFormMapper headOrderFormMapper;
 
@@ -32,7 +36,9 @@ public class PurchaseOrderProcessingServiceImpl implements PurchaseOrderProcessi
      */
     @Override
     public HeadOrderForm selectPurchaseOrderFormById(String systematicOrderForm) {
-        return headOrderFormMapper.selectHeadOrderFormById(systematicOrderForm);
+        HeadOrderForm order = headOrderFormMapper.selectHeadOrderFormById(systematicOrderForm);
+        if (procurement != null) procurement.enrichOrder(order);
+        return order;
     }
 
     /**
@@ -40,7 +46,9 @@ public class PurchaseOrderProcessingServiceImpl implements PurchaseOrderProcessi
      * @return 保存采购订单信息
      */
     @Override
+    @Transactional
     public int savePurchaseOrderForm(OrderFrom bo) {
+        if (procurement != null) return procurement.saveOrder(bo);
         long count = headOrderFormMapper.selectHeadOrderFormByCount(bo).size();
         List<DetailOrderForm> detail = bo.getDetails();
         if (count == 0) {
@@ -61,6 +69,7 @@ public class PurchaseOrderProcessingServiceImpl implements PurchaseOrderProcessi
     @Override
     @Transactional
     public int delPurchaseOrderForm(List<DetailOrderForm> bo) {
+        if (procurement != null) return procurement.deleteOrders(bo);
         detailOrderFormMapper.delDetailOrderForm(bo);
         return headOrderFormMapper.delHeadOrderForm(bo);
     }

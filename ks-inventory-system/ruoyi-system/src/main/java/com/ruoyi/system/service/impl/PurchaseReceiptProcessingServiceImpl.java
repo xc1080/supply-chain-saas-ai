@@ -11,6 +11,7 @@ import com.ruoyi.system.service.PurchaseReceiptProcessingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.system.service.CommerceReceiptInventoryGuard;
+import com.ruoyi.system.service.CommerceProcurementService;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -22,6 +23,9 @@ import java.util.List;
  */
 @Service
 public class PurchaseReceiptProcessingServiceImpl implements PurchaseReceiptProcessingService {
+
+    @Autowired(required = false)
+    private CommerceProcurementService procurement;
 
     @Autowired(required = false)
     private CommerceReceiptInventoryGuard commerceInventoryGuard;
@@ -44,7 +48,9 @@ public class PurchaseReceiptProcessingServiceImpl implements PurchaseReceiptProc
      */
     @Override
     public HeadReceipt selectPurchaseOrderById(String systematicReceipt) {
-        return headReceiptMapper.selectHeadReceiptById(systematicReceipt);
+        HeadReceipt receipt = headReceiptMapper.selectHeadReceiptById(systematicReceipt);
+        if (procurement != null) procurement.enrichReceipt(receipt);
+        return receipt;
     }
 
     /**

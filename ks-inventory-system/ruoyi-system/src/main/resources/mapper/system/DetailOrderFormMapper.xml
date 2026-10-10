@@ -3,6 +3,7 @@
 <mapper namespace="com.ruoyi.system.mapper.DetailOrderFormMapper">
 
     <resultMap type="DetailOrderForm" id="detailOrderFormResult">
+        <id property="systematicId" column="order_detail_id"/>
         <result property="systematicOrderForm" column="systematic_order_form"/>
         <result property="productId" column="product_id"/>
         <result property="warehousingId" column="warehousing_id"/>
@@ -82,7 +83,7 @@
     <!--    单据明细单查询      -->
     <select id="selectDetailOrderFormQuery" parameterType="DetailOrderForm" resultMap="detailOrderFormResult">
         SELECT
-        dof.systematic_order_form, dof.product_id, dof.warehousing_id, dof.retrieval_id, dof.supplier_id,
+        dof.systematic_id AS order_detail_id, dof.systematic_order_form, dof.product_id, dof.warehousing_id, dof.retrieval_id, dof.supplier_id,
         dof.customer_id,
         dof.plan_quantity, dof.univalence, dof.discount, dof.money, dof.cost,
         dof.remarks, dof.product_specifications, dof.measure_unit,
@@ -153,8 +154,9 @@
         cost,
         remarks
         )
-        <foreach collection="list" index="index" item="item" separator="union all">
-            select
+        VALUES
+        <foreach collection="list" index="index" item="item" separator=",">
+            (
             #{item.systematicOrderForm,jdbcType=VARCHAR},
             #{item.productId,jdbcType=VARCHAR},
             #{item.warehousingId,jdbcType=VARCHAR},
@@ -169,7 +171,7 @@
             #{item.money,jdbcType=VARCHAR},
             #{item.cost,jdbcType=VARCHAR},
             #{item.remarks,jdbcType=VARCHAR}
-            from dual
+            )
         </foreach>
     </insert>
 

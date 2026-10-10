@@ -211,4 +211,27 @@ public class CommerceSupplyFlowTest {
         assertEquals(stockEvents,(long)fixture.jdbc.queryForObject("SELECT COUNT(*) FROM commerce_stock_ledger",Long.class));
         assertEquals(20L,fixture.stock.balances(1).get("availableStock"));
     }
+    @Test public void concurrentErpReceiptMustCommitBeforeExecutionRechecksDemand() throws Exception {
+        String id=(String)draft("race-with-receipt",10).get("draftId");review(id,"APPROVE","race-reviewed",3);
+        ExecutorService pool=Executors.newFixedThreadPool(2);
+        CountDownLatch posted=new CountDownLatch(1),release=new CountDownLatch(1),started=new CountDownLatch(1);
+        try {
+            Future<?> receipt=pool.submit(()->fixture.f.transaction(()->{
+                fixture.jdbc.queryForList("SELECT product_id FROM product WHERE product_id=1 FOR UPDATE");
+                postReceipt("ERP-CONCURRENT-FILLED",10);posted.countDown();
+                try { assertTrue(release.await(5,TimeUnit.SECONDS)); } catch(InterruptedException ex) {throw new RuntimeException(ex);}
+                return null;
+            }));
+            assertTrue(posted.await(2,TimeUnit.SECONDS));
+            Future<?> execute=pool.submit(()->{started.countDown();denied(409,()->fixture.f.transaction(()->fixture.planning.executeDraft(id,execution("race-exec"),1)));});
+            assertTrue(started.await(2,TimeUnit.SECONDS));
+            try {execute.get(200,TimeUnit.MILLISECONDS);fail("Execution must wait for the concurrent receipt's SKU lock");}
+            catch(TimeoutException waiting) { /* The persisted stock is not visible until the receipt commits. */ }
+            release.countDown();receipt.get(3,TimeUnit.SECONDS);execute.get(3,TimeUnit.SECONDS);
+            assertEquals(0L,(long)fixture.jdbc.queryForObject("SELECT COUNT(*) FROM commerce_incoming",Long.class));
+            assertEquals(0L,(long)fixture.jdbc.queryForObject("SELECT COUNT(*) FROM commerce_supply_command WHERE command_kind='EXECUTE'",Long.class));
+            assertEquals("APPROVED",fixture.jdbc.queryForObject("SELECT status FROM commerce_replenishment_draft WHERE draft_id=?",String.class,id));
+            assertEquals(20L,fixture.stock.balances(1).get("availableStock"));
+        } finally {release.countDown();pool.shutdownNow();}
+    }
 }

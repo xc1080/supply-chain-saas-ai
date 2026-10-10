@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.sql.DataSource;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 
 /** Warehouse commitments are subordinate to the existing order/product transaction locks. */
@@ -115,7 +117,13 @@ public class CommerceWarehouseAllocationService {
      * commitments unless they hold spare room. Fails when no warehouse can absorb what no longer fits.
      */
     public void followMove(long product, Map<Long,Long> capacityAfter, SortedSet<Long> incoming) {
+        followMove(product,capacityAfter,incoming,null);
+    }
+
+    /** Reference joins both sides of a relocation to the triggering ERP document(s). */
+    public void followMove(long product, Map<Long,Long> capacityAfter, SortedSet<Long> incoming,String reference) {
         transaction();
+        String movementReference=movementReference(reference);
         SortedSet<Long> candidates=new TreeSet<>(capacityAfter.keySet());
         candidates.addAll(jdbc.queryForList("SELECT DISTINCT warehouse_id FROM commerce_warehouse_allocation WHERE product_id=?",Long.class,product));
         Map<Long,Long> shortage=new TreeMap<>(),spare=new TreeMap<>();
@@ -134,7 +142,7 @@ public class CommerceWarehouseAllocationService {
             long need=deficit.getValue();
             for(Long target:targets) {
                 long take=Math.min(need,spare.get(target));if(take==0)continue;
-                move(product,deficit.getKey(),target,take);
+                move(product,deficit.getKey(),target,take,movementReference);
                 spare.put(target,spare.get(target)-take);need-=take;if(need==0)break;
             }
             require(need==0,ENCROACH_MESSAGE,409);
@@ -142,18 +150,32 @@ public class CommerceWarehouseAllocationService {
     }
 
     /** Moves unshipped commitment off one warehouse onto another, oldest order first. Caller holds the product lock. */
-    private void move(long product,long from,long to,long quantity) {
+    private void move(long product,long from,long to,long quantity,String reference) {
         long remaining=quantity;
-        String event="REBALANCE:"+UUID.randomUUID().toString().replace("-","");
+        String event="MOVE:"+reference+":"+UUID.randomUUID().toString().replace("-","");
         for(Map<String,Object> row:jdbc.queryForList("SELECT order_id,quantity,shipped,released FROM commerce_warehouse_allocation WHERE product_id=? AND warehouse_id=? ORDER BY order_id",product,from)) {
             long take=Math.min(remaining,num(row.get("quantity"))-num(row.get("shipped"))-num(row.get("released")));if(take<=0)continue;
             String order=String.valueOf(row.get("order_id"));
             jdbc.update("UPDATE commerce_warehouse_allocation SET quantity=quantity-?,updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND product_id=? AND warehouse_id=?",take,order,product,from);
             jdbc.update("INSERT INTO commerce_warehouse_allocation(order_id,product_id,warehouse_id,quantity,created_at,updated_at) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE quantity=quantity+VALUES(quantity),updated_at=CURRENT_TIMESTAMP",order,product,to,take);
-            jdbc.update("INSERT INTO commerce_warehouse_allocation_event(event_key,order_id,product_id,warehouse_id,event_type,quantity,created_at) VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)",event+":"+order,order,product,to,"REBALANCE",take);
+            // Quantities stay positive; direction and a common key make the reservation journal balanced.
+            record(order,product,from,event+":"+order,"MOVE_OUT",take);
+            record(order,product,to,event+":"+order,"MOVE_IN",take);
             remaining-=take;if(remaining==0)break;
         }
         require(remaining==0,ENCROACH_MESSAGE,409);
+    }
+
+    private static String movementReference(String reference) {
+        if(reference==null)return "UNREFERENCED";
+        require(!reference.isEmpty()&&reference.length()<=4000&&reference.matches("[A-Za-z0-9_:,\\-]+"),"仓占用迁移单据关联无效",400);
+        if(reference.length()<=80)return reference;
+        // A batch deletion can name 100 receipts; retain its first IDs plus a hash of the complete list.
+        try {
+            byte[] bytes=MessageDigest.getInstance("SHA-256").digest(reference.getBytes(StandardCharsets.UTF_8));StringBuilder digest=new StringBuilder();
+            for(int i=0;i<16;i++)digest.append(String.format("%02x",bytes[i]&255));
+            return reference.substring(0,47)+":"+digest;
+        }catch(java.security.NoSuchAlgorithmException failure){throw new IllegalStateException(failure);}
     }
 
     @Transactional(readOnly=true)
