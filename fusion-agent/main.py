@@ -655,7 +655,8 @@ async def health():
         row["lastSuccess"] is None or row["lastFailure"] > row["lastSuccess"]) for row in cleanup.values())
     return {"status": "ok" if dependencies['redis_ai_admission']=='ok' and not cleanup_failed else "degraded", "dependencies": dependencies,
             "maintenance": cleanup,
-            "java_url": JAVA_URL, "llm_configured": bool(llm_key()), "embedding_configured": bool(embedding_key()), "flow": ["plan", "read_only_tools", "verify", "answer"], "retrieval": "hybrid" if embedding_key() else "local", "writes": False}
+            "java_url": JAVA_URL, "llm_configured": bool(llm_key()), "embedding_configured": bool(embedding_key()), "flow": ["plan", "read_only_tools", "verify", "answer"], "retrieval": "hybrid" if embedding_key() else "local",
+            "chat_tool_writes": False, "business_tasks": {"persistent_proposals": True, "autonomous_execution": False, "authority": "Java"}}
 
 
 @app.post("/chat")

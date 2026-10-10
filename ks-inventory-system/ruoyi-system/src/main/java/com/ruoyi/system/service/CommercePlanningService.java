@@ -352,6 +352,12 @@ public class CommercePlanningService {
         require(jdbc.queryForObject("SELECT COUNT(*) FROM warehouse WHERE warehouse_id=?",Long.class,warehouse)>0,"仓库不存在",404);
         List<Map<String,Object>> lines=jdbc.queryForList("SELECT * FROM commerce_supply_line WHERE draft_id=? ORDER BY product_id FOR UPDATE",draft);
         require(!lines.isEmpty(),"草稿没有可执行的商品行",409);
+        // ERP posting, checkout and returns use the same SKU lock. Hold it until
+        // the confirmed incoming is committed, so demand cannot change between
+        // the last check and execution. All SKU locks are acquired in ID order.
+        SortedSet<Long> products=new TreeSet<>();
+        for(Map<String,Object> line:lines)products.add(n(line.get("product_id")));
+        for(Long product:products)require(!jdbc.queryForList("SELECT product_id FROM product WHERE product_id=? FOR UPDATE",product).isEmpty(),"货品不存在",404);
         // Approval reserves a procurement gap, but a separately registered
         // supplier batch or posted receipt can fill that gap before execution.
         // Validate the entire draft before writing any confirmed batch. Exact

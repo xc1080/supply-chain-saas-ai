@@ -127,4 +127,15 @@ public class CommerceAgentTaskServiceTest {
             resume.countDown();assertEquals("EXECUTED",execution.get(5,TimeUnit.SECONDS).get("status"));receipt.get(5,TimeUnit.SECONDS);assertEquals(11L,fixture.stock.balances(1).get("bookStock"));assertEquals(1,count("commerce_incoming"));
         } finally {resume.countDown();workers.shutdownNow();}
     }
+    @Test public void sameTimestampAndScrambledEventIdsStillReturnBusinessTransitionOrder(){
+        String id=id(create("audit-order",10));approve(id,1,"audit-review-v1");incoming("audit-supply-change",4);
+        fixture.f.transaction(()->tasks.refresh(id,map("requestKey","audit-refresh"),1));approve(id,2,"audit-review-v2");fixture.f.transaction(()->tasks.execute(id,execution("audit-execute",2),1));
+        // The injected fixed clock gives all task events one timestamp. Force
+        // reverse UUID lexical order to prove timestamps/IDs cannot determine it.
+        for(Object[] event:Arrays.asList(new Object[]{1,"CREATED","z-created"},new Object[]{1,"APPROVED","y-approved-v1"},new Object[]{2,"REPLANNED","x-replanned"},new Object[]{2,"APPROVED","w-approved-v2"},new Object[]{2,"EXECUTED","a-executed"}))
+            fixture.jdbc.update("UPDATE commerce_agent_task_event SET event_id=? WHERE task_id=? AND plan_version=? AND action=?",event[2],id,event[0],event[1]);
+        assertEquals(1L,(long)fixture.jdbc.queryForObject("SELECT COUNT(DISTINCT created_at) FROM commerce_agent_task_event WHERE task_id=?",Long.class,id));
+        List<String> transitions=new ArrayList<>();for(Object raw:(List<?>)tasks.get(id,1).get("events")){Map<?,?> event=(Map<?,?>)raw;transitions.add(((Number)event.get("planVersion")).longValue()+":"+event.get("action"));}
+        assertEquals(Arrays.asList("1:CREATED","1:APPROVED","2:REPLANNED","2:APPROVED","2:EXECUTED"),transitions);
+    }
 }

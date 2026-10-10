@@ -5,6 +5,7 @@ import com.ruoyi.common.core.domain.entity.HeadOrderForm;
 import com.ruoyi.system.mapper.DetailOrderFormMapper;
 import com.ruoyi.system.mapper.HeadOrderFormMapper;
 import com.ruoyi.system.service.PurchaseOrderQueryService;
+import com.ruoyi.system.service.CommerceProcurementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,9 @@ import java.util.List;
  */
 @Service
 public class PurchaseOrderQueryServiceImpl implements PurchaseOrderQueryService {
+
+    @Autowired(required = false)
+    private CommerceProcurementService procurement;
 
     @Autowired
     private HeadOrderFormMapper headOrderFormMapper;
@@ -50,7 +54,9 @@ public class PurchaseOrderQueryServiceImpl implements PurchaseOrderQueryService 
      */
     @Override
     public HeadOrderForm selectPurchaseOrderFormById(String systematicOrderForm) {
-        return headOrderFormMapper.selectHeadOrderFormById(systematicOrderForm);
+        HeadOrderForm order = headOrderFormMapper.selectHeadOrderFormById(systematicOrderForm);
+        if (procurement != null) procurement.enrichOrder(order);
+        return order;
     }
 
     /**
@@ -60,6 +66,7 @@ public class PurchaseOrderQueryServiceImpl implements PurchaseOrderQueryService 
     @Override
     @Transactional
     public int delPurchaseOrderForm(List<DetailOrderForm> bo) {
+        if (procurement != null) return procurement.deleteOrders(bo);
         detailOrderFormMapper.delDetailOrderForm(bo);
         return headOrderFormMapper.delHeadOrderForm(bo);
     }

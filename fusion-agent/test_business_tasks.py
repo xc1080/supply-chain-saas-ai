@@ -12,9 +12,9 @@ from business_tasks import proposals, propose_targets, build_business_task_route
 
 def business_plan():
     return {"type": "MERCHANT_REPLENISHMENT", "items": [
-        {"productId": 1, "productName": "Lamp", "suggestedQuantity": 8, "leadTimeKnown": True, "supplierLeadDays": 3},
-        {"productId": 2, "productName": "Hub", "suggestedQuantity": 0},
-        {"productId": 3, "productName": "Sensor", "suggestedQuantity": 1500}]}
+        {"productId": 1, "productCode": "LAB-LAMP", "productName": "Lamp", "suggestedQuantity": 8, "leadTimeKnown": True, "supplierLeadDays": 3},
+        {"productId": 2, "productCode": "LAB-HUB", "productName": "Hub", "suggestedQuantity": 0},
+        {"productId": 3, "productCode": "LAB-SENSOR", "productName": "Sensor", "suggestedQuantity": 1500}]}
 
 
 def service(key=""):
@@ -29,6 +29,11 @@ class ProposalTests(unittest.IsolatedAsyncioTestCase):
         items, mode = await propose_targets(service(), "补货建议", business_plan())
         self.assertEqual(mode, "rules")
         self.assertEqual(items, [{"productId": 1, "quantity": 8}, {"productId": 3, "quantity": 999}])
+        items, mode = await propose_targets(service(), "仅为商品编码 LAB-LAMP 创建补货任务，最多采购2件", business_plan())
+        self.assertEqual(items, [{"productId": 1, "quantity": 2}])
+        with self.assertRaises(HTTPException) as error:
+            await propose_targets(service(), "仅为 LAB-HUB 创建采购任务", business_plan())
+        self.assertEqual(error.exception.status_code, 409)
 
     async def test_actual_model_selection_is_preserved_as_task_proposal(self):
         response = httpx.Response(200, request=httpx.Request("POST", "https://provider.invalid"),
@@ -38,6 +43,25 @@ class ProposalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((items, mode), ([{"productId": 1, "quantity": 2}], "model"))
         self.assertEqual(call.call_args.kwargs["operation"], "procurement_proposal")
         self.assertNotIn("private-provider-key", json.dumps(items))
+
+    async def test_rules_total_limit_applies_across_multiple_skus(self):
+        items, mode = await propose_targets(service(), "创建补货任务，最多采购2件", business_plan())
+        self.assertEqual(mode, "rules")
+        self.assertLessEqual(sum(row["quantity"] for row in items), 2)
+        plan = business_plan();plan["items"][0]["suggestedQuantity"] = 1
+        items, _ = await propose_targets(service(), "创建补货任务，最多采购2件", plan)
+        self.assertEqual(items, [{"productId": 1, "quantity": 1}, {"productId": 3, "quantity": 1}])
+
+    async def test_model_total_limit_rejects_two_individually_valid_skus(self):
+        response = httpx.Response(200, request=httpx.Request("POST", "https://provider.invalid"),
+                                  json={"choices": [{"message": {"content": json.dumps({"items": [
+                                      {"productId": 1, "quantity": 2}, {"productId": 3, "quantity": 2}]})}}]})
+        with patch("business_tasks.provider_post", new=AsyncMock(return_value=response)) as call:
+            with self.assertRaises(HTTPException) as caught:
+                await propose_targets(service("key"), "创建补货任务，最多采购2件", business_plan())
+        self.assertEqual(caught.exception.status_code, 502)
+        payload = json.loads(call.call_args.kwargs["json"]["messages"][1]["content"])
+        self.assertEqual(payload["maxTotalQuantity"], 2)
 
     async def test_model_cannot_add_products_exceed_quantity_or_hide_action(self):
         for items in [[{"productId": 8, "quantity": 1}], [{"productId": 1, "quantity": 9}],

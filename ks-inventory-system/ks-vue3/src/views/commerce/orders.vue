@@ -54,8 +54,14 @@
     </section>
 
     <AfterSalesPanel v-if="workbenchSection === 'orders'" ref="afterSalesPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
-    <ReplenishmentPanel v-if="workbenchSection === 'supply'" ref="replenishmentPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" :member-role="currentShop?.memberRole || ''" @updated="refreshAll" />
-    <DurableAgentTaskPanel v-if="workbenchSection === 'supply'" ref="agentTaskPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" @updated="refreshAll" />
+    <template v-if="workbenchSection === 'supply'">
+      <nav class="commerce-supply-navigation" aria-label="采购工作区">
+        <button type="button" :aria-pressed="supplyView === 'tasks'" @click="selectSupplyView('tasks')">规划任务</button>
+        <button type="button" :aria-pressed="supplyView === 'stock'" @click="selectSupplyView('stock')">备货与供货</button>
+      </nav>
+      <div v-if="supplyView === 'tasks'" class="commerce-section commerce-task-section"><DurableAgentTaskPanel ref="agentTaskPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" @updated="refreshAll" /></div>
+      <ReplenishmentPanel v-else ref="replenishmentPanel" :shop-id="shopId" :capabilities="capabilities" :user-id="userId" :member-role="currentShop?.memberRole || ''" @updated="refreshAll" />
+    </template>
     <CostReconciliationPanel v-if="workbenchSection === 'finance' && hasCapability('REFUND_REVIEW')" ref="costPanel" :shop-id="shopId" :capabilities="capabilities" @updated="refreshAll" />
 
     <section v-show="workbenchSection === 'inventory'" class="commerce-section" aria-labelledby="commerce-inventory-title">
@@ -101,7 +107,7 @@
         <el-table-column label="在库" prop="onHand" align="right" />
         <el-table-column label="订单占用" prop="orderReserved" align="right" />
         <el-table-column label="质检 / 损坏" prop="unavailable" align="right" />
-        <el-table-column label="未占用" prop="uncommitted" align="right" />
+        <el-table-column label="未被订单占用" prop="uncommitted" align="right" min-width="120" />
       </el-table>
     </el-drawer>
     <el-drawer v-model="ledgerVisible" :title="ledgerProduct.productName + ' · 库存流水'" size="min(760px, 100vw)">
@@ -159,7 +165,7 @@
           <el-option v-for="warehouse in shipmentWarehouses" :key="warehouse" :value="warehouse" :label="'仓库 ' + warehouse" />
         </el-select>
         <el-table :data="shipmentOrder.items || []" v-loading="shipmentLoading" style="margin-top:16px">
-          <el-table-column label="商品" min-width="240"><template #default="scope"><div class="commerce-product"><img :src="getProductImage(scope.row)" :alt="scope.row.productName" @error="handleProductImageError($event, scope.row)" /><div><strong>{{ scope.row.productName }}</strong><span>本仓可发 {{ warehouseShippable(scope.row) }} · 已发 {{ scope.row.shippedQuantity || 0 }}</span></div></div></template></el-table-column>
+          <el-table-column label="商品" min-width="240"><template #default="scope"><div class="commerce-product"><img :src="getProductImage(scope.row)" :alt="scope.row.productName" @error="handleProductImageError($event, scope.row)" /><div><strong>{{ scope.row.productName }}</strong><span>{{ shipmentWarehouse ? '本仓可发' : '可发' }} {{ warehouseShippable(scope.row) }} · 已发 {{ scope.row.shippedQuantity || 0 }}</span></div></div></template></el-table-column>
           <el-table-column label="本次发货" width="165"><template #default="scope"><el-input-number v-model="shipmentQuantities[String(scope.row.productId)]" :min="0" :max="warehouseShippable(scope.row)" :precision="0" size="small" :disabled="!!shippingId || shipmentLoading" :aria-label="`${scope.row.productName}本次发货数量`" /></template></el-table-column>
         </el-table>
         <el-form ref="shipmentFormRef" :model="shipmentForm" :rules="shipmentRules" label-position="top" class="commerce-shipment-form">
@@ -236,6 +242,12 @@ const workbenchSections = computed(() => [
   ...(hasCapability('REFUND_REVIEW') ? [{ id: 'finance', label: '成本与对账' }] : []),
   { id: 'activities', label: '活动' }
 ])
+const supplyView = ref('tasks')
+async function selectSupplyView(value) {
+  supplyView.value = value
+  await nextTick()
+  await refreshAll()
+}
 async function selectWorkbench(section) {
   workbenchSection.value = section
   await router.replace({ query: { ...route.query, section } })
@@ -524,6 +536,11 @@ onUnmounted(stopSync)
 .commerce-navigation button { padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--sc-muted); font: inherit; cursor: pointer; }
 .commerce-navigation button[aria-pressed="true"] { color: var(--sc-text); font-weight: 600; border-bottom-color: var(--el-color-primary); }
 .commerce-navigation button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: -2px; }
+.commerce-supply-navigation { display: flex; gap: 8px; margin-bottom: 16px; }
+.commerce-supply-navigation button { padding: 8px 16px; border: 1px solid var(--sc-border); border-radius: 6px; background: var(--sc-surface); color: var(--sc-muted); font: inherit; cursor: pointer; }
+.commerce-supply-navigation button[aria-pressed="true"] { border-color: var(--el-color-primary); color: var(--el-color-primary); }
+.commerce-supply-navigation button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 2px; }
+.commerce-task-section :deep(.agent-tasks) { margin-top: 0; padding-top: 0; border-top: 0; }
 .commerce-heading h1 { margin: 0 0 8px; font-size: 25px; font-weight: 650; }
 .commerce-heading p, .commerce-section-heading p { margin: 0; color: var(--sc-muted); line-height: 1.7; }
 .commerce-sync-note { display: block; margin-top: 5px; color: var(--sc-muted); font-size: 12px; }

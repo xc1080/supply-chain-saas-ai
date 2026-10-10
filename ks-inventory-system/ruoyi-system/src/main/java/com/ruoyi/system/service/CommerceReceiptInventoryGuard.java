@@ -31,6 +31,8 @@ public class CommerceReceiptInventoryGuard {
     private final CommerceWarehouseAllocationService allocations;
     private CommerceCostService costs;
     @Autowired public void configureCosts(CommerceCostService costs) { this.costs=costs; }
+    private CommerceProcurementService procurement;
+    @Autowired public void configureProcurement(CommerceProcurementService procurement) { this.procurement=procurement; }
     private long costActor() { try { return SecurityUtils.getUserId(); } catch(ServiceException missing) { return 0L; } }
 
     public CommerceReceiptInventoryGuard(DataSource source, CommerceInventoryService inventory,
@@ -52,6 +54,7 @@ public class CommerceReceiptInventoryGuard {
         canonicalize(receipt);
         List<String> ids = Collections.singletonList(id);
         lockReceipts(ids);
+        if (procurement != null) procurement.validateReceipt(receipt);
         Map<Key, Long> before = persistedEffects(ids);
         Map<Key, Long> after = inputEffects(receipt);
         SortedSet<Long> products = productIds(before, after);
@@ -65,12 +68,13 @@ public class CommerceReceiptInventoryGuard {
         Map<Long, List<Map<String,Object>>> warehouses = lockStock(products, warehouseIds);
         validateCounting(receipt, before, warehouses);
         Map<Key, Long> changes = subtract(after, before);
-        validateChanges(changes, warehouses);
+        validateChanges(changes, warehouses, "SAVE:" + id);
         List<DetailReceipt> identifiers = Collections.singletonList(identifier(id));
         boolean existed = jdbc.queryForObject("SELECT COUNT(*) FROM head_receipt WHERE systematic_receipt=?", Long.class, id) > 0;
         details.delDetailReceipt(identifiers);
         details.addDetailReceipt(receipt.getDetails());
         if (existed) heads.updateHeadReceipt(receipt); else heads.addHeadReceipt(receipt);
+        if (procurement != null) procurement.afterReceiptSaved(receipt);
         apply(changes, warehouses, id, id, "SAVE");
         synchronizeTracked(products, "ERP_SAVE:" + id);
         if(costs!=null)costs.recordProcurementReceipt(id,costActor());
@@ -87,17 +91,19 @@ public class CommerceReceiptInventoryGuard {
         }
         List<String> ids = new ArrayList<>(receipts);
         lockReceipts(ids);
+        if (procurement != null) procurement.validateDeleteReceipts(ids);
         Map<Key, Long> before = persistedEffects(ids);
         SortedSet<Long> products = productIds(before, Collections.emptyMap());
         Map<Long, List<Map<String,Object>>> warehouses = lockStock(products, warehouseIds(before, Collections.emptyMap()));
         Map<Key, Long> changes = subtract(Collections.emptyMap(), before);
-        validateChanges(changes, warehouses);
+        validateChanges(changes, warehouses, "DELETE:" + String.join(",",ids));
         List<DetailReceipt> identifiers = new ArrayList<>();
         for (String id : ids) identifiers.add(identifier(id));
         // Retain the warehouse reversal journal even when the legacy UI deletes receipt rows.
         apply(changes, warehouses, ids.get(0), String.join(",", ids), "DELETE");
         details.delDetailReceipt(identifiers);
         heads.delHeadReceipt(identifiers);
+        if (procurement != null) procurement.afterReceiptsDeleted(ids);
         synchronizeTracked(products, "ERP_DELETE:" + ids.get(0));
         if(costs!=null)for(String id:ids)costs.reverseProcurementReceipt(id,costActor());
         return 1;
@@ -252,7 +258,7 @@ public class CommerceReceiptInventoryGuard {
         return warehouses;
     }
 
-    private void validateChanges(Map<Key,Long> changes, Map<Long,List<Map<String,Object>>> warehouses) {
+    private void validateChanges(Map<Key,Long> changes, Map<Long,List<Map<String,Object>>> warehouses,String reference) {
         Map<Long,Long> productDeltas = new TreeMap<>();
         for (Map.Entry<Key,Long> entry : changes.entrySet()) {
             if (entry.getValue() == 0) continue;
@@ -288,7 +294,7 @@ public class CommerceReceiptInventoryGuard {
             }
         }
         for (Map.Entry<Long,Map<Long,Long>> entry : relocations.entrySet())
-            allocations.followMove(entry.getKey(),entry.getValue(),incoming.getOrDefault(entry.getKey(),new TreeSet<>()));
+            allocations.followMove(entry.getKey(),entry.getValue(),incoming.getOrDefault(entry.getKey(),new TreeSet<>()),reference);
     }
 
     private void validateCounting(ReceiptFrom receipt, Map<Key,Long> before, Map<Long,List<Map<String,Object>>> warehouses) {

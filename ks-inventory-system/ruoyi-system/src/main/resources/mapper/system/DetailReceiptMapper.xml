@@ -3,6 +3,7 @@
 <mapper namespace="com.ruoyi.system.mapper.DetailReceiptMapper">
 
     <resultMap type="DetailReceipt"                 id="detailReceiptResult">
+        <result property="systematicId" column="receipt_detail_id"/>
         <result property="systematicReceipt"        column="systematic_receipt"/>
         <result property="productId"                column="product_id"/>
         <result property="warehousingId"            column="warehousing_id"/>
@@ -348,8 +349,9 @@
         cost,
         remarks
         )
-        <foreach collection="list" index="index" item="item" separator="union all">
-            select
+        VALUES
+        <foreach collection="list" index="index" item="item" separator=",">
+            (
             #{item.systematicReceipt,jdbcType=VARCHAR},
             #{item.productId,jdbcType=VARCHAR},
             #{item.warehousingId,jdbcType=VARCHAR},
@@ -366,7 +368,7 @@
             #{item.money,jdbcType=VARCHAR},
             #{item.cost,jdbcType=VARCHAR},
             #{item.remarks,jdbcType=VARCHAR}
-            from dual
+            )
         </foreach>
     </insert>
 

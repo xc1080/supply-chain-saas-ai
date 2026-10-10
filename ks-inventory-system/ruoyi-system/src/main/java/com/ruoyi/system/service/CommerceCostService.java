@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -38,18 +39,31 @@ public class CommerceCostService {
         script.setSqlScriptEncoding("UTF-8");script.execute(source);
     }
 
+    /** V12 extension; the already-applied V10 resource stays byte-for-byte unchanged. */
+    public void initializeProcurementSchema() {
+        ResourceDatabasePopulator script=new ResourceDatabasePopulator(new ClassPathResource("db/commerce-procurement-cost.sql"));
+        script.setSqlScriptEncoding("UTF-8");script.execute(source);
+    }
+
     /** Call after ERP SAVE, including an approved -> draft transition. Drafts create no purchase. */
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public void recordProcurementReceipt(String receiptId,long actor) {
         receiptId=id(receiptId,32,"入库单号");
         List<Map<String,Object>> heads=jdbc.queryForList("SELECT receipt_category,receipt_type,receipt_status FROM head_receipt WHERE systematic_receipt=?",receiptId);
+        if(!heads.isEmpty()&&"1".equals(String.valueOf(heads.get(0).get("receipt_category")))
+                &&"2".equals(String.valueOf(heads.get(0).get("receipt_type")))&&"2".equals(String.valueOf(heads.get(0).get("receipt_status")))) {
+            recordSupplierReturn(receiptId,actor);return;
+        }
         boolean posted=!heads.isEmpty()&&"1".equals(String.valueOf(heads.get(0).get("receipt_category")))
                 &&"1".equals(String.valueOf(heads.get(0).get("receipt_type")))&&"2".equals(String.valueOf(heads.get(0).get("receipt_status")));
         if(!posted){reverseProcurementReceipt(receiptId,actor);return;}
-        List<Map<String,Object>> lines=jdbc.queryForList("SELECT d.systematic_id,d.product_id,COALESCE(d.warehousing_id,h.warehousing_ids) AS warehouse_id,d.plan_quantity,d.univalence,ps.shop_id FROM detail_receipt d JOIN head_receipt h ON h.systematic_receipt=d.systematic_receipt JOIN commerce_product_shop ps ON ps.product_id=d.product_id WHERE d.systematic_receipt=? ORDER BY d.product_id,warehouse_id,d.systematic_id",receiptId);
+        boolean sourceSchema=hasProcurementSources();
+        String sourceSelect=sourceSchema?",pl.receipt_line_id":"",sourceJoin=sourceSchema?" LEFT JOIN commerce_purchase_receipt_line pl ON pl.detail_id=d.systematic_id AND pl.receipt_id=d.systematic_receipt":"";
+        List<Map<String,Object>> lines=jdbc.queryForList("SELECT d.*,COALESCE(d.warehousing_id,h.warehousing_ids) AS warehouse_id,ps.shop_id"+sourceSelect+" FROM detail_receipt d JOIN head_receipt h ON h.systematic_receipt=d.systematic_receipt JOIN commerce_product_shop ps ON ps.product_id=d.product_id"+sourceJoin+" WHERE d.systematic_receipt=? ORDER BY d.product_id,warehouse_id,"+(sourceSchema?"pl.receipt_line_id":"d.systematic_id"),receiptId);
         if(lines.isEmpty())return; // Private ERP goods outside the commerce catalog have no commerce cost book.
         List<Map<String,Object>> canonical=new ArrayList<>();
-        for(Map<String,Object> line:lines)canonical.add(map("shop",line.get("shop_id"),"product",line.get("product_id"),"warehouse",line.get("warehouse_id"),"quantity",line.get("plan_quantity"),"unitCost",knownCost(line.get("univalence"))));
+        for(Map<String,Object> line:lines){Map<String,Object> snapshot=map("shop",line.get("shop_id"),"product",line.get("product_id"),"warehouse",line.get("warehouse_id"),"quantity",line.get("plan_quantity"),"unitCost",purchaseCost(line));
+            if(line.get("receipt_line_id")!=null)snapshot.put("sourceLineId",line.get("receipt_line_id"));canonical.add(snapshot);}
         String hash=hash(canonical);
         List<Map<String,Object>> states=jdbc.queryForList("SELECT * FROM commerce_cost_receipt WHERE receipt_id=? FOR UPDATE",receiptId);
         if(!states.isEmpty()&&number(states.get(0).get("active"))==1&&hash.equals(states.get(0).get("content_hash")))return;
@@ -58,8 +72,10 @@ public class CommerceCostService {
         for(int index=0;index<lines.size();index++){
             Map<String,Object> line=lines.get(index);long quantity=number(line.get("plan_quantity"));
             require(quantity>0,"已审核采购单数量无效",409);
-            insert("PURCHASE:"+receiptId+":"+revision+":"+index,String.valueOf(line.get("shop_id")),"PURCHASE",receiptId,receiptId,null,null,
-                    number(line.get("product_id")),number(line.get("warehouse_id")),quantity,knownCost(line.get("univalence")),"PURCHASE_DOCUMENT",actor);
+            String event="PURCHASE:"+receiptId+":"+revision+":"+index;
+            insert(event,String.valueOf(line.get("shop_id")),"PURCHASE",receiptId,receiptId,null,null,
+                    number(line.get("product_id")),number(line.get("warehouse_id")),quantity,purchaseCost(line),"PURCHASE_DOCUMENT",actor);
+            if(line.get("receipt_line_id")!=null)jdbc.update("INSERT INTO commerce_cost_source_line(receipt_line_id,receipt_revision,entry_id) VALUES (?,?,?)",line.get("receipt_line_id"),revision,jdbc.queryForObject("SELECT entry_id FROM commerce_cost_entry WHERE event_key=?",Long.class,event));
         }
         if(states.isEmpty())jdbc.update("INSERT INTO commerce_cost_receipt VALUES (?,?,?,1,CURRENT_TIMESTAMP)",receiptId,revision,hash);
         else jdbc.update("UPDATE commerce_cost_receipt SET revision=?,content_hash=?,active=1,updated_at=CURRENT_TIMESTAMP WHERE receipt_id=?",revision,hash,receiptId);
@@ -77,9 +93,70 @@ public class CommerceCostService {
     }
 
     private void reverseRevision(String receipt,long revision,long actor) {
-        for(Map<String,Object> entry:jdbc.queryForList("SELECT e.* FROM commerce_cost_entry e WHERE e.receipt_id=? AND e.event_type='PURCHASE' AND NOT EXISTS(SELECT 1 FROM commerce_cost_entry r WHERE r.origin_entry_id=e.entry_id AND r.event_type='PURCHASE_REVERSAL') ORDER BY e.entry_id",receipt))
-            insert("PURCHASE_REVERSAL:"+receipt+":"+revision+":"+entry.get("entry_id"),String.valueOf(entry.get("shop_id")),"PURCHASE_REVERSAL",receipt,receipt,null,number(entry.get("entry_id")),
+        for(Map<String,Object> entry:jdbc.queryForList("SELECT e.* FROM commerce_cost_entry e WHERE e.receipt_id=? AND e.event_type IN ('PURCHASE','SUPPLIER_RETURN') AND NOT EXISTS(SELECT 1 FROM commerce_cost_entry r WHERE r.origin_entry_id=e.entry_id AND r.event_type IN ('PURCHASE_REVERSAL','SUPPLIER_RETURN_REVERSAL')) ORDER BY e.entry_id",receipt)) {
+            String type=String.valueOf(entry.get("event_type"))+"_REVERSAL";
+            insert(type+":"+receipt+":"+revision+":"+entry.get("entry_id"),String.valueOf(entry.get("shop_id")),type,receipt,receipt,null,number(entry.get("entry_id")),
                     number(entry.get("product_id")),number(entry.get("warehouse_id")),-number(entry.get("quantity")),knownCost(entry.get("unit_cost")),"REVERSE_DOCUMENT",actor);
+        }
+    }
+
+    private void recordSupplierReturn(String receipt,long actor) {
+        boolean sources=hasProcurementSources();
+        String sourceSelect=sources?",pl.receipt_line_id,pl.source_receipt_line_id":"",sourceJoin=sources?" LEFT JOIN commerce_purchase_receipt_line pl ON pl.detail_id=d.systematic_id AND pl.receipt_id=d.systematic_receipt":"";
+        List<Map<String,Object>> lines=jdbc.queryForList("SELECT d.*,d.retrieval_id AS warehouse_id,ps.shop_id"+sourceSelect+" FROM detail_receipt d JOIN commerce_product_shop ps ON ps.product_id=d.product_id"+sourceJoin+" WHERE d.systematic_receipt=? ORDER BY "+(sources?"pl.receipt_line_id":"d.systematic_id"),receipt);
+        if(lines.isEmpty())return;
+        List<Map<String,Object>> canonical=new ArrayList<>();
+        List<Map<String,Object>> origins=new ArrayList<>();
+        for(Map<String,Object> line:lines) {
+            List<Map<String,Object>> evidence=sources&&line.get("source_receipt_line_id")!=null
+                    ?jdbc.queryForList("SELECT e.* FROM commerce_cost_source_line s JOIN commerce_cost_entry e ON e.entry_id=s.entry_id JOIN commerce_cost_receipt c ON c.receipt_id=e.receipt_id AND c.revision=s.receipt_revision AND c.active=1 WHERE s.receipt_line_id=? AND e.event_type='PURCHASE' AND NOT EXISTS(SELECT 1 FROM commerce_cost_entry r WHERE r.origin_entry_id=e.entry_id AND r.event_type='PURCHASE_REVERSAL')",line.get("source_receipt_line_id"))
+                    :Collections.emptyList();
+            require(evidence.size()<=1,"采购来源成本快照存在重复，请先核对",409);
+            Map<String,Object> origin=evidence.isEmpty()?null:evidence.get(0);
+            if(origin!=null)require(Objects.equals(line.get("shop_id"),origin.get("shop_id"))&&number(line.get("product_id"))==number(origin.get("product_id"))&&number(line.get("warehouse_id"))==number(origin.get("warehouse_id")),"退供来源成本凭证与货品及原仓不一致",409);
+            origins.add(origin);
+            Map<String,Object> snapshot=map("shop",line.get("shop_id"),"product",line.get("product_id"),"warehouse",line.get("warehouse_id"),"quantity",line.get("plan_quantity"),"sourceLineId",line.get("receipt_line_id"),"originSourceLineId",line.get("source_receipt_line_id"),"originEntryId",origin==null?null:origin.get("entry_id"));
+            canonical.add(snapshot);
+        }
+        SortedSet<Long> originIds=new TreeSet<>();
+        for(Map<String,Object> origin:origins)if(origin!=null)originIds.add(number(origin.get("entry_id")));
+        for(Long origin:originIds)jdbc.queryForList("SELECT entry_id FROM commerce_cost_entry WHERE entry_id=? FOR UPDATE",origin);
+        String content=hash(canonical);
+        List<Map<String,Object>> states=jdbc.queryForList("SELECT * FROM commerce_cost_receipt WHERE receipt_id=? FOR UPDATE",receipt);
+        if(!states.isEmpty()&&number(states.get(0).get("active"))==1&&content.equals(states.get(0).get("content_hash")))return;
+        long revision=states.isEmpty()?1:Math.addExact(number(states.get(0).get("revision")),1);
+        if(!states.isEmpty()&&number(states.get(0).get("active"))==1)reverseRevision(receipt,revision,actor);
+        for(int position=0;position<lines.size();position++) {
+            Map<String,Object> line=lines.get(position),origin=origins.get(position);long quantity=number(line.get("plan_quantity"));
+            require(quantity>0,"已审核退供单数量无效",409);
+            if(origin!=null) {
+                long committed=jdbc.queryForObject("SELECT -COALESCE(SUM(e.quantity+COALESCE((SELECT SUM(r.quantity) FROM commerce_cost_entry r WHERE r.origin_entry_id=e.entry_id AND r.event_type='SUPPLIER_RETURN_REVERSAL'),0)),0) FROM commerce_cost_entry e WHERE e.event_type='SUPPLIER_RETURN' AND e.origin_entry_id=?",Long.class,origin.get("entry_id"));
+                require(Math.addExact(committed,quantity)<=number(origin.get("quantity")),"退供成本数量超过原采购快照",409);
+            }
+            insert("SUPPLIER_RETURN:"+receipt+":"+revision+":"+position,String.valueOf(line.get("shop_id")),"SUPPLIER_RETURN",receipt,receipt,null,origin==null?null:number(origin.get("entry_id")),
+                    number(line.get("product_id")),number(line.get("warehouse_id")),-quantity,origin==null?null:knownCost(origin.get("unit_cost")),origin==null?"MISSING_ORIGINAL_SNAPSHOT":"ORIGINAL_PURCHASE",actor);
+        }
+        if(states.isEmpty())jdbc.update("INSERT INTO commerce_cost_receipt VALUES (?,?,?,1,CURRENT_TIMESTAMP)",receipt,revision,content);
+        else jdbc.update("UPDATE commerce_cost_receipt SET revision=?,content_hash=?,active=1,updated_at=CURRENT_TIMESTAMP WHERE receipt_id=?",revision,content,receipt);
+    }
+
+    private boolean hasProcurementSources() {
+        return Boolean.TRUE.equals(jdbc.execute((ConnectionCallback<Boolean>)connection->{
+            try(java.sql.ResultSet sources=connection.getMetaData().getColumns(connection.getCatalog(),null,"commerce_purchase_receipt_line","receipt_line_id");
+                java.sql.ResultSet mappings=connection.getMetaData().getColumns(connection.getCatalog(),null,"commerce_cost_source_line","entry_id")) {
+                return sources.next()&&mappings.next();
+            }
+        }));
+    }
+
+    private static BigDecimal purchaseCost(Map<String,Object> line) {
+        BigDecimal price=knownCost(line.get("univalence"));if(price==null)return null;
+        try {
+            BigDecimal discount=line.get("discount")==null?BigDecimal.ONE:new BigDecimal(String.valueOf(line.get("discount")));
+            if(discount.compareTo(new BigDecimal("100"))==0)discount=BigDecimal.ONE;
+            if(discount.signum()<0||discount.compareTo(BigDecimal.ONE)>0)return null;
+            return knownCost(price.multiply(discount));
+        }catch(NumberFormatException invalid){return null;}
     }
 
     /** Shipment receipt.cost is captured once. Later sales price or master cost changes cannot rewrite it. */
@@ -209,9 +286,23 @@ public class CommerceCostService {
         for(Map<String,Object> op:jdbc.queryForList("SELECT * FROM commerce_payment_operation WHERE shop_id=? AND order_id=? ORDER BY operation_id",shop(),orderId)){
             String kind=String.valueOf(op.get("kind")),provider=String.valueOf(op.get("provider_status")),local=String.valueOf(op.get("local_status"));BigDecimal amount=money(op.get("amount"));
             if("SUCCEEDED".equals(provider)){if("PAYMENT".equals(kind)){providerCharge=providerCharge.add(amount);successfulPayments++;}else {providerRefund=providerRefund.add(amount);if("REFUND".equals(kind))successfulRefunds++;if("COMPENSATION".equals(kind))compensationRefund=compensationRefund.add(amount);}}
+            // Totals alone can hide a wrong voucher association or equal and opposite errors.
+            List<Map<String,Object>> entries=jdbc.queryForList("SELECT * FROM commerce_channel_entry WHERE operation_id=? AND shop_id=?",op.get("operation_id"),shop());
+            if("SUCCEEDED".equals(provider)){
+                boolean linked=entries.size()==1&&shop().equals(entries.get(0).get("shop_id"))&&orderId.equals(entries.get(0).get("order_id"))
+                        &&("PAYMENT".equals(kind)?"CHARGE":"REFUND").equals(entries.get(0).get("movement"))
+                        &&Objects.equals(op.get("currency"),entries.get(0).get("currency"))&&amount.compareTo(money(entries.get(0).get("amount")))==0;
+                if(!linked)issues.add(map("type","OPERATION_CHANNEL_MISMATCH","operationId",op.get("operation_id"),"expectedAmount",amount,"actualAmount",entries.size()==1?entries.get(0).get("amount"):null));
+                if("REFUND".equals(kind)){
+                    List<Map<String,Object>> cases=jdbc.queryForList("SELECT status,refunded_amount FROM commerce_after_sales_case WHERE after_sales_id=? AND order_id=? AND shop_id=?",op.get("after_sales_id"),orderId,shop());
+                    if(cases.size()!=1||!"REFUNDED".equals(cases.get(0).get("status"))||amount.compareTo(money(cases.get(0).get("refunded_amount")))!=0)
+                        issues.add(map("type","REFUND_CASE_MISMATCH","operationId",op.get("operation_id"),"afterSalesId",op.get("after_sales_id"),"expectedAmount",amount));
+                }
+            }else if(!entries.isEmpty())issues.add(map("type","UNEXPECTED_CHANNEL_ENTRY","operationId",op.get("operation_id"),"providerStatus",provider));
+            if(!"CNY".equals(op.get("currency")))issues.add(map("type","UNSUPPORTED_CURRENCY","operationId",op.get("operation_id"),"currency",op.get("currency")));
             if(Arrays.asList("PREPARED","PENDING","UNKNOWN","COMPENSATION_PENDING").contains(local))issues.add(map("type","OPERATION_PENDING","operationId",op.get("operation_id"),"status",local));
             List<Map<String,Object>> observations=jdbc.queryForList("SELECT * FROM commerce_statement_observation WHERE shop_id=? AND operation_id=? ORDER BY sequence_no DESC LIMIT 1",shop(),op.get("operation_id"));
-            Map<String,Object> item=map("operationId",op.get("operation_id"),"kind",kind,"amount",amount,"providerStatus",provider,"localStatus",local);
+            Map<String,Object> item=map("operationId",op.get("operation_id"),"kind",kind,"afterSalesId",op.get("after_sales_id"),"amount",amount,"providerStatus",provider,"localStatus",local);
             if(!observations.isEmpty()){
                 observedCount++;Map<String,Object> observed=observations.get(0);item.put("observation",observation(observed));
                 String state=String.valueOf(observed.get("observed_status"));BigDecimal observedAmount=money(observed.get("observed_amount"));

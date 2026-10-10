@@ -1,6 +1,6 @@
 <template>
   <!-- 采购单据制作 -->
-  <div class="app-container">
+  <div class="app-container" v-loading="detailLoading">
     <el-row :gutter="10">
       <el-col :span="24" :xs="24">
         <el-form
@@ -9,6 +9,7 @@
           :model="form"
           ref="orderRef"
           :rules="rules"
+          :disabled="detailLoading"
         >
           <el-form-item label="系统单号" prop="systematicReceipt">
             <el-input
@@ -25,7 +26,7 @@
             />
           </el-form-item>
           <el-form-item label="单据类型" prop="receiptType">
-            <el-radio-group class="form-item" v-model="form.receiptType">
+            <el-radio-group class="form-item" v-model="form.receiptType" :disabled="isSourcedReceipt">
               <el-radio-button
                 label="1"
                 :value="1"
@@ -63,6 +64,7 @@
             <el-select
               class="form-item"
               v-model="form.retrievalIds"
+              :disabled="isSourcedReceipt"
               placeholder="请输入仓库"
               filterable
               clearable
@@ -87,6 +89,7 @@
             <el-select
               class="form-item"
               v-model="form.warehousingIds"
+              :disabled="isSourcedReceipt"
               placeholder="请输入仓库"
               filterable
               clearable
@@ -127,6 +130,7 @@
             <el-select
               class="form-item"
               v-model="form.supplierIds"
+              :disabled="isSourcedReceipt"
               placeholder="请输入供应商"
               filterable
               clearable
@@ -143,8 +147,8 @@
               ></el-option>
             </el-select>
           </el-form-item>
-          <el-form-item label="计划单号" prop="planReceipt">
-            <el-input v-model="form.planReceipt" class="form-item" clearable />
+          <el-form-item :label="isSourcedReceipt ? '采购订单' : '计划单号'" prop="planReceipt">
+            <el-input v-model="form.planReceipt" class="form-item" clearable :disabled="isSourcedReceipt" />
           </el-form-item>
           <el-form-item label="备注" prop="receiptNotes">
             <el-input
@@ -243,6 +247,7 @@
                 <template #default="scope">
                   <el-select
                     v-model="scope.row.productCode"
+                    :disabled="hasPurchaseSource(scope.row)"
                     placeholder="请输入货品编号"
                     @change="changeProduct(scope.$index, scope.row)"
                     filterable
@@ -270,6 +275,7 @@
                   <ProductIdentity :product="scope.row">
                   <el-select
                     v-model="scope.row.productName"
+                    :disabled="hasPurchaseSource(scope.row)"
                     placeholder="请输入货品名称"
                     @change="changeProduct(scope.$index, scope.row)"
                     filterable
@@ -339,6 +345,7 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.univalence"
+                    :disabled="hasPurchaseSource(scope.row)"
                     @change="calculateDetails(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
@@ -353,6 +360,7 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.discount"
+                    :disabled="hasPurchaseSource(scope.row)"
                     @change="calculateDetails(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
@@ -367,6 +375,7 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.money"
+                    :disabled="hasPurchaseSource(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
                 </template>
@@ -380,6 +389,7 @@
                 <template #default="scope">
                   <el-input
                     v-model="scope.row.cost"
+                    :disabled="hasPurchaseSource(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
                 </template>
@@ -887,7 +897,7 @@ import {
 import { viewUrl } from "@/api/jimu/jiMuReport";
 import { randomId } from "@/utils/RandomUtils";
 import RMBConverter from "@/utils/RMBConverter";
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
 
 const { proxy } = getCurrentInstance();
 const { finding_of_audit } = proxy.useDict("finding_of_audit");
@@ -1065,7 +1075,24 @@ const {
   rules,
 } = toRefs(data);
 
+function hasPurchaseSource(line) {
+  return Boolean(line.sourcePurchaseLineId || line.sourceReceiptLineId);
+}
+const isSourcedReceipt = computed(() => form.value.details.some(hasPurchaseSource));
+
+const detailLoading = ref(false);
+let detailLoadVersion = 0;
+function currentReceipt(id, version = detailLoadVersion) {
+  return version === detailLoadVersion && proxy.$route.path === '/purchase/purchaseDocumentProcessing'
+    && String(proxy.$route.query.systematicReceipt || '') === String(id || '');
+}
+function canSubmitReceipt() {
+  return !detailLoading.value && proxy.$route.path === '/purchase/purchaseDocumentProcessing'
+    && (!proxy.$route.query.systematicReceipt || currentReceipt(form.value.systematicReceipt));
+}
 function initialization() {
+  detailLoadVersion++;
+  detailLoading.value = false;
   const { systematicReceipt } = proxy.$route.query;
   if (systematicReceipt) {
     loadDetail(systematicReceipt);
@@ -1093,7 +1120,7 @@ async function getList() {
     userOptions.value = response.rows;
   });
   getUserProfile().then((response) => {
-    form.value.userIds = response.data.userId;
+    if (!proxy.$route.query.systematicReceipt) form.value.userIds = response.data.userId;
   });
   optionReset();
 }
@@ -1126,9 +1153,12 @@ function cancel() {
 }
 /** 提交按钮 */
 function submitForm() {
+  if (!canSubmitReceipt()) return;
   proxy.$refs["orderRef"].validate(async (valid) => {
+    if (!canSubmitReceipt()) return;
     if (form.value.details.length === 0) {
       proxy.$modal.msgError("货品明细不能为空");
+      return;
     } else if (!valid) {
       return;
     }
@@ -1136,9 +1166,12 @@ function submitForm() {
       return {
         systematicOrderForm: form.value.systematicOrderForm,
         systematicReceipt: form.value.systematicReceipt,
+        sourcePurchaseLineId: it.sourcePurchaseLineId,
+        purchaseReceiptLineId: it.purchaseReceiptLineId,
+        sourceReceiptLineId: it.sourceReceiptLineId,
         productId: it.productId,
-        retrievalId: form.value.retrievalIds,
-        warehouseId: form.value.warehousingIds,
+        retrievalId: hasPurchaseSource(it) ? it.retrievalId : form.value.retrievalIds,
+        warehouseId: hasPurchaseSource(it) ? (it.warehousingId || it.warehouseId) : form.value.warehousingIds,
         supplierId: form.value.supplierIds,
         productSpecifications: it.productSpecifications,
         measureUnit: it.measureUnit,
@@ -1158,9 +1191,12 @@ function submitForm() {
 }
 /** 审核按钮 */
 function takeEffectForm() {
+  if (!canSubmitReceipt()) return;
   proxy.$refs["orderRef"].validate(async (valid) => {
+    if (!canSubmitReceipt()) return;
     if (form.value.details.length == 0) {
       proxy.$modal.msgError("货品明细不能为空");
+      return;
     } else if (!valid) {
       return;
     }
@@ -1169,9 +1205,12 @@ function takeEffectForm() {
       return {
         systematicOrderForm: form.value.systematicOrderForm,
         systematicReceipt: form.value.systematicReceipt,
+        sourcePurchaseLineId: it.sourcePurchaseLineId,
+        purchaseReceiptLineId: it.purchaseReceiptLineId,
+        sourceReceiptLineId: it.sourceReceiptLineId,
         productId: it.productId,
-        retrievalId: form.value.retrievalIds,
-        warehouseId: form.value.warehousingIds,
+        retrievalId: hasPurchaseSource(it) ? it.retrievalId : form.value.retrievalIds,
+        warehouseId: hasPurchaseSource(it) ? (it.warehousingId || it.warehouseId) : form.value.warehousingIds,
         supplierId: form.value.supplierIds,
         productSpecifications: it.productSpecifications,
         measureUnit: it.measureUnit,
@@ -1183,32 +1222,35 @@ function takeEffectForm() {
         remarks: it.remarks,
       };
     });
-    form.value.receiptStatus = 2;
-    const reqs = { ...form.value, details };
+    const reqs = { ...form.value, receiptStatus: 2, details };
     await savePurchaseReceipt(reqs);
     proxy.$modal.msgSuccess("采购单据审核成功");
     cancel();
   });
 }
 function loadDetail(systematicReceipt) {
+  const version = ++detailLoadVersion;
+  detailLoading.value = true;
   getPurchaseOrder(systematicReceipt).then((response) => {
+    if (!currentReceipt(systematicReceipt, version) || !response.data) return;
     option.value.warehouseId = response.data.warehousingIds;
     listWarehouse(option.value).then((response) => {
+      if (!currentReceipt(systematicReceipt, version)) return;
       warehouseOptions.value = response.rows;
     });
     option.value.supplierId = response.data.supplierIds;
     listSupplier(option.value).then((response) => {
+      if (!currentReceipt(systematicReceipt, version)) return;
       supplierOptions.value = response.rows;
     });
     optionReset();
-    if (response.data.receiptStatus === 1) {
-      takeEffect.value = true;
-    } else if (response.data.receiptStatus === 2) {
-      takeEffectBtn.value = true;
-    }
+    takeEffect.value = Number(response.data.receiptStatus) === 1;
+    takeEffectBtn.value = Number(response.data.receiptStatus) === 2;
+    retrieval.value = Number(response.data.receiptType) === 2;
+    warehousing.value = Number(response.data.receiptType) === 1;
     printBtn.value = false;
     finding.value = true;
-    const details = response.data.details;
+    const details = response.data.details || [];
     const product = response.data.product;
     const map = {};
     (product || []).forEach((it) => {
@@ -1225,13 +1267,13 @@ function loadDetail(systematicReceipt) {
       orderFormNotes: response.data.receiptNotes,
       orderFormAmount: response.data.totalAmount,
       orderCapitalizeAmount: response.data.capitalizeTotalAmount,
-      details,
+      details: details.map(line => ({ ...map[line.productId], ...line })),
     };
     form.value.warehousingIds = Number(response.data.warehousingIds);
     form.value.retrievalIds = Number(response.data.retrievalIds);
     form.value.userIds = Number(response.data.userIds);
     form.value.supplierIds = Number(response.data.supplierIds);
-  });
+  }).finally(() => { if (version === detailLoadVersion) detailLoading.value = false; });
 }
 //自定义合计行
 function getSummaries(param) {
@@ -1244,7 +1286,13 @@ function getSummaries(param) {
     }
 
     if (column.property !== undefined) {
-      const values = data.map((item) => Number(item[column.property]));
+      if (!['inventoryQty', 'planQuantity', 'money', 'cost'].includes(column.property)) {
+        sums[index] = '';
+        return;
+      }
+      const rows = column.property === 'inventoryQty'
+        ? [...new Map(data.map(item => [String(item.productId), item])).values()] : data;
+      const values = rows.map((item) => Number(item[column.property]));
       if (!values.every((value) => isNaN(value))) {
         sums[index] = values.reduce((prev, curr) => {
           const value = Number(curr);
@@ -1594,6 +1642,9 @@ function remoteProductName(query) {
   }
 }
 
+watch(() => [proxy.$route.path, proxy.$route.query.systematicReceipt], () => {
+  if (proxy.$route.path === '/purchase/purchaseDocumentProcessing') initialization();
+});
 initialization();
 getList();
 </script>

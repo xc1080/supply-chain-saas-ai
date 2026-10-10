@@ -16,6 +16,27 @@ public class DetailOrderForm extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
 
+    /** Legacy row key is only used to enrich the response; purchaseLineId is the stable business key. */
+    private Long systematicId;
+    private String purchaseLineId;
+    private Long receivedQuantity;
+    private Long draftReceiptQuantity;
+    private Long returnedQuantity;
+    private Long remainingQuantity;
+
+    public Long getSystematicId() { return systematicId; }
+    public void setSystematicId(Long value) { systematicId = value; }
+    public String getPurchaseLineId() { return purchaseLineId; }
+    public void setPurchaseLineId(String value) { purchaseLineId = value; }
+    public Long getReceivedQuantity() { return receivedQuantity; }
+    public void setReceivedQuantity(Long value) { receivedQuantity = value; }
+    public Long getDraftReceiptQuantity() { return draftReceiptQuantity; }
+    public void setDraftReceiptQuantity(Long value) { draftReceiptQuantity = value; }
+    public Long getReturnedQuantity() { return returnedQuantity; }
+    public void setReturnedQuantity(Long value) { returnedQuantity = value; }
+    public Long getRemainingQuantity() { return remainingQuantity; }
+    public void setRemainingQuantity(Long value) { remainingQuantity = value; }
+
     /**
      * 系统单号
      */

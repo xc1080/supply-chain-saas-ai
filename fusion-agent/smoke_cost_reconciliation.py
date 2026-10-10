@@ -44,16 +44,29 @@ class CostAcceptance(Acceptance):
                     "warehouseNotes": "成本验收独立资料 " + self.run_id})
                 rows = self.request(admin, "ownedWarehouse", "GET", "/baseDate/warehouse/list?pageSize=500")["rows"]
                 warehouse = int(next(row for row in rows if row["warehouseName"] == name)["warehouseId"])
+                categories = self.api(admin, "validProductCategories", "GET", "/baseDate/product/productTypeTree?status=0")
+                def category_leaves(nodes):
+                    for node in nodes or []:
+                        children = node.get("children") or []
+                        if children:
+                            yield from category_leaves(children)
+                        elif node.get("id") is not None and int(node["id"]) > 0:
+                            yield int(node["id"])
+                valid_categories = list(category_leaves(categories))
+                self.check("validExistingProductCategory", bool(valid_categories))
+                category_id = valid_categories[0]
                 code = "LAB-COST-" + self.run_id.upper()
                 product = {"productCode": code, "productName": "成本学习 WiFi 灯 " + self.run_id,
                            "productSpecifications": "WiFi/成本学习", "measureUnit": "件", "status": "0",
                            "costPrice": "17.25", "univalence": "39.90", "discount": "100", "upperLimit": "100",
-                           "lowerLimit": "0", "defaultWarehouse": str(warehouse), "notes": "本地成本与对账学习专用"}
+                           "lowerLimit": "0", "productType": str(category_id), "defaultWarehouse": str(warehouse),
+                           "notes": "本地成本与对账学习专用"}
                 self.request(admin, "ownedProductCreate", "POST", "/baseDate/product/add", body=product)
                 rows = self.request(admin, "ownedProductRead", "GET", "/baseDate/product/list?productCode=" + code)["rows"]
                 self.check("singleOwnedProduct", len(rows) == 1 and rows[0]["productCode"] == code)
                 pid = int(rows[0]["productId"])
-                self.report["state"].update({"productId": pid, "productCode": code, "warehouseId": warehouse})
+                self.report["state"].update({"productId": pid, "productCode": code, "warehouseId": warehouse,
+                                            "productTypeId": category_id})
                 self.api(admin, "ownedListing", "POST", f"/commerce/products/{pid}/listing", {"listed": True})
                 self.check("initialOwnedStockZero", self.stock(admin, pid, "initialStock")["bookStock"] == 0)
                 rid = "COST_PUR_" + self.run_id

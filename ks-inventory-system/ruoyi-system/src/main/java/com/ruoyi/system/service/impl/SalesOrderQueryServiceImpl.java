@@ -5,11 +5,14 @@ import com.ruoyi.common.core.domain.entity.HeadOrderForm;
 import com.ruoyi.system.mapper.DetailOrderFormMapper;
 import com.ruoyi.system.mapper.HeadOrderFormMapper;
 import com.ruoyi.system.service.SalesOrderQueryService;
+import com.ruoyi.system.service.CommerceProcurementService;
+import com.ruoyi.common.exception.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * 销售订单查询 业务层处理
@@ -18,6 +21,9 @@ import java.util.List;
  */
 @Service
 public class SalesOrderQueryServiceImpl implements SalesOrderQueryService {
+
+    @Autowired(required = false)
+    private CommerceProcurementService procurement;
 
     @Autowired
     private HeadOrderFormMapper headOrderFormMapper;
@@ -59,6 +65,11 @@ public class SalesOrderQueryServiceImpl implements SalesOrderQueryService {
     @Override
     @Transactional
     public int delSalesOrder(List<DetailOrderForm> bo) {
+        if (procurement != null) {
+            if (bo == null || bo.isEmpty()) throw new ServiceException("请选择销售订单",400);
+            List<String> ids=new ArrayList<>();for(DetailOrderForm detail:bo)ids.add(detail.getSystematicOrderForm());
+            procurement.validateNonPurchaseOrders(ids);
+        }
         detailOrderFormMapper.delDetailOrderForm(bo);
         return headOrderFormMapper.delHeadOrderForm(bo);
     }

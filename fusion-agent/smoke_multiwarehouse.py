@@ -21,14 +21,23 @@ class MultiWarehouse(Acceptance):
                             "existingSkuChanged": False, "supplierCalled": False})
 
     def receipt(self, admin, pid, quantities, label, receipt_type=1):
-        rid = "MW_" + label + "_" + self.run_id
+        rid = "MW_" + label[:12] + "_" + self.run_id
         details = []
+        origins = {}
+        if receipt_type == 2:
+            original = self.api(admin, label + ".sourceReceipt", "GET", PURCHASE + "/" + self.report["state"]["purchaseReceiptId"])
+            origins = {int(row["warehousingId"]): row for row in original["details"]}
         for wid, quantity in quantities.items():
             details.append({"productId": str(pid), "warehousingId": str(wid) if receipt_type == 1 else "0",
                             "retrievalId": str(wid) if receipt_type == 2 else "0", "supplierId": "0",
                             "customerId": "0", "measureUnit": "件", "productSpecifications": "WiFi/学习专用",
                             "planQuantity": str(quantity), "univalence": "12.00", "discount": "100",
                             "money": str(quantity * 12), "cost": "12.00", "remarks": "虚构两仓学习验收"})
+            if receipt_type == 2:
+                origin = origins[wid]
+                details[-1].update({"sourceReceiptLineId": origin["purchaseReceiptLineId"],
+                                    "sourcePurchaseLineId": origin.get("sourcePurchaseLineId"),
+                                    "discount": origin["discount"], "supplierId": origin["supplierId"]})
         body = {"systematicReceipt": rid, "originalReceipt": "MW-" + self.run_id, "receiptCategory": 1,
                 "receiptType": receipt_type, "receiptStatus": 2, "invoiceDate": date.today().isoformat(),
                 "warehousingIds": str(next(iter(quantities))) if receipt_type == 1 else "0",
@@ -80,8 +89,18 @@ class MultiWarehouse(Acceptance):
             selected = [next(row for row in warehouse_rows if row["warehouseName"] == name) for name in names]
             a, b = sorted(int(row["warehouseId"]) for row in selected)
             self.report["state"].update({"warehouseIds": [a, b]})
+            types = self.api(admin, "existingProductTypes", "GET", "/baseDate/product/productTypeTree?status=0")
+            def leaf_types(rows):
+                for row in rows:
+                    if row.get("children"):
+                        yield from leaf_types(row["children"])
+                    elif int(row.get("id", 0)) > 0:
+                        yield int(row["id"])
+            categories = list(leaf_types(types))
+            self.check("existingLeafCategoryFound", bool(categories))
             code = "LAB-WARE-" + self.run_id.upper()
             product = {"productCode": code, "productName": "多仓学习 WiFi 灯 " + self.run_id,
+                       "productType": str(categories[0]),
                        "productSpecifications": "WiFi/学习专用", "measureUnit": "件", "status": "0",
                        "costPrice": "12.00", "univalence": "39.00", "discount": "100", "upperLimit": "100",
                        "lowerLimit": "0", "defaultWarehouse": str(a), "notes": "仅用于本地多仓流程学习"}
@@ -102,6 +121,57 @@ class MultiWarehouse(Acceptance):
                 oid = result["orderId"]
                 self.report["state"][name + "OrderId"] = oid
                 return oid
+            # Keep transfer acceptance separate from the later exact-warehouse shipment example.
+            # An inverse stock move re-pins only commitments that no longer fit; it does not promise
+            # to restore every order's original warehouse while spare stock exists elsewhere.
+            temporary = order("transferHold", 8)
+            self.check("temporaryOrderReservesEight", self.pending(self.allocation(admin, temporary, "transferBeforeAllocation")) == {a: 3, b: 5})
+            transfer_id = "MW_MOVE_" + self.run_id
+            self.report["state"]["transferReceiptId"] = transfer_id
+            transfer_body = {"systematicReceipt": transfer_id, "originalReceipt": "MW-" + self.run_id,
+                             "receiptCategory": 3, "receiptType": 7, "receiptStatus": 2,
+                             "invoiceDate": date.today().isoformat(), "warehousingIds": str(b),
+                             "retrievalIds": str(a), "userIds": "1", "supplierIds": "0", "customerIds": "0",
+                             "deposit": "0", "totalAmount": "36.00", "receiptNotes": "虚构两仓调拨后冲销；保留库存与占用审计",
+                             "details": [{"productId": str(pid), "warehousingId": str(b), "retrievalId": str(a),
+                                          "supplierId": "0", "customerId": "0", "measureUnit": "件",
+                                          "productSpecifications": "WiFi/学习专用", "planQuantity": "3",
+                                          "univalence": "12.00", "discount": "100", "money": "36.00",
+                                          "cost": "12.00", "remarks": "学习验收：迁移未发订单占用"}]}
+            transfer_api = "/inventory/inventoryReceiptProcessing"
+            self.request(admin, "realTransferPosted", "POST", transfer_api + "/saveInventoryTransfer", body=transfer_body)
+            self.report["state"]["transferReceiptStatus"] = "POSTED"
+            shifted = self.api(admin, "afterTransferWarehouses", "GET", f"/commerce/inventory/{pid}/warehouses")
+            self.check("transferMovesPhysicalStock", {int(row["warehouseId"]): int(row["onHand"]) for row in shifted} == {a: 0, b: 10})
+            self.check("transferMovesOnlyEightCommittedUnits", self.pending(self.allocation(admin, temporary, "afterTransferAllocation")) == {a: 0, b: 8})
+            self.check("transferNeverOverdrawsWarehouse", all(int(row["orderReserved"]) <= int(row["onHand"]) - int(row["unavailable"]) for row in shifted))
+            self.request(admin, "realTransferReplay", "POST", transfer_api + "/saveInventoryTransfer", body=transfer_body)
+            def movement_audit(name, reference, quantity):
+                events = self.api(admin, name, "GET", f"/commerce/orders/{temporary}/warehouse-allocation-events")
+                relevant = [row for row in events if str(row["eventKey"]).startswith("MOVE:" + reference + ":")]
+                pairs = {}
+                for row in relevant:
+                    pairs.setdefault(row["eventKey"], []).append(row)
+                self.check(name + ".balancedPairs", bool(pairs) and all(len(rows) == 2
+                           and {row["eventType"] for row in rows} == {"MOVE_IN", "MOVE_OUT"}
+                           and len({int(row["warehouseId"]) for row in rows}) == 2
+                           and int(rows[0]["quantity"]) == int(rows[1]["quantity"]) for rows in pairs.values()))
+                self.check(name + ".quantity", sum(int(row["quantity"]) for row in relevant if row["eventType"] == "MOVE_OUT") == quantity
+                           and sum(int(row["quantity"]) for row in relevant if row["eventType"] == "MOVE_IN") == quantity)
+                return relevant
+            movement_audit("transferSaveAudit", "SAVE:" + transfer_id, 3)
+            self.request(admin, "realTransferReversed", "POST", transfer_api + "/delete", body=[{"systematicReceipt": transfer_id}])
+            self.report["state"]["transferReceiptStatus"] = "REVERSED"
+            restored = self.api(admin, "afterTransferReversalWarehouses", "GET", f"/commerce/inventory/{pid}/warehouses")
+            self.check("reversalRestoresThreePlusSevenPhysical", {int(row["warehouseId"]): int(row["onHand"]) for row in restored} == {a: 3, b: 7})
+            self.check("reversalRetainsEightCommittedUnits", sum(self.pending(self.allocation(admin, temporary, "afterReversalAllocation")).values()) == 8)
+            self.check("reversalNeverOverdrawsWarehouse", all(int(row["orderReserved"]) <= int(row["onHand"]) - int(row["unavailable"]) for row in restored))
+            reversal_audit = movement_audit("transferDeleteAudit", "DELETE:" + transfer_id, 1)
+            self.request(admin, "realTransferReverseReplay", "POST", transfer_api + "/delete", body=[{"systematicReceipt": transfer_id}])
+            self.check("reversalReplayAddsNoAllocationEvent", movement_audit("transferDeleteAuditReplay", "DELETE:" + transfer_id, 1) == reversal_audit)
+            self.call(buyer, "cancelTemporaryTransferOrder", "order/cancelOrder", orderId=temporary)
+            self.check("temporaryOrderReleasesBeforeCoreExample", sum(self.pending(self.allocation(admin, temporary, "transferOrderFinalAllocation")).values()) == 0)
+            self.check("coreExampleStartsWithTenAvailable", self.stock(admin, pid, "afterTransferAcceptanceStock")["availableStock"] == 10)
             first, second = order("first", 5), order("second", 3)
             self.check("firstOrderExactCommitments", self.pending(self.allocation(admin, first, "firstAllocation")) == {a: 3, b: 2})
             self.check("secondOrderCannotClaimFirstWarehouse", self.pending(self.allocation(admin, second, "secondAllocation")) == {b: 3})
@@ -115,9 +185,9 @@ class MultiWarehouse(Acceptance):
             ship("cannotStealSecond", b, 3, 409)
             before_erp = self.stock(admin, pid, "beforeBlockedErp")
             blocked = {"systematicReceipt": "MW_BLOCK_" + self.run_id, "receiptCategory": 1,
-                       "receiptType": 2, "receiptStatus": 2, "retrievalIds": str(a), "warehousingIds": "0",
+                       "receiptType": 6, "receiptStatus": 2, "retrievalIds": str(a), "warehousingIds": "0",
                        "details": [{"productId": str(pid), "retrievalId": str(a), "planQuantity": "1"}]}
-            self.request(admin, "erpCannotStealAssignedWarehouse", "POST", PURCHASE + "/save", body=blocked, expected=409)
+            self.request(admin, "erpCannotStealAssignedWarehouse", "POST", "/inventory/inventoryReceiptProcessing/save", body=blocked, expected=409)
             self.check("failedErpHasNoStockEffect", self.balances(self.stock(admin, pid, "afterBlockedErp")) == self.balances(before_erp))
             self.call(buyer, "cancelSecond", "order/cancelOrder", orderId=second)
             self.call(buyer, "cancelSecondReplay", "order/cancelOrder", orderId=second)

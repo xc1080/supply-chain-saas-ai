@@ -33,6 +33,109 @@ public class CommerceWarehouseAllocationTest {
     private long held(String order,long warehouse){return jdbc.queryForObject("SELECT COALESCE(SUM(quantity-shipped-released),0) FROM commerce_warehouse_allocation WHERE order_id=? AND warehouse_id=?",Long.class,order,warehouse);}
     private long physical(long warehouse){return jdbc.queryForObject("SELECT SUM(plan_quantity) FROM inventory_product WHERE warehouse_id=?",Long.class,warehouse);}
 
+    /** Tests only: the ERP guard supplies these locked, post-move capacities in production. */
+    private void move(Map<Long,Long> deltas,String reference) {
+        tx(()->{
+            jdbc.queryForList("SELECT product_id FROM product WHERE product_id=1 FOR UPDATE");
+            jdbc.queryForList("SELECT inventory_id FROM inventory_product WHERE product_id=1 ORDER BY warehouse_id,inventory_id FOR UPDATE");
+            Map<Long,Long> after=new TreeMap<>();SortedSet<Long> incoming=new TreeSet<>();
+            for(Map.Entry<Long,Long> delta:deltas.entrySet()) {
+                long blocked=jdbc.queryForObject("SELECT COALESCE(SUM(quality_hold+damaged),0) FROM commerce_warehouse_condition WHERE product_id=1 AND warehouse_id=?",Long.class,delta.getKey());
+                after.put(delta.getKey(),physical(delta.getKey())+delta.getValue()-blocked);
+                if(delta.getValue()>0)incoming.add(delta.getKey());
+            }
+            warehouses.followMove(1,after,incoming,reference);
+            for(Map.Entry<Long,Long> delta:deltas.entrySet())jdbc.update("UPDATE inventory_product SET plan_quantity=plan_quantity+? WHERE product_id=1 AND warehouse_id=?",delta.getValue(),delta.getKey());
+            return null;
+        });
+    }
+    private Map<Long,Long> deltas(long...pairs){Map<Long,Long> result=new TreeMap<>();for(int i=0;i<pairs.length;i+=2)result.put(pairs[i],pairs[i+1]);return result;}
+    private long eventCount(String type){return jdbc.queryForObject("SELECT COUNT(*) FROM commerce_warehouse_allocation_event WHERE event_type=?",Long.class,type);}
+
+    @Test public void transferKeepsOtherOrdersAndRecordsBalancedSourceTargetEventsWithReceiptReference() {
+        String first=create("move-first",5),second=create("move-second",3);long globalEvents=fixture.count("commerce_stock_ledger");
+        move(deltas(1,-2,2,2),"SAVE:ERP_MOVE");
+        assertEquals(1,held(first,1));assertEquals(4,held(first,2));assertEquals(3,held(second,2));
+        assertEquals(1,physical(1));assertEquals(9,physical(2));assertEquals(globalEvents,fixture.count("commerce_stock_ledger"));
+        assertEquals(1,eventCount("MOVE_OUT"));assertEquals(1,eventCount("MOVE_IN"));
+        List<Map<String,Object>> audit=warehouses.allocationEvents(first);Map<String,Object> out=null,in=null;
+        for(Map<String,Object> row:audit){if("MOVE_OUT".equals(row.get("eventType")))out=row;if("MOVE_IN".equals(row.get("eventType")))in=row;}
+        assertNotNull(out);assertNotNull(in);assertEquals(out.get("eventKey"),in.get("eventKey"));assertTrue(String.valueOf(out.get("eventKey")).startsWith("MOVE:SAVE:ERP_MOVE:"));
+        assertEquals(1L,out.get("warehouseId"));assertEquals(2L,in.get("warehouseId"));assertEquals(out.get("quantity"),in.get("quantity"));
+        assertEquals(true,fixture.service.reconcile().get("healthy"));
+        // ERP replay has no net warehouse changes, so the existing post-move capacities create no second event.
+        tx(()->{jdbc.queryForList("SELECT product_id FROM product WHERE product_id=1 FOR UPDATE");warehouses.followMove(1,deltas(1,1,2,9),new TreeSet<>(Arrays.asList(2L)),"SAVE:ERP_MOVE");return null;});
+        assertEquals(1,eventCount("MOVE_OUT"));assertEquals(1,eventCount("MOVE_IN"));
+    }
+
+    @Test public void transferMovesOnlyUnshippedCommitmentsAndPreservesOriginalDispatchWarehouse() {
+        String order=create("move-after-ship",5);pay(order);ship(order,"before-move",1,2);
+        move(deltas(1,-1,2,1),"SAVE:PARTIAL_MOVE");
+        assertEquals(0,held(order,1));assertEquals(3,held(order,2));
+        assertEquals(2,jdbc.queryForObject("SELECT shipped FROM commerce_warehouse_allocation WHERE order_id=? AND warehouse_id=1",Long.class,order).longValue());
+        assertEquals(2,jdbc.queryForObject("SELECT quantity FROM commerce_warehouse_allocation WHERE order_id=? AND warehouse_id=1",Long.class,order).longValue());
+        fixture.rejected(409,()->ship(order,"wrong-old-warehouse",1,1));ship(order,"after-move",2,3);
+        assertEquals(2,jdbc.queryForObject("SELECT SUM(plan_quantity) FROM detail_receipt WHERE retrieval_id=1",Long.class).longValue());
+        assertEquals(3,jdbc.queryForObject("SELECT SUM(plan_quantity) FROM detail_receipt WHERE retrieval_id=2",Long.class).longValue());
+        assertEquals(true,fixture.service.reconcile().get("healthy"));
+    }
+
+    @Test public void multipleSourcesAndTargetsPreserveEveryOrderQuantityAndPreferredCapacity() {
+        // Isolated fixture: four warehouses with three sellable units each.
+        jdbc.update("UPDATE inventory_product SET plan_quantity=3 WHERE inventory_id=2");
+        jdbc.update("INSERT INTO inventory_product(inventory_id,product_id,warehouse_id,plan_quantity) VALUES(3,1,3,3),(4,1,4,3)");jdbc.update("UPDATE product SET inventory_qty=12 WHERE product_id=1");
+        String first=create("many-first",7),second=create("many-second",3);
+        move(deltas(1,-2,2,-2,3,2,4,2),"SAVE:MULTI_MOVE");
+        assertEquals(1,warehouses.pending(1,1));assertEquals(1,warehouses.pending(1,2));assertTrue(warehouses.pending(1,3)<=5);assertTrue(warehouses.pending(1,4)<=5);
+        assertEquals(7,jdbc.queryForObject("SELECT SUM(quantity-shipped-released) FROM commerce_warehouse_allocation WHERE order_id=?",Long.class,first).longValue());
+        assertEquals(3,jdbc.queryForObject("SELECT SUM(quantity-shipped-released) FROM commerce_warehouse_allocation WHERE order_id=?",Long.class,second).longValue());
+        assertEquals(4,jdbc.queryForObject("SELECT SUM(quantity) FROM commerce_warehouse_allocation_event WHERE event_type='MOVE_OUT'",Long.class).longValue());
+        assertEquals(4,jdbc.queryForObject("SELECT SUM(quantity) FROM commerce_warehouse_allocation_event WHERE event_type='MOVE_IN'",Long.class).longValue());
+        assertEquals(true,fixture.service.reconcile().get("healthy"));
+    }
+
+    @Test public void inverseTransferRebalancesOnlyWhatNoLongerFitsAndPreservesCommitments() {
+        String first=create("reverse-first",5),second=create("reverse-second",3);
+        move(deltas(1,-3,2,3),"SAVE:REVERSIBLE");assertEquals(0,warehouses.pending(1,1));assertEquals(8,warehouses.pending(1,2));
+        move(deltas(1,3,2,-3),"DELETE:REVERSIBLE");assertEquals(1,warehouses.pending(1,1));assertEquals(7,warehouses.pending(1,2));
+        assertEquals(3,physical(1));assertEquals(7,physical(2));
+        assertEquals(5,jdbc.queryForObject("SELECT SUM(quantity-shipped-released) FROM commerce_warehouse_allocation WHERE order_id=?",Long.class,first).longValue());
+        assertEquals(3,jdbc.queryForObject("SELECT SUM(quantity-shipped-released) FROM commerce_warehouse_allocation WHERE order_id=?",Long.class,second).longValue());
+        assertEquals(true,fixture.service.reconcile().get("healthy"));
+    }
+
+    @Test public void transferDoesNotMoveQualityOrDamagedStockAndRefusesInvalidPostMoveCapacity() {
+        tx(()->{stock.ensureStock(1);stock.adjustUnavailable(1,"move-quality",2,"质检与损坏隔离");return null;});
+        jdbc.update("INSERT INTO commerce_warehouse_condition VALUES(1,1,1,1)");String order=create("safe-move",5);
+        assertEquals(1,held(order,1));assertEquals(4,held(order,2));
+        fixture.rejected(409,()->move(deltas(1,-2,2,2),"SAVE:INVALID_QUALITY_MOVE"));
+        assertEquals(3,physical(1));assertEquals(7,physical(2));assertEquals(0,eventCount("MOVE_IN"));
+        move(deltas(1,-1,2,1),"SAVE:SELLABLE_MOVE");assertEquals(2,physical(1));assertEquals(8,physical(2));assertEquals(0,held(order,1));assertEquals(5,held(order,2));
+        assertEquals(1,jdbc.queryForObject("SELECT quality_hold FROM commerce_warehouse_condition WHERE warehouse_id=1",Long.class).longValue());
+        assertEquals(1,jdbc.queryForObject("SELECT damaged FROM commerce_warehouse_condition WHERE warehouse_id=1",Long.class).longValue());
+        assertEquals(true,fixture.service.reconcile().get("healthy"));
+    }
+
+    @Test public void longBatchReceiptReferenceFitsEventKeyAndRetainsCorrelationHash() {
+        String order=create("batch-ref",5);String reference="DELETE:"+String.join(",",Collections.nCopies(100,"RECEIPT_123456789012345678901234"));
+        move(deltas(1,-2,2,2),reference);
+        for(Map<String,Object> row:warehouses.allocationEvents(order))if(String.valueOf(row.get("eventType")).startsWith("MOVE_")) {
+            String event=String.valueOf(row.get("eventKey"));assertTrue(event.length()<=160);assertTrue(event.startsWith("MOVE:DELETE:RECEIPT_"));
+        }
+    }
+
+    @Test public void transferAndCheckoutSerializeOnProductWithoutOverdrawingAnyWarehouse()throws Exception {
+        String original=create("move-race-original",5);ExecutorService pool=Executors.newFixedThreadPool(2);CountDownLatch start=new CountDownLatch(1);
+        try {
+            Future<?> transfer=pool.submit(()->{start.await();move(deltas(1,-2,2,2),"SAVE:CONCURRENT_MOVE");return null;});
+            Future<String> checkout=pool.submit(()->{start.await();return create("move-race-checkout",5);});start.countDown();transfer.get(15,TimeUnit.SECONDS);String placed=checkout.get(15,TimeUnit.SECONDS);
+            assertEquals(1,warehouses.pending(1,1));assertEquals(9,warehouses.pending(1,2));
+            assertEquals(5,jdbc.queryForObject("SELECT SUM(quantity-shipped-released) FROM commerce_warehouse_allocation WHERE order_id=?",Long.class,original).longValue());
+            assertEquals(5,jdbc.queryForObject("SELECT SUM(quantity-shipped-released) FROM commerce_warehouse_allocation WHERE order_id=?",Long.class,placed).longValue());
+            assertEquals(true,fixture.service.reconcile().get("healthy"));
+        }finally{pool.shutdownNow();}
+    }
+
     @Test public void twoOrdersHaveDistinctCommitmentsAndSpecificWarehouseCannotStealTheOtherOrder() {
         String first=create("first",5),second=create("second",3);pay(first);pay(second);
         assertEquals(3,held(first,1));assertEquals(2,held(first,2));assertEquals(3,held(second,2));
