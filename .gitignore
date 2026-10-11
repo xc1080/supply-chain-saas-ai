@@ -15,5 +15,10 @@ logs/
 **/.tours/
 **/public/demo-media/
 
+# Python bytecode and local cache artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
 # Preserve nested repository metadata outside the public source tree
 **/.git-preserved/
