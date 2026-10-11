@@ -118,10 +118,27 @@ return 1
 def metric(tenant, operation, outcome, *, elapsed=0, tokens=0, status=None, kind="runtime", call_id="",
            provider="", model="", prompt_version="", tool_name="", input_tokens=None, output_tokens=None,
            usage_source="", summary=None):
+    # Only telemetry is optional. Redis admission/reservation/settlement remain
+    # fail closed; a failed observation must not replace any business outcome.
+    try:
+        _write_metric(tenant, operation, outcome, elapsed=elapsed, tokens=tokens, status=status, kind=kind,
+                      call_id=call_id, provider=provider, model=model, prompt_version=prompt_version,
+                      tool_name=tool_name, input_tokens=input_tokens, output_tokens=output_tokens,
+                      usage_source=usage_source, summary=summary)
+    except Exception:
+        # Do not log exception text, paths or payloads: they can contain secrets.
+        return False
+    return True
+
+
+def _write_metric(tenant, operation, outcome, *, elapsed=0, tokens=0, status=None, kind="runtime", call_id="",
+                  provider="", model="", prompt_version="", tool_name="", input_tokens=None, output_tokens=None,
+                  usage_source="", summary=None):
     # No question, document text, address, bearer token or model response stored.
     path = Path(os.getenv("FUSION_AI_METRICS_DB", str(Path(__file__).parent.parent / "runtime/ai-metrics.sqlite3")))
     path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(path, timeout=3)) as connection:
+    # Bounded wait: a busy metrics writer must not stall the request for seconds.
+    with closing(sqlite3.connect(path, timeout=.05)) as connection:
         connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("BEGIN IMMEDIATE")
         connection.execute("CREATE TABLE IF NOT EXISTS ai_metrics(id INTEGER PRIMARY KEY,created REAL NOT NULL,tenant TEXT NOT NULL,operation TEXT NOT NULL,outcome TEXT NOT NULL,elapsed REAL NOT NULL,tokens INTEGER NOT NULL,status INTEGER)")

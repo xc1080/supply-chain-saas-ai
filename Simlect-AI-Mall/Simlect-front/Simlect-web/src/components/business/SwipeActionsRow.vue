@@ -196,7 +196,6 @@ onBeforeUnmount(() => {
   /* [zh] 样式规则 `width: calc(var(--swipe-row-w, 100%) + v` */
   width: calc(var(--swipe-row-w, 100%) + var(--swipe-action-w, 148px));
   /* [zh] 样式规则 `will-change: transform;` */
-  will-change: transform;
   /* [zh] 样式规则 `transition: transform 0.22s ease;` */
   transition: transform 0.22s ease;
 

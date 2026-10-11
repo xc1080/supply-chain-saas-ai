@@ -3,7 +3,7 @@
     <header class="commerce-heading">
       <div>
         <h1>商城订单与库存</h1>
-        <el-tooltip content="本地支付沙箱，不会实际收款或委托物流。" placement="right"><el-tag type="info" size="small">{{ tenantId }} · 沙箱环境</el-tag></el-tooltip>
+        <div class="commerce-environment"><el-tooltip content="本地支付沙箱，不会实际收款或委托物流。" placement="right"><el-tag type="info" size="small">{{ tenantId }} · 沙箱环境</el-tag></el-tooltip></div>
       </div>
       <div class="commerce-shop-actions">
         <el-select v-model="shopId" aria-label="当前店铺" @change="changeShop"><el-option v-for="shop in shops" :key="shop.shopId" :label="shop.shopName" :value="shop.shopId" /></el-select>
@@ -546,20 +546,22 @@ onUnmounted(stopSync)
 .commerce-queue-states { flex-wrap: wrap; gap: 32px; color: var(--sc-muted); }
 .commerce-queue-states strong { margin-left: 12px; color: var(--sc-text); font-size: 24px; }
 .commerce-heading { margin-bottom: 22px; }
-.commerce-navigation { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; border-bottom: 1px solid var(--sc-border); }
-.commerce-navigation button { padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--sc-muted); font: inherit; cursor: pointer; }
-.commerce-navigation button[aria-pressed="true"] { color: var(--sc-text); font-weight: 600; border-bottom-color: var(--el-color-primary); }
+.commerce-navigation { display: flex; gap: 24px; margin-bottom: 24px; border-bottom: 1px solid var(--sc-border); overflow-x: auto; }
+.commerce-navigation button { flex: 0 0 auto; min-height: 48px; padding: 12px 4px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--sc-muted); font: inherit; cursor: pointer; transition: opacity .18s ease; }
+.commerce-navigation button:hover { color: var(--sc-primary); }
+.commerce-navigation button[aria-pressed="true"] { color: var(--sc-primary); font-weight: 600; border-bottom-color: var(--sc-primary); }
 .commerce-navigation button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: -2px; }
-.commerce-supply-navigation { display: flex; gap: 8px; margin-bottom: 16px; }
-.commerce-supply-navigation button { padding: 8px 16px; border: 1px solid var(--sc-border); border-radius: 6px; background: var(--sc-surface); color: var(--sc-muted); font: inherit; cursor: pointer; }
-.commerce-supply-navigation button[aria-pressed="true"] { border-color: var(--el-color-primary); color: var(--el-color-primary); }
+.commerce-supply-navigation { display: inline-flex; gap: 4px; margin-bottom: 20px; padding: 4px; border: 1px solid var(--sc-border); border-radius: 7px; background: var(--sc-surface-soft); }
+.commerce-supply-navigation button { padding: 8px 16px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--sc-muted); font: inherit; cursor: pointer; }
+.commerce-supply-navigation button[aria-pressed="true"] { border-color: var(--sc-border); color: var(--sc-primary); background: var(--sc-surface); }
 .commerce-supply-navigation button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 2px; }
 .commerce-task-section :deep(.agent-tasks) { margin-top: 0; padding-top: 0; border-top: 0; }
-.commerce-heading h1 { margin: 0 0 8px; font-size: 25px; font-weight: 650; }
+.commerce-heading h1 { margin: 0 0 12px; font-size: 28px; font-weight: 650; letter-spacing: -.5px; }
+.commerce-environment { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; color: var(--sc-muted); font-size: 12px; }
 .commerce-heading p, .commerce-section-heading p { margin: 0; color: var(--sc-muted); line-height: 1.7; }
 .commerce-sync-note { display: block; margin-top: 5px; color: var(--sc-muted); font-size: 12px; }
 .commerce-sandbox { margin-bottom: 22px; }
-.commerce-section { padding: 22px; margin-bottom: 22px; background: var(--sc-surface); border: 1px solid var(--sc-border); border-radius: 10px; }
+.commerce-section { padding: 24px; margin-bottom: 24px; background: var(--sc-surface); border: 1px solid var(--sc-border); border-radius: 8px; min-width: 0; }
 .commerce-section-heading { margin-bottom: 18px; }
 .commerce-section-heading h2 { margin: 0 0 7px; font-size: 18px; font-weight: 600; }
 .commerce-section-heading :deep(.el-select) { width: 200px; }
@@ -574,7 +576,7 @@ onUnmounted(stopSync)
 .commerce-line-item:last-child { border-bottom: 0; }
 .commerce-line-item > strong { text-align: right; font-variant-numeric: tabular-nums; }
 .commerce-reserved { color: var(--sc-warning); font-weight: 600; }
-.commerce-out { color: #c23d42; }
+.commerce-out { color: var(--sc-danger); }
 .commerce-updated, .commerce-record-note { color: var(--sc-muted); font-size: 12px; line-height: 1.7; }
 .commerce-updated { margin: 14px 0 0; }
 .commerce-shipment-form { margin-top: 20px; }
@@ -588,5 +590,10 @@ onUnmounted(stopSync)
   .commerce-line-item { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
   .commerce-line-item .commerce-product { grid-column: 1 / -1; }
   .commerce-order-items { padding: 6px 10px; }
+  .commerce-shop-actions { width: 100%; flex-wrap: wrap; gap: 10px; }
+  .commerce-shop-actions :deep(.el-select) { width: 100%; }
+  .commerce-navigation { gap: 20px; }
+  .commerce-heading h1 { font-size: 24px; }
+  .commerce-section-heading > div { display: flex; flex-wrap: wrap; gap: 8px; }
 }
 </style>

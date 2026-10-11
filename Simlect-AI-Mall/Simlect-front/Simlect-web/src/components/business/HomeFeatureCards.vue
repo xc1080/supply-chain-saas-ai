@@ -60,7 +60,7 @@ const iconColor = computed(() => {
   if (level >= 2) {
     return '#757575';
   }
-  return '#1D1D1F';
+  return '#167D78';
 });
 
 const handleClick = (item: { path: string; isAnchor: boolean }) => {
@@ -68,7 +68,7 @@ const handleClick = (item: { path: string; isAnchor: boolean }) => {
     const element = document.querySelector(item.path);
     if (element) {
       const top = element.getBoundingClientRect().top + window.scrollY - 60;
-      window.scrollTo({ top, behavior: 'smooth' });
+      window.scrollTo({ top, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     }
   } else {
     router.push(item.path);

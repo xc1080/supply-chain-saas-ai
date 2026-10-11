@@ -8,8 +8,8 @@
         </svg>
       </span>
       <span v-if="!collapse" class="brand-copy">
-        <span class="brand-title">供应链工作台</span>
-        <span class="brand-subtitle">智能家居演示空间</span>
+        <span class="brand-title">铠思 · 供应链</span>
+        <span class="brand-subtitle">采购、库存与交付</span>
       </span>
     </router-link>
   </div>
@@ -22,9 +22,9 @@ defineProps({ collapse: { type: Boolean, required: true } })
 <style lang="scss" scoped>
 .sidebar-logo-container { height: 80px; padding: 0 20px; border-bottom: 1px solid rgba(255, 255, 255, .07); overflow: hidden; }
 .sidebar-logo-link { display: flex !important; align-items: center; height: 100%; gap: 12px; width: 100%; }
-.brand-mark { display: grid; place-items: center; flex: 0 0 34px; color: #90baff; }
+.brand-mark { display: grid; place-items: center; flex: 0 0 34px; color: #91ccc4; }
 .brand-copy { display: flex; flex-direction: column; gap: 5px; white-space: nowrap; }
-.brand-title { color: var(--sc-sidebar-title, #ecf3ff); font-size: 15px; font-weight: 650; letter-spacing: .1px; }
+.brand-title { color: var(--sc-sidebar-title, #eef8f7); font-size: 16px; font-weight: 650; letter-spacing: .1px; }
 .brand-subtitle { color: var(--sc-sidebar-text); font-size: 10px; }
 .collapse { padding: 0 10px; }
 </style>

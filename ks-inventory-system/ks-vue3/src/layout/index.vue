@@ -98,7 +98,6 @@ function setLayout() {
   right: 0;
   z-index: 9;
   width: calc(100% - #{$base-sidebar-width});
-  transition: width 0.28s;
 }
 
 .hideSidebar .fixed-header {

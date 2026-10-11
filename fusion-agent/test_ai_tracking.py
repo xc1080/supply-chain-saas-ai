@@ -1,6 +1,7 @@
 """Correlated, content-free telemetry with isolated SQLite and fake providers."""
 import asyncio
 import copy
+import io
 import json
 import os
 import sqlite3
@@ -12,10 +13,11 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import httpx
+from fastapi import HTTPException
 import main
 import planner
 import ai_resources
-from ai_resources import CURRENT, TRACKING, metric, tracking_scope, tracking_event
+from ai_resources import CURRENT, TRACKING, metric, tracking_scope, tracking_event, tracked_operation, ResourceUnavailable
 from ai_versions import version_manifest
 
 PRODUCT = {'id':'1','code':'DEMO-LAMP-WIFI','name':'智能灯','spec':'WiFi/12W','price':129,'stock':3,'remark':'WiFi直连'}
@@ -106,6 +108,88 @@ class TrackingTests(unittest.IsolatedAsyncioTestCase):
         for secret in ('PRIVATE_QUERY','PRIVATE_PROMPT','13812345678','PRIVATE_SECRET','PRIVATE_ADDRESS','PRIVATE_ERROR_BODY'):
             self.assertNotIn(secret,encoded)
         self.assertEqual(json.loads(self.rows()[0]['summary']),{'items':2})
+
+    async def test_unusable_metrics_path_does_not_block_decorated_success_or_original_error(self):
+        parent = Path(self.temp.name) / 'file-instead-of-directory'
+        parent.write_text('not a directory', encoding='utf-8')
+        @tracked_operation('test')
+        async def succeed():
+            tracking_event('tool', 'completed', kind='tool')
+            return 'business-result'
+        original = ValueError('PRIVATE_BUSINESS_ERROR')
+        @tracked_operation('test')
+        async def fail(): raise original
+        with patch.dict(os.environ, {'FUSION_AI_METRICS_DB': str(parent / 'metrics.sqlite3')}):
+            self.assertEqual(await succeed(), 'business-result')
+            with self.assertRaises(ValueError) as caught: await fail()
+        self.assertIs(caught.exception, original)
+        self.assertIsNone(TRACKING.get())
+
+    def test_locked_metrics_database_has_bounded_delay_and_remains_best_effort(self):
+        metric('demo', 'setup', 'ok')
+        with closing(sqlite3.connect(self.db)) as blocker:
+            blocker.execute('BEGIN IMMEDIATE')
+            started = time.monotonic()
+            tracking_event('tool', 'completed', kind='tool')
+            self.assertLess(time.monotonic() - started, .5)
+        tracking_event('tool', 'completed', kind='tool')
+        self.assertEqual(len(self.rows()), 2)
+
+    async def test_metrics_failure_preserves_agent_completed_state_and_tenant_versions(self):
+        with patch.dict(os.environ, {'FUSION_AI_METRICS_DB': str(Path(self.temp.name))}):
+            for tenant in ('demo', 'studio'):
+                result = await planner.run_agent(OfflineService(), {'message':'推荐智能灯','context':{'channel':'customer'}},
+                                                 tenant, 'private-owner', self.fetch)
+                saved = planner.inspect_run(result['runId'], tenant, planner.owner_key('private-owner'))
+                self.assertEqual(saved['status'], 'COMPLETED')
+                self.assertEqual(result['versions'], version_manifest())
+                with self.assertRaises(HTTPException) as caught:
+                    planner.inspect_run(result['runId'], 'studio' if tenant == 'demo' else 'demo', planner.owner_key('private-owner'))
+                self.assertEqual(caught.exception.status_code, 404)
+        self.assertIsNone(TRACKING.get())
+
+    async def test_metrics_failure_preserves_provider_result_errors_and_settlement(self):
+        def reply(request):
+            if request.url.path == '/timeout': raise httpx.ReadTimeout('PRIVATE_PROVIDER_ERROR', request=request)
+            status = 429 if request.url.path == '/limited' else 200
+            return httpx.Response(status, json={'usage': {'total_tokens': 7}, 'choices': []})
+        with patch.dict(os.environ, {'FUSION_AI_METRICS_DB': str(Path(self.temp.name))}), \
+                patch.object(ai_resources, 'CURRENT') as current:
+            resources = FakeResources('studio'); current.get.return_value = resources
+            async with httpx.AsyncClient(transport=httpx.MockTransport(reply)) as client:
+                response = await ai_resources.provider_post(client, 'https://provider.test/ok', headers={},
+                    json={'input':['PRIVATE_DOCUMENT'],'max_tokens':10}, operation='test')
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(resources.charged, 7)
+                with self.assertRaises(httpx.HTTPStatusError) as caught:
+                    await ai_resources.provider_post(client, 'https://provider.test/limited', headers={},
+                        json={'input':['PRIVATE_DOCUMENT']}, operation='test')
+                self.assertEqual(caught.exception.response.status_code, 429)
+                self.assertEqual(resources.charged, 7)
+                with self.assertRaises(httpx.ReadTimeout):
+                    await ai_resources.provider_post(client, 'https://provider.test/timeout', headers={},
+                        json={'input':['PRIVATE_DOCUMENT']}, operation='test')
+                self.assertGreater(resources.charged, 7)
+                resources.call = AsyncMock(side_effect=ResourceUnavailable('AI resource service unavailable'))
+                with self.assertRaises(ResourceUnavailable):
+                    await ai_resources.provider_post(client, 'https://provider.test/ok', headers={},
+                        json={'input':['PRIVATE_DOCUMENT']}, operation='test')
+                resources.reserve = AsyncMock(side_effect=ResourceUnavailable('AI daily token budget exhausted'))
+                with patch.object(client, 'post', AsyncMock()) as provider:
+                    with self.assertRaises(ResourceUnavailable):
+                        await ai_resources.provider_post(client, 'https://provider.test/ok', headers={},
+                            json={'input':['PRIVATE_DOCUMENT']}, operation='test')
+                    provider.assert_not_awaited()
+
+    def test_invalid_retention_and_unexpected_writer_failure_are_content_free(self):
+        with patch.dict(os.environ, {'FUSION_AI_METRICS_RETENTION_DAYS': 'invalid-private-value'}):
+            self.assertFalse(metric('demo', 'test', 'ok'))
+        with patch.object(ai_resources, '_write_metric', side_effect=RuntimeError('Bearer PRIVATE_SECRET PRIVATE_ERROR_BODY')):
+            with patch('sys.stdout', new_callable=io.StringIO) as output, \
+                    patch('sys.stderr', new_callable=io.StringIO) as errors:
+                self.assertFalse(metric('demo', 'test', 'ok', summary={'prompt': 'PRIVATE_PROMPT'}))
+                self.assertEqual(output.getvalue() + errors.getvalue(), '')
+        self.assertTrue(metric('demo', 'test', 'ok'))
 
     async def model_run(self, *, repaired=True):
         answers=0

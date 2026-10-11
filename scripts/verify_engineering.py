@@ -467,7 +467,20 @@ class Verification:
                     "commerce.customer-assertion-secrets.demo": self.assertion, "commerce.customer-assertion-secrets.studio": self.assertion,
                     "commerce.payment-webhook-secret": self.webhook, "token.secret": self.token_secret,
                     "ruoyi.profile": (self.private / "uploads").as_posix(), "logging.level.com.ruoyi": "INFO",
+                    "logging.file.path": (self.private / (scenario + "-application-logs")).as_posix(),
                     "spring.quartz.auto-startup": "false"}
+        historical_logging = scenario == "archived-v11" and jar is not None and jar == getattr(self, "old_jar", None)
+        if historical_logging:
+            # Only the archived V11 jar needs an external portability override.
+            logging_config = self.build / "ruoyi-admin/src/main/resources/logback-spring.xml"
+            logging_resource = logging_config.as_uri()
+            settings["logging.config"] = logging_resource
+            logging_bytes = logging_config.read_bytes()
+        else:
+            # Prove the actual current artifact contains the config Boot loads.
+            logging_resource = "BOOT-INF/classes/logback-spring.xml"
+            with zipfile.ZipFile(jar or self.jar) as archive:
+                logging_bytes = archive.read(logging_resource)
         # Use environment names proven by the existing local launcher for these
         # secrets; unknown property spellings cannot silently authorize a smoke.
         environment = clean_environment()
@@ -476,6 +489,13 @@ class Verification:
                            COMMERCE_CUSTOMER_ASSERTION_SECRETS_STUDIO=self.assertion)
         config = self.private / (scenario + ".properties")
         config.write_text("\n".join(f"{k}={v}" for k, v in settings.items()), encoding="utf-8")
+        self.report.setdefault("javaStartupLogging", {})[scenario] = {
+            "configurationSource": "CURRENT_SOURCE_EXTERNAL_TEST_COMPATIBILITY_CONFIG" if historical_logging else "PACKAGED_CURRENT_LOGGING_CONFIG",
+            "configurationResource": logging_resource,
+            "configurationSha256": hashlib.sha256(logging_bytes).hexdigest(),
+            "logDirectory": settings["logging.file.path"],
+            "originalJarLoggingConfigurationUsed": not historical_logging,
+            "provesUnconfiguredHistoricalStartup": False}
         (self.private / "uploads").mkdir(exist_ok=True)
         process = self.start(["java", "-Dfile.encoding=UTF-8", "-jar", jar or self.jar,
                               "--spring.profiles.active=druid,local", "--spring.config.additional-location=file:" + config.as_posix()],

@@ -848,4 +848,45 @@ const displayPrice = computed(() => {
   }
 /* [zh] 样式规则 `}` */
 }
+.product-card,
+.product-card.ignore,
+.product-card.is-compact {
+  border: 1px solid $color-border;
+  border-radius: 13px;
+  box-shadow: none;
+  transition: transform 200ms ease;
+
+  .cover-wrap {
+    padding: 8px;
+    background: #F0F5F4;
+    border-radius: 12px 12px 0 0;
+    :deep(img) { transition: transform 200ms ease; }
+  }
+  .info { padding: 12px; }
+  .name { font-size: 13px; line-height: 1.5; height: auto; max-height: 39px; color: $color-text-title; }
+  .price-row .price { color: $color-primary; font-size: 19px; }
+  .sale { color: $color-text-muted; font-size: 11px; }
+  .cart-float { box-shadow: none; border: 1px solid $color-border; transition: transform 180ms ease, opacity 180ms ease; }
+  &:hover {
+    box-shadow: none;
+    border-color: #B5CFCB;
+    transform: translateY(-3px);
+    .cover-wrap { background: #F0F5F4; }
+    .cover-wrap :deep(img) { transform: none; }
+    .price-row .price { color: $color-primary; }
+    .cart-float { box-shadow: none; }
+  }
+  &:active { transform: scale(0.985); box-shadow: none; }
+  &:focus-visible { outline-color: $color-primary; }
+}
+
+@media (hover: none) {
+  .product-card:hover, .product-card.ignore:hover { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-card, .product-card.ignore, .product-card.is-compact {
+    transition: none;
+    &:hover, &:active { transform: none; }
+  }
+}
 </style>

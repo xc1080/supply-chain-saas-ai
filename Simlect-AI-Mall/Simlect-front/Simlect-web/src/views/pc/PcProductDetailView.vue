@@ -75,14 +75,6 @@
           </div>
           <!-- [zh] 开始标签 `<p>` -->
           <p v-if="!DEMO_MODE" class="sales-meta">销量 {{ productInfo.totalSale ?? 0 }} 件</p>
-          <!-- [zh] 开始标签 `<AgentServiceEntry>` -->
-          <AgentServiceEntry
-            class="price-agent-btn"
-            :compact="false"
-            show-label
-            :icon-size="16"
-            :consult-product="agentConsultProduct"
-          />
         <!-- [zh] 闭合标签 `</div>` -->
         </div>
 

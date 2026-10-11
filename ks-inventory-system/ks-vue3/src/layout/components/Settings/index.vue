@@ -89,7 +89,7 @@
     <h3 class="drawer-title">系统布局配置</h3>
 
     <div class="drawer-item">
-      <span>开启 TopNav</span>
+      <span>顶部导航</span>
       <span class="comp-style">
         <el-switch
           v-model="settingsStore.topNav"
@@ -100,21 +100,21 @@
     </div>
 
     <div class="drawer-item">
-      <span>开启 Tags-Views</span>
+      <span>页面标签</span>
       <span class="comp-style">
         <el-switch v-model="settingsStore.tagsView" class="drawer-switch" />
       </span>
     </div>
 
     <div class="drawer-item">
-      <span>固定 Header</span>
+      <span>固定页头</span>
       <span class="comp-style">
         <el-switch v-model="settingsStore.fixedHeader" class="drawer-switch" />
       </span>
     </div>
 
     <div class="drawer-item">
-      <span>显示 Logo</span>
+      <span>显示品牌标识</span>
       <span class="comp-style">
         <el-switch v-model="settingsStore.sidebarLogo" class="drawer-switch" />
       </span>
@@ -165,6 +165,7 @@ const theme = ref(settingsStore.theme);
 const sideTheme = ref(settingsStore.sideTheme);
 const storeSettings = computed(() => settingsStore);
 const predefineColors = ref([
+  "#167D78",
   "#409EFF",
   "#ff4500",
   "#ff8c00",

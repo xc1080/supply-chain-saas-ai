@@ -1,11 +1,13 @@
 """Guard tests require no SQL or HTTP writes."""
 import os
+import hashlib
 from pathlib import Path
 import sys
 import unittest
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from types import SimpleNamespace
 from unittest.mock import patch, AsyncMock, Mock
 
@@ -14,6 +16,57 @@ from verify_engineering import baseline_sql, clean_environment, extract_migratio
 
 
 class VerificationGuards(unittest.TestCase):
+    def test_current_startup_uses_packaged_config_and_only_archive_uses_external_override(self):
+        with tempfile.TemporaryDirectory(prefix='verification-logging-guard-') as directory:
+            verification = Verification.__new__(Verification)
+            verification.private = Path(directory)
+            verification.build = verification.private / 'java-source'
+            logging_config = verification.build / 'ruoyi-admin/src/main/resources/logback-spring.xml'
+            logging_config.parent.mkdir(parents=True)
+            logging_config.write_bytes((JAVA_ROOT / 'ruoyi-admin/src/main/resources/logback-spring.xml').read_bytes())
+            verification.report = {}
+            verification.args = SimpleNamespace(java_port=19035, redis_url='redis://127.0.0.1:16379/0')
+            verification.db_user = 'private-test-user'; verification.db_password = 'private-test-password'
+            verification.assertion = 'private-test-assertion'; verification.webhook = 'private-test-webhook'
+            verification.token_secret = 'private-test-token'; verification.latest = 1
+            verification.jar = verification.private / 'current.jar'
+            verification.old_jar = verification.private / 'old.jar'
+            packaged_logging = logging_config.read_bytes() + b'\n<!-- packaged fixture -->\n'
+            with zipfile.ZipFile(verification.jar, 'w') as archive:
+                archive.writestr('BOOT-INF/classes/logback-spring.xml', packaged_logging)
+            verification.available_port = Mock(); verification.jdbc = Mock(return_value='jdbc:mysql://127.0.0.1/owned')
+            verification.sql = Mock(return_value='1')
+            verification.start = Mock(return_value=SimpleNamespace(poll=lambda: None))
+            with patch('verify_engineering.httpx.Client') as client:
+                client.return_value.__enter__.return_value.get.return_value = SimpleNamespace(status_code=200, json=lambda: {'code': 200})
+                for scenario, jar in (('fresh', verification.jar), ('fresh-restart', verification.jar), ('archived-v11', verification.old_jar)):
+                    verification.launch_java(scenario, 'owned_demo', 'owned_studio', jar=jar, expected_version=1)
+                    config = dict(line.split('=', 1) for line in (verification.private / (scenario + '.properties')).read_text(encoding='utf-8').splitlines())
+                    self.assertEqual(config['logging.file.path'], (verification.private / (scenario + '-application-logs')).as_posix())
+                    evidence = verification.report['javaStartupLogging'][scenario]
+                    if scenario == 'archived-v11':
+                        self.assertEqual(config['logging.config'], logging_config.as_uri())
+                        self.assertEqual(evidence['configurationSource'], 'CURRENT_SOURCE_EXTERNAL_TEST_COMPATIBILITY_CONFIG')
+                        self.assertFalse(evidence['originalJarLoggingConfigurationUsed'])
+                        self.assertEqual(evidence['configurationSha256'], hashlib.sha256(logging_config.read_bytes()).hexdigest())
+                    else:
+                        self.assertNotIn('logging.config', config)
+                        self.assertEqual(evidence['configurationSource'], 'PACKAGED_CURRENT_LOGGING_CONFIG')
+                        self.assertTrue(evidence['originalJarLoggingConfigurationUsed'])
+                        self.assertEqual(evidence['configurationResource'], 'BOOT-INF/classes/logback-spring.xml')
+                        self.assertEqual(evidence['configurationSha256'], hashlib.sha256(packaged_logging).hexdigest())
+                    self.assertFalse(evidence['provesUnconfiguredHistoricalStartup'])
+                    self.assertEqual(len(evidence['configurationSha256']), 64)
+                    args, kwargs = verification.start.call_args
+                    self.assertEqual(kwargs['cwd'], verification.private)
+                    self.assertIn(jar, args[0])
+                with zipfile.ZipFile(verification.jar, 'w') as archive:
+                    archive.writestr('BOOT-INF/classes/unrelated.properties', b'fixture=true')
+                verification.start.reset_mock()
+                with self.assertRaises(KeyError):
+                    verification.launch_java('missing-packaged-config', 'owned_demo', 'owned_studio')
+                verification.start.assert_not_called()
+
     def test_generated_names_cannot_target_existing_business_databases(self):
         self.assertEqual(schema_name("a" * 12, "fresh", "demo"), "verify_engineering_aaaaaaaaaaaa_fresh_demo")
         for values in (("ksdatabase", "fresh", "demo"), ("a" * 12, "live", "demo"), ("a" * 12, "fresh", "other"), ("a" * 12 + ";DROP", "fresh", "demo")):

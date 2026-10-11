@@ -5,6 +5,7 @@
 
     <!-- [zh] 开始标签 `<div>` -->
     <div ref="homeScrollRef" class="simlect-home-scroll">
+      <HomeLivingScene :product="editorPicks[0]" mobile @select="goDetail" />
 
       <!-- [zh] 开始标签 `<HomeFeatureCards>` -->
       <HomeFeatureCards />
@@ -147,6 +148,7 @@ import CampaignHomeEntry from '@/components/campaign/CampaignHomeEntry.vue';
 import CampaignProductTag from '@/components/campaign/CampaignProductTag.vue';
 import AIGuideCard from '@/components/business/AIGuideCard.vue';
 import HomeFeatureCards from '@/components/business/HomeFeatureCards.vue';
+import HomeLivingScene from '@/components/home/HomeLivingScene.vue';
 import { productApi } from '@/api/modules';
 import { usePageRefresh } from '@/composables/pullRefresh';
 import { isStandaloneDisplay } from '@/utils/standalone';

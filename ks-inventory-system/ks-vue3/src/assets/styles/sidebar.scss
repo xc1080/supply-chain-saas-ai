@@ -2,7 +2,6 @@
 
   .main-container {
     height: 100%;
-    transition: margin-left .28s;
     margin-left: $base-sidebar-width;
     position: relative;
   }
@@ -12,8 +11,6 @@
   }
 
   .sidebar-container {
-    -webkit-transition: width .28s;
-    transition: width 0.28s;
     width: $base-sidebar-width !important;
     background-color: $base-menu-background;
     height: 100%;
@@ -179,14 +176,14 @@
     }
 
     .sidebar-container {
-      transition: transform .28s;
+      transition: transform .22s ease;
       width: $base-sidebar-width !important;
     }
 
     &.hideSidebar {
       .sidebar-container {
         pointer-events: none;
-        transition-duration: 0.3s;
+        transition-duration: .22s;
         transform: translate3d(-$base-sidebar-width, 0, 0);
       }
     }

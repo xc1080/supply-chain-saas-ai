@@ -52,36 +52,8 @@
     <!-- [zh] 开始标签 `<div>` -->
     <div class="sl-stage">
       <!-- [zh] 开始标签 `<div>` -->
-      <div class="sl-banner">
-        <!-- [zh] 开始标签 `<button>` -->
-        <button
-          v-if="bannerProduct"
-          type="button"
-          class="sl-banner-btn"
-          @click="goDetail(bannerProduct)"
-        >
-          <!-- [zh] 开始标签 `<ProductImage>` -->
-          <ProductImage :product="bannerProduct" :lazy="false" fit="cover" width="100%" height="100%" class="sl-banner-bg" />
-          <!-- [zh] 开始标签 `<ProductImage>` -->
-          <ProductImage :product="bannerProduct" :lazy="false" fit="contain" width="100%" height="100%" class="sl-banner-fg" />
-          <!-- [zh] 开始标签 `<div>` -->
-          <div class="sl-banner-meta">
-            <!-- [zh] 开始标签 `<span>` -->
-            <span class="sl-banner-name">{{ bannerProduct.productName }}</span>
-            <!-- [zh] 开始标签 `<span>` -->
-            <span class="sl-banner-price">¥{{ formatPrice(bannerProduct) }}</span>
-          <!-- [zh] 闭合标签 `</div>` -->
-          </div>
-        <!-- [zh] 闭合标签 `</button>` -->
-        </button>
-        <!-- [zh] 开始标签 `<div>` -->
-        <div v-else class="sl-banner-placeholder">
-          <!-- [zh] 开始标签 `<BrandMark>` -->
-          <BrandMark class="sl-banner-logo" />
-          <!-- [zh] 开始标签 `<p>` -->
-          <p>简选 Simlect</p>
-        <!-- [zh] 闭合标签 `</div>` -->
-        </div>
+      <div class="sl-banner sl-banner--living">
+        <HomeLivingScene :product="bannerProduct" @select="goDetail" />
         <!-- [zh] 开始标签 `<div>` -->
         <div v-if="bannerList.length > 1" class="sl-banner-dots">
           <!-- [zh] 开始标签 `<button>` -->
@@ -191,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import {
   ArrowRight,
@@ -204,8 +176,8 @@ import {
   Ticket,
   Wallet
 } from '@element-plus/icons-vue';
-import BrandMark from '@/components/common/BrandMark.vue';
 import ProductImage from '@/components/common/ProductImage.vue';
+import HomeLivingScene from '@/components/home/HomeLivingScene.vue';
 import { useOpenAgent } from '@/composables/useOpenAgent';
 import { useAuthStore } from '@/stores/auth';
 import { resolveAvatarUrl } from '@/utils/image';
@@ -225,7 +197,6 @@ const { openAgent } = useOpenAgent();
 const authStore = useAuthStore();
 const carouselIndex = ref(0);
 const hoverCategory = ref<string | null>(null);
-let carouselTimer: ReturnType<typeof setInterval> | null = null;
 
 const avatarUrl = computed(() => resolveAvatarUrl(authStore.userInfo?.avatar));
 const avatarLetter = computed(() => (authStore.userInfo?.nickName || '访')[0]);
@@ -245,33 +216,19 @@ const bannerList = computed(() => props.hotProducts.slice(0, 5));
 const bannerProduct = computed(() => bannerList.value[carouselIndex.value] || bannerList.value[0]);
 const stripProducts = computed(() => props.hotProducts.slice(0, 4));
 
-const startCarousel = () => {
-  if (carouselTimer) clearInterval(carouselTimer);
-  if (bannerList.value.length <= 1) return;
-  carouselTimer = setInterval(() => {
-    carouselIndex.value = (carouselIndex.value + 1) % bannerList.value.length;
-  }, 4500);
-};
-
 const goBanner = (index: number) => {
   const total = bannerList.value.length;
   if (!total) return;
   carouselIndex.value = (index + total) % total;
-  startCarousel();
 };
 
 watch(
   () => props.hotProducts.length,
   (len) => {
     if (len && carouselIndex.value >= len) carouselIndex.value = 0;
-    startCarousel();
   },
   { immediate: true }
 );
-
-onUnmounted(() => {
-  if (carouselTimer) clearInterval(carouselTimer);
-});
 
 const serviceGrid = [
   { label: '全部分类', path: '/search', icon: Grid },

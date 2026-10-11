@@ -197,7 +197,7 @@ onMounted(load);
   /* [zh] 样式规则 `text-align: center !important;` */
   text-align: center !important;
   /* [zh] 样式规则 `transition: all 0.3s ease !important;` */
-  transition: all 0.3s ease !important;
+  transition: transform 200ms ease, opacity 200ms ease !important;
   /* [zh] 样式规则 `border-radius: $radius-card !important;` */
   border-radius: $radius-card !important;
   /* [zh] 样式规则 `margin-bottom: 16px !important;` */

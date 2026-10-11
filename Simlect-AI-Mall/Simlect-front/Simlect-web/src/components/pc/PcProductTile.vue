@@ -1,7 +1,7 @@
 <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
 <template>
   <!-- [zh] 开始标签 `<article>` -->
-  <article class="pc-product-tile" @click="$emit('click', product)">
+  <article class="pc-product-tile" role="link" tabindex="0" @click="$emit('click', product)" @keydown.enter.self="$emit('click', product)" @keydown.space.self.prevent="$emit('click', product)">
     <!-- [zh] 开始标签 `<div>` -->
     <div class="pc-product-tile__cover">
       <!-- [zh] 开始标签 `<ProductImage>` -->

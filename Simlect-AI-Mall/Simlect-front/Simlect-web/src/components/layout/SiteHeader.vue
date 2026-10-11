@@ -67,6 +67,7 @@
               v-model="keyword"
               class="search-input"
               type="search"
+              aria-label="搜索商品"
               :placeholder="DEMO_MODE ? '搜索智能灯、网关、传感器…' : '搜索简选'"
               @focus="openRecentPanel"
               @blur="onSearchBlur"

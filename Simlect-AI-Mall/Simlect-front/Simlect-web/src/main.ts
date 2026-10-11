@@ -7,6 +7,7 @@ import App from './App.vue';
 import router from './router';
 import './styles/element-theme.scss';
 import './styles/global.scss';
+import './styles/storefront-modern.scss';
 import { useDeviceStore } from './stores/device';
 import { installMobileViewportGuards, installVisualViewportSync } from './utils/mobileViewport';
 import { ensureLiquidGlassFilters } from './utils/liquidGlassFilters';

@@ -62,5 +62,11 @@ defineExpose({ refresh })
 </script>
 <style scoped>
 .settlement-status{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.settlement-status .el-tag { min-height: 30px; }
+.order-settlement .settlement-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 22px; margin: 22px 0; padding: 4px 0; border-top: 1px solid var(--sc-border); border-bottom: 1px solid var(--sc-border); }
+.settlement-summary > div { min-width: 0; padding: 12px 0; font-variant-numeric: tabular-nums; }
+.settlement-summary dd { overflow-wrap: anywhere; }
+.order-settlement .settlement-actions { flex-wrap: wrap; }
+@media (max-width: 767px) { .order-settlement .settlement-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; } .settlement-actions > a, .settlement-actions > .el-button { flex: 1; } .settlement-actions > a .el-button { width: 100%; } }
 .order-settlement{border-top:1px solid var(--sc-border);margin-top:25px;padding-top:8px}.order-settlement header{display:flex;justify-content:space-between;align-items:center}.order-settlement h3{font-size:16px}.order-settlement h4{font-size:14px;margin-top:24px}.settlement-summary{display:flex;flex-wrap:wrap;gap:18px 25px;margin:20px 0}.settlement-summary dt{font-size:12px;color:var(--sc-muted);margin-bottom:7px}.settlement-summary dd{margin:0;font-size:15px;font-weight:600}.order-settlement small{display:block;color:var(--sc-muted)}.settlement-form{margin-top:20px}.settlement-form summary{cursor:pointer;font-size:14px}.settlement-form .el-form{max-width:500px;margin-top:18px}.allocation{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:16px 0;font-size:13px}.settlement-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:20px}.snapshot-note{font-size:12px;color:var(--sc-muted);overflow-wrap:anywhere;border-top:1px solid var(--sc-border);padding:14px 0}.snapshot-note:first-of-type{margin-top:14px}@media(max-width:767px){.allocation{flex-wrap:wrap}}
 </style>

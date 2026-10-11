@@ -1,5 +1,6 @@
 import defaultSettings from '@/settings'
 import { useDynamicTitle } from '@/utils/dynamicTitle'
+import { normalizeTheme } from '@/utils/theme'
 
 const { sideTheme, showSettings, topNav, tagsView, fixedHeader, sidebarLogo, dynamicTitle } = defaultSettings
 
@@ -10,7 +11,7 @@ const useSettingsStore = defineStore(
   {
     state: () => ({
       title: '',
-      theme: storageSetting.theme || '#2563EB',
+      theme: normalizeTheme(storageSetting.theme),
       sideTheme: storageSetting.sideTheme || sideTheme,
       showSettings: showSettings,
       topNav: storageSetting.topNav === undefined ? topNav : storageSetting.topNav,

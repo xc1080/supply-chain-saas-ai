@@ -39,17 +39,17 @@ const price = computed(() => Number(campaign.value?.price ?? 0).toFixed(2));
   max-width: 100%;
   margin-top: 7px;
   padding: 3px 6px;
-  border: 1px solid #efd3cf;
-  border-radius: 3px;
-  background: #fff8f7;
-  color: #b7322b;
+  border: 1px solid #CEE2DD;
+  border-radius: 5px;
+  background: #EAF4F2;
+  color: #167D78;
   font-size: 11px;
   line-height: 1.4;
   text-decoration: none;
 }
 .campaign-product-tag strong { font-size: 12px; font-weight: 700; }
-.campaign-product-tag:hover { border-color: #c83e36; background: #fff1ef; }
-.campaign-product-tag:focus-visible { outline: 2px solid #c83e36; outline-offset: 3px; }
+.campaign-product-tag:hover { border-color: #167D78; background: #E1F0ED; }
+.campaign-product-tag:focus-visible { outline: 2px solid #167D78; outline-offset: 3px; }
 .campaign-product-tag.is-unavailable { color: #77736f; background: #f7f6f5; border-color: #e5e2de; }
 .tag-state { border-left: 1px solid #d8d3cd; padding-left: 4px; }
 </style>

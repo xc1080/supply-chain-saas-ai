@@ -56,11 +56,11 @@ watch(() => props.shopId, () => { tasks.value = []; detail.value = null; target.
 defineExpose({ refresh })
 </script>
 <style scoped>
-.agent-tasks { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e6ebf0; }
+.agent-tasks { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--sc-border); }
 header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; }
-h2 { margin: 0 0 5px; font-size: 19px; } small { display: block; font-size: 12px; color: #64748b; margin-top: 4px; }
+h2 { margin: 0 0 5px; font-size: 18px; font-weight: 600; } small { display: block; font-size: 12px; color: var(--sc-muted); margin-top: 4px; }
 .task-items { padding: 12px 24px; } .task-item { display: flex; gap: 12px; align-items: center; padding: 8px 0; max-width: 600px; }
-.task-item img { width: 48px; height: 48px; object-fit: contain; background: #f4f6f8; border-radius: 8px; } .task-item div { flex: 1; }
-.muted { color: #64748b; font-size: 13px; } .due { color: #a6630c; }
+.task-item img { width: 48px; height: 48px; object-fit: contain; background: var(--sc-surface-soft); border: 1px solid var(--sc-border); border-radius: 6px; } .task-item div { flex: 1; min-width: 0; }
+.muted { color: var(--sc-muted); font-size: 13px; } .due { color: var(--sc-warning); }
 @media(max-width: 700px) { header { align-items: flex-start; flex-direction: column; } }
 </style>

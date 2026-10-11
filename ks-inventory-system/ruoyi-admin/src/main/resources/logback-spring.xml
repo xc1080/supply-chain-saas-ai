@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- 日志存放路径 -->
-    <property name="log.path" value="/home/ruoyi/logs"/>
+    <!-- Spring Boot 初始化后读取路径，默认在当前用户目录下，无需 root 权限。 -->
+    <springProperty scope="context" name="log.path" source="logging.file.path"
+                    defaultValue="${user.home}/.supply-chain-saas/logs"/>
     <!-- 日志输出格式 -->
     <property name="log.pattern"
               value="%d{HH:mm:ss.SSS} %boldYellow([%thread]) %highlight(%-5level) %boldGreen(%logger{20}) - [%method,%line] - %msg%n"/>

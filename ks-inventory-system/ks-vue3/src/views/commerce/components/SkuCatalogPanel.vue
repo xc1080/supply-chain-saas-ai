@@ -153,12 +153,12 @@ defineExpose({ refresh })
 </script>
 
 <style scoped>
-.sku-catalog { padding: 22px; margin-bottom: 22px; background: var(--sc-surface); border: 1px solid var(--sc-border); border-radius: 10px; }
+.sku-catalog { min-width: 0; padding: 24px; margin-bottom: 24px; background: var(--sc-surface); border: 1px solid var(--sc-border); border-radius: 8px; }
 .sku-heading, .form-section-title, .property-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
 .sku-heading { margin-bottom: 20px; }.sku-heading h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }.sku-heading span, small { color: var(--sc-muted); font-size: 12px; }
 small { display: block; line-height: 1.6; }.sku-groups { margin-top: 16px; }.sku-variants { padding: 8px 18px; }.dimension-tag { margin: 3px 6px 3px 0; }
 .form-section-title { margin: 24px 0 14px; }.form-section-title h3 { margin: 0; font-size: 15px; }.form-section-title :deep(.el-select) { width: min(450px, 70%); }
-.property-editor { padding: 14px; border-left: 3px solid var(--sc-border); margin-bottom: 12px; background: var(--sc-surface-soft); }.property-heading :deep(.el-input) { max-width: 280px; }
+.property-editor { padding: 16px; border-left: 2px solid var(--sc-primary); margin-bottom: 16px; background: var(--sc-surface-soft); }.property-heading :deep(.el-input) { max-width: 280px; }
 .property-values { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }.property-value { display: flex; align-items: center; gap: 6px; }.property-value :deep(.el-input) { width: 160px; }.form-error { margin-top: 16px; }
 @media(max-width:700px) { .sku-catalog { padding: 14px; }.sku-heading, .property-heading, .form-section-title { align-items: flex-start; flex-wrap: wrap; }.form-section-title :deep(.el-select) { width: 100%; }.property-value { flex-wrap: wrap; }.property-value :deep(.el-input) { width: 135px; } }
 </style>

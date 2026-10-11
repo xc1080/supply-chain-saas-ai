@@ -1,5 +1,5 @@
 <template>
-  <div :class="{ 'has-logo': showLogo }" :style="{ backgroundColor: sideTheme === 'theme-dark' ? variables.menuBackground : variables.menuLightBackground }">
+  <nav class="workspace-navigation" aria-label="业务导航" :class="{ 'has-logo': showLogo }" :style="{ backgroundColor: sideTheme === 'theme-dark' ? variables.menuBackground : variables.menuLightBackground }">
     <logo v-if="showLogo" :collapse="isCollapse" />
     <el-scrollbar :class="sideTheme" wrap-class="scrollbar-wrapper">
       <el-menu
@@ -18,9 +18,12 @@
           :item="route"
           :base-path="route.path"
         />
+        <router-link v-if="canManageCommerce" to="/commerce/orders" class="commerce-sidebar-link">
+          <el-menu-item index="/commerce/orders"><svg-icon icon-class="shopping" /><template #title><span>商城订单与库存</span></template></el-menu-item>
+        </router-link>
       </el-menu>
     </el-scrollbar>
-  </div>
+  </nav>
 </template>
 
 <script setup>
@@ -30,11 +33,14 @@ import variables from '@/assets/styles/variables.module.scss'
 import useAppStore from '@/store/modules/app'
 import useSettingsStore from '@/store/modules/settings'
 import usePermissionStore from '@/store/modules/permission'
+import useUserStore from '@/store/modules/user'
 
 const route = useRoute();
 const appStore = useAppStore()
 const settingsStore = useSettingsStore()
 const permissionStore = usePermissionStore()
+const userStore = useUserStore()
+const canManageCommerce = computed(() => !userStore.roles.includes('commerce_customer') && userStore.roles.some(role => ['admin', 'tenant_admin', 'erp_manager', 'shop_staff'].includes(role)))
 
 const sidebarRouters =  computed(() => permissionStore.sidebarRouters);
 const showLogo = computed(() => settingsStore.sidebarLogo);

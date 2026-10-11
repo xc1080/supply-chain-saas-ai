@@ -147,6 +147,8 @@ onMounted(refresh)
 defineExpose({refresh})
 </script>
 <style scoped>
+.after-sales-panel { min-width: 0; }
+@media (max-width: 767px) { .after-sales-panel.after-sales-panel { padding: 14px; } .after-sales-panel > header { gap: 12px; flex-wrap: wrap; } }
 .return-product{display:flex;align-items:center;gap:12px}.return-product img{width:44px;height:44px;object-fit:contain;border-radius:6px;background:var(--sc-surface-soft)}.return-product small{display:block;color:var(--sc-muted)}
-.after-sales-panel{padding:22px;margin-bottom:22px;background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:10px}.after-sales-panel>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.after-sales-panel h2{font-size:18px;margin:0}.status{font-size:19px;font-weight:600}.after-sales-detail{line-height:1.8}.after-sales-detail .el-table{margin-top:20px}.actions{margin-top:22px}.actions>.el-button{margin-top:16px}.actions p,.records{font-size:13px;color:var(--sc-muted)}.records{margin-top:24px}.records summary{cursor:pointer}
+.after-sales-panel{padding:22px;margin-bottom:22px;background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:8px}.after-sales-panel>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.after-sales-panel h2{font-size:18px;margin:0}.status{font-size:19px;font-weight:600}.after-sales-detail{line-height:1.8}.after-sales-detail .el-table{margin-top:20px}.actions{margin-top:22px}.actions>.el-button{margin-top:16px}.actions p,.records{font-size:13px;color:var(--sc-muted)}.records{margin-top:24px}.records summary{cursor:pointer}
 </style>

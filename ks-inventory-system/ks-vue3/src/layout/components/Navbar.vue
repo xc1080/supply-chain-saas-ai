@@ -68,10 +68,10 @@ function handleCommand(command) {
 .right-menu { display: flex; align-items: center; flex-shrink: 0; gap: 12px; }
 .right-menu-item { display: inline-flex; align-items: center; justify-content: center; color: var(--sc-muted); font-size: 17px; }
 .assistant-shortcut { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border-radius: 7px; background: var(--sc-primary-soft); color: var(--sc-primary); font-size: 12px; font-weight: 500; }
-.assistant-shortcut:hover { color: var(--sc-primary); filter: brightness(.97); }
+.assistant-shortcut:hover { color: var(--sc-primary-hover); }
 .account-menu { margin-left: 4px; padding-left: 16px; border-left: 1px solid var(--sc-border); }
 .account-trigger { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; color: var(--sc-text); cursor: pointer; }
-.user-avatar { border-radius: 9px; object-fit: cover; }
+.user-avatar { border-radius: 50%; object-fit: cover; border: 1px solid var(--sc-border); }
 .account-name { max-width: 100px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
 .account-trigger > .el-icon { color: var(--sc-muted); font-size: 12px; }
 @media (max-width: 991px) { .navbar { padding: 0 16px 0 10px; gap: 12px; } .navbar-location { gap: 8px; } .account-menu { border: 0; padding-left: 0; } .account-name { display: none; } }

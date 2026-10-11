@@ -1,7 +1,7 @@
 <template>
   <div class="register">
     <el-form ref="registerRef" :model="registerForm" :rules="registerRules" class="register-form">
-      <h3 class="title">若依后台管理系统</h3>
+      <h3 class="title">注册铠思工作空间账号</h3>
       <el-form-item prop="username">
         <el-input 
           v-model="registerForm.username" 
@@ -159,21 +159,25 @@ getCode();
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100%;
-  background-image: url("../assets/images/login-background.jpg");
-  background-size: cover;
+  min-height: 100dvh;
+  padding: 32px 20px 80px;
+  background: var(--sc-bg);
 }
 .title {
   margin: 0px auto 30px auto;
   text-align: center;
-  color: #707070;
+  color: var(--sc-text);
+  font-size: 22px;
+  font-weight: 600;
 }
 
 .register-form {
-  border-radius: 6px;
-  background: #ffffff;
+  border: 1px solid var(--sc-border);
+  border-radius: 10px;
+  background: var(--sc-surface);
   width: 400px;
-  padding: 25px 25px 5px 25px;
+  max-width: 100%;
+  padding: 32px 32px 12px;
   .el-input {
     height: 40px;
     input {
@@ -189,7 +193,7 @@ getCode();
 .register-tip {
   font-size: 13px;
   text-align: center;
-  color: #bfbfbf;
+  color: var(--sc-muted);
 }
 .register-code {
   width: 33%;
@@ -207,7 +211,7 @@ getCode();
   bottom: 0;
   width: 100%;
   text-align: center;
-  color: #fff;
+  color: var(--sc-muted);
   font-family: Arial;
   font-size: 12px;
   letter-spacing: 1px;

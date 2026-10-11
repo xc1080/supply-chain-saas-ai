@@ -80,6 +80,12 @@ Python 回归需要 Redis；`run_tests.py` 使用独立 SQLite、随机 Redis �
 
 GitHub 自动验证定义在 `.github/workflows/engineering.yml`。文件存在不代表运行成功；以该提交的 Actions 结果与上传证据为准。本机执行结果同样不能冒充 GitHub Actions 已通过。
 
+当前两个前端构建入口为 `ks-inventory-system/ks-vue3`（商家端 `build:prod`）和 `Simlect-AI-Mall/Simlect-front/Simlect-web`（消费者端 `build:demo`）；两者的 `package-lock.json` 都需提交，CI 使用 `npm ci`。保留的 `Simlect-front/Simlect-admin` 是旧入口，不参与这套验证。
+
+Java 日志由 `logback-spring.xml` 初始化，默认写入 `${user.home}/.supply-chain-saas/logs`；可通过 `logging.file.path`、`LOGGING_FILE_PATH` 或 `--logging.file.path=...` 指定目录。隔离验收为各场景指定私有日志路径；当前程序使用 jar 内配置并记录该资源的 SHA256，仅归档 V11 使用当前外置兼容配置，避免旧程序的硬编码路径依赖。
+
+AI SQLite telemetry 为尽力记录，锁库等待最多 50 ms；记录失败不改变工具或 provider 的原始结果，也不输出原始异常或内容。Redis 准入、额度预留与 token 结算继续失败关闭，业务执行记录和权限核验仍是必需状态。
+
 ## 使用现有学习环境
 
 保留的 Windows 启动入口是 `start-fusion-demo.ps1`，依赖本机私有 `runtime/` 配置和已构建产物；它不是全新机器的安装程序。详细端口、启动和检查说明见 [本地运行](本地运行.md)。全新环境首先使用上述隔离验收入口，避免复制其他人的私有数据与密钥。

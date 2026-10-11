@@ -236,7 +236,6 @@ onBeforeUnmount(() => {
   /* [zh] 样式规则 `width: max-content;` */
   width: max-content;
   /* [zh] 样式规则 `will-change: transform;` */
-  will-change: transform;
   /* [zh] 样式规则 `transition: transform 0.28s cubic-bezier` */
   transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
   /* [zh] 样式规则 `touch-action: pan-y;` */

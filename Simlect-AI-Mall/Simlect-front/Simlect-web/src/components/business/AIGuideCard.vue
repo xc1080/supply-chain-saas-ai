@@ -1,7 +1,7 @@
 <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
 <template>
   <!-- [zh] 开始标签 `<div>` -->
-  <div class="ai-guide-card" @click="goAgent">
+  <div class="ai-guide-card" role="button" tabindex="0" @click="goAgent" @keydown.enter.self="goAgent" @keydown.space.self.prevent="goAgent">
     <!-- [zh] 开始标签 `<div>` -->
     <div class="ai-guide-left">
       <!-- [zh] 开始标签 `<div>` -->
@@ -193,7 +193,7 @@ const quickAsk = (prompt: string) => {
   /* [zh] 样式规则 `box-shadow: 0 0 0 3px rgba(212, 162, 78,` */
   box-shadow: 0 0 0 3px rgba(212, 162, 78, 0.1);
   /* [zh] 样式规则 `animation: aiPulse 3s ease-in-out infini` */
-  animation: aiPulse 3s ease-in-out infinite;
+  animation: none;
 /* [zh] 样式规则 `}` */
 }
 

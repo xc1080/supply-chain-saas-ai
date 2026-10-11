@@ -30,7 +30,6 @@ $jelly-glass-duration: 0.24s;
 @mixin tab-bar-jelly-host {
   transform-origin: center bottom;
   overflow: visible;
-  will-change: transform;
 
   &.is-jelly {
     animation: tab-bar-pop $jelly-bar-duration $jelly-ease both;
