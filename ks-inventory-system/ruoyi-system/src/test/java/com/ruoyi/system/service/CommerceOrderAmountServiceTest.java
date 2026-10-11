@@ -33,6 +33,7 @@ public class CommerceOrderAmountServiceTest {
     private void installSchema()throws Exception {
         String script=StreamUtils.copyToString(new ClassPathResource("db/commerce-order-amount.sql").getInputStream(),StandardCharsets.UTF_8).replace("ENGINE=InnoDB DEFAULT CHARSET=utf8mb4","");
         new ResourceDatabasePopulator(new ByteArrayResource(script.getBytes(StandardCharsets.UTF_8))).execute(jdbc.getDataSource());
+        amounts.initializeRefundPolicySchema();
     }
     @After public void clear(){CommerceShopContext.clear();}
     @Test public void jdbcLocalDateTimePromotionCanBeSerializedAndQuoted() throws Exception {
@@ -55,6 +56,7 @@ public class CommerceOrderAmountServiceTest {
     private Map<String,Object> request(String key,int quantity,String promotion){Map<String,Object> body=fixture.request(key,quantity);if(promotion!=null)body.put("promotionId",promotion);return body;}
     private Map<String,Object> create(String key,int quantity,String promotion){return tx(()->commerce.create(request(key,quantity,promotion)));}
     private void fee(Object amount){tx(()->amounts.savePolicy(map("shippingFee",amount),1));}
+    private void policy(Object amount,String policy){tx(()->amounts.savePolicy(map("shippingFee",amount,"shippingRefundPolicy",policy),1));}
     private Map<String,Object> line(Map<String,Object> order,int index){return (Map<String,Object>)((List<?>)order.get("items")).get(index);}
     private void rejects(int code,Runnable work){fixture.rejected(code,work);}
     private long count(String table){return fixture.count(table);}
@@ -64,9 +66,12 @@ public class CommerceOrderAmountServiceTest {
     }
     private String paid(String key,int quantity,String promotion){Map<String,Object> order=create(key,quantity,promotion);String id=String.valueOf(order.get("orderId"));tx(()->commerce.pay(id,map("ownerId",OWNER,"paymentRequestId",key+"-pay","scenario","success")));return id;}
     private String rawCase(String order,String key,SortedMap<Long,Long> chosen,String status){
-        SortedMap<Long,BigDecimal> money=amounts.refundAmounts(order,chosen);BigDecimal total=money.values().stream().reduce(BigDecimal.ZERO,BigDecimal::add);
+        return rawCase(order,key,chosen,status,"UNSHIPPED_REFUND");
+    }
+    private String rawCase(String order,String key,SortedMap<Long,Long> chosen,String status,String kind){
+        SortedMap<Long,BigDecimal> money=amounts.refundAmounts(order,chosen,kind);BigDecimal total=money.values().stream().reduce(BigDecimal.ZERO,BigDecimal::add);
         String id="AS20261010120000"+UUID.randomUUID().toString().replace("-","").substring(0,10).toUpperCase(Locale.ROOT);
-        jdbc.update("INSERT INTO commerce_after_sales_case(after_sales_id,order_id,shop_id,owner_id,request_key,request_hash,kind,reason,status,original_order_status,return_required,refund_amount,created_at) VALUES (?,?,'default',?,?,?,'UNSHIPPED_REFUND','学习退款',?,1,0,?,CURRENT_TIMESTAMP)",id,order,OWNER,key,CommerceService.requestHash(chosen),status,total);
+        jdbc.update("INSERT INTO commerce_after_sales_case(after_sales_id,order_id,shop_id,owner_id,request_key,request_hash,kind,reason,status,original_order_status,return_required,refund_amount,created_at) VALUES (?,?,'default',?,?,?,?,'学习退款',?,1,?,?,CURRENT_TIMESTAMP)",id,order,OWNER,key,CommerceService.requestHash(chosen),kind,status,"RETURN_REFUND".equals(kind)?1:0,total);
         for(Map.Entry<Long,Long> entry:chosen.entrySet()) {
             Map<String,Object> item=jdbc.queryForMap("SELECT * FROM commerce_order_item WHERE order_id=? AND product_id=?",order,entry.getKey());
             jdbc.update("INSERT INTO commerce_after_sales_item(after_sales_id,product_id,product_code,product_name,spec,quantity,unit_price,amount) VALUES (?,?,?,?,?,?,?,?)",id,entry.getKey(),item.get("product_code"),item.get("product_name"),item.get("spec"),entry.getValue(),item.get("unit_price"),money.get(entry.getKey()));
@@ -85,7 +90,7 @@ public class CommerceOrderAmountServiceTest {
     }
 
     @Test public void serverQuoteIgnoresClientMoneyAndNeverReservesAnything() {
-        jdbc.update("UPDATE product SET univalence=0.01 WHERE product_id=1");addProduct(2,"0.01");addProduct(3,"0.01");fee("0.01");String selected=promotion("0.01",Collections.emptyList());
+        jdbc.update("UPDATE product SET univalence=0.01 WHERE product_id=1");addProduct(2,"0.01");addProduct(3,"0.01");policy("0.01","PROPORTIONAL");String selected=promotion("0.01",Collections.emptyList());
         Map<String,Object> body=map("items",Arrays.asList(map("productId",3,"quantity",1,"unitPrice",999),map("productId",1,"quantity",1,"unitPrice",0),map("productId",2,"quantity",1)),"promotionId",selected,"shippingFee",999,"discountAmount",999,"totalAmount",0);
         Map<String,Object> quote=amounts.quote(body);assertEquals(new BigDecimal("0.03"),quote.get("originalAmount"));assertEquals(new BigDecimal("0.01"),quote.get("discountAmount"));assertEquals(new BigDecimal("0.01"),quote.get("shippingAmount"));assertEquals(new BigDecimal("0.03"),quote.get("payableAmount"));
         assertEquals(1L,line(quote,0).get("productId"));assertEquals(new BigDecimal("0.01"),line(quote,0).get("discountAmount"));assertEquals(new BigDecimal("0.01"),line(quote,0).get("shippingAmount"));assertEquals(new BigDecimal("0.01"),line(quote,1).get("payableAmount"));assertEquals(0,count("commerce_order"));assertEquals(0,count("commerce_stock_hold"));assertEquals(0,count("commerce_delivery_hold"));
@@ -105,7 +110,7 @@ public class CommerceOrderAmountServiceTest {
     }
 
     @Test public void discountOnlyUsesEligibleLinesAndIsCappedAtTheirOriginalAmount() {
-        addProduct(2,"1.00");fee("1.30");String selected=promotion("999.99",Collections.singletonList(2L));Map<String,Object> quote=amounts.quote(map("items",Arrays.asList(map("productId",1,"quantity",1),map("productId",2,"quantity",1)),"promotionId",selected));
+        addProduct(2,"1.00");policy("1.30","PROPORTIONAL");String selected=promotion("999.99",Collections.singletonList(2L));Map<String,Object> quote=amounts.quote(map("items",Arrays.asList(map("productId",1,"quantity",1),map("productId",2,"quantity",1)),"promotionId",selected));
         assertEquals(new BigDecimal("1.00"),quote.get("discountAmount"));assertEquals(new BigDecimal("130.30"),quote.get("payableAmount"));assertEquals(new BigDecimal("0.00"),line(quote,0).get("discountAmount"));assertEquals(new BigDecimal("0.01"),line(quote,1).get("payableAmount"));
         rejects(409,()->amounts.quote(map("items",Collections.singletonList(map("productId",1,"quantity",1)),"promotionId",selected)));
     }
@@ -205,5 +210,73 @@ public class CommerceOrderAmountServiceTest {
         rejects(409,()->tx(()->commerce.seckill("free-rush",map("ownerId",OWNER,"requestKey","free-rush-order","shippingAddress",CommerceServiceTest.address(),"promotionId",free))));
         assertEquals(0,count("commerce_order"));assertEquals(0,count("commerce_order_amount"));assertEquals(Long.valueOf(2),jdbc.queryForObject("SELECT remaining FROM commerce_activity WHERE activity_id='free-rush'",Long.class));assertEquals(Long.valueOf(0),jdbc.queryForObject("SELECT COUNT(*) FROM commerce_delivery_hold WHERE subject_type='ORDER'",Long.class));
         assertEquals(stockEvents,count("commerce_stock_ledger"));assertEquals(deliveryEvents,count("commerce_delivery_event"));assertEquals(before.get("availableStock"),commerce.inventory().get(0).get("availableStock"));assertEquals(before.get("activityStock"),commerce.inventory().get(0).get("activityStock"));
+    }
+
+    @Test public void newShippingPolicyIsExplicitSnapshottedAndCannotBeChangedByClientOrShopEdits(){
+        assertEquals("UNSHIPPED_ONLY",amounts.policy().get("shippingRefundPolicy"));fee("1.01");
+        Map<String,Object> body=request("freight-policy",3,null);body.put("shippingRefundPolicy","PROPORTIONAL");
+        Map<String,Object> order=tx(()->commerce.create(body));String id=String.valueOf(order.get("orderId"));
+        assertEquals(2,order.get("amountSnapshotVersion"));assertEquals("UNSHIPPED_ONLY",order.get("shippingRefundPolicy"));
+        assertEquals("UNSHIPPED_ONLY",amounts.quote(map("items",Collections.singletonList(map("productId",1,"quantity",3)),"shippingRefundPolicy","PROPORTIONAL")).get("shippingRefundPolicy"));
+        assertEquals(new BigDecimal("129.34"),tx(()->amounts.refundAmounts(id,quantities(1,1),"UNSHIPPED_REFUND")).get(1L));
+        assertEquals(new BigDecimal("129.00"),tx(()->amounts.refundAmounts(id,quantities(1,1),"RETURN_REFUND")).get(1L));
+        policy("9.99","PROPORTIONAL");fee("8.00");assertEquals("PROPORTIONAL",amounts.policy().get("shippingRefundPolicy"));
+        assertEquals(id,tx(()->commerce.create(body)).get("orderId"));assertEquals("UNSHIPPED_ONLY",commerce.detail(id,OWNER).get("shippingRefundPolicy"));
+        assertEquals("PROPORTIONAL",create("next-policy",1,null).get("shippingRefundPolicy"));
+        rejects(400,()->policy("1","NEVER"));rejects(400,()->policy("1",null));
+        rejects(403,()->tx(()->amounts.savePolicy(map("shippingFee",1,"shippingRefundPolicy","PROPORTIONAL"),2)));
+    }
+
+    @Test public void migrationPreservesHistoricalProportionalAmountsAndRetriesPartialDdl(){
+        jdbc.execute("ALTER TABLE commerce_pricing_policy DROP COLUMN shipping_refund_policy");jdbc.execute("ALTER TABLE commerce_order_amount DROP COLUMN shipping_refund_policy");
+        amounts.initializeAmountSchema();
+        assertEquals(Long.valueOf(0),jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_name IN('commerce_pricing_policy','commerce_order_amount') AND column_name='shipping_refund_policy'",Long.class));
+        rejects(503,()->policy("1.00","UNSHIPPED_ONLY"));
+        jdbc.update("INSERT INTO commerce_pricing_policy(shop_id,shipping_cents) VALUES ('default',101)");
+        Map<String,Object> old=create("v14-order",3,null);String id=String.valueOf(old.get("orderId"));assertEquals(1,old.get("amountSnapshotVersion"));
+        jdbc.execute("ALTER TABLE commerce_pricing_policy ADD COLUMN shipping_refund_policy VARCHAR(24) NOT NULL DEFAULT 'UNSHIPPED_ONLY'");
+        amounts.initializeRefundPolicySchema();amounts.initializeRefundPolicySchema();
+        assertEquals("PROPORTIONAL",commerce.detail(id,OWNER).get("shippingRefundPolicy"));
+        assertEquals(new BigDecimal("129.34"),tx(()->amounts.refundAmounts(id,quantities(1,1),"RETURN_REFUND")).get(1L));
+        assertEquals("UNSHIPPED_ONLY",create("v17-order",3,null).get("shippingRefundPolicy"));
+        assertEquals("PROPORTIONAL",jdbc.queryForObject("SELECT shipping_refund_policy FROM commerce_order_amount WHERE order_id=?",String.class,id));
+    }
+
+    @Test public void mixedRefundKindsUseOneUnitPoolAndRejectedFreightPenniesAreReusable(){
+        jdbc.update("UPDATE product SET univalence=0.34 WHERE product_id=1");fee("0.02");String selected=promotion("0.02",Collections.emptyList()),id=paid("mixed-freight",3,selected);
+        String rejected=tx(()->rawCase(id,"rejected-return",quantities(1,1),"REQUESTED","RETURN_REFUND"));
+        assertEquals(new BigDecimal("0.34"),jdbc.queryForObject("SELECT refund_amount FROM commerce_after_sales_case WHERE after_sales_id=?",BigDecimal.class,rejected));
+        jdbc.update("UPDATE commerce_after_sales_case SET status='REJECTED' WHERE after_sales_id=?",rejected);
+        String unshipped=tx(()->rawCase(id,"unsent",quantities(1,1),"REFUNDED","UNSHIPPED_REFUND"));
+        assertEquals(new BigDecimal("0.34"),tx(()->amounts.reserveRefund(id,unshipped,quantities(1,1))).get(1L));
+        String returned=tx(()->rawCase(id,"returned",quantities(1,2),"REFUNDED","RETURN_REFUND"));
+        assertEquals(new BigDecimal("0.66"),tx(()->amounts.reserveRefund(id,returned,quantities(1,2))).get(1L));
+        assertEquals(Long.valueOf(100),jdbc.queryForObject("SELECT SUM(u.amount_cents) FROM commerce_refund_unit_allocation u JOIN commerce_after_sales_case a ON a.after_sales_id=u.after_sales_id WHERE a.order_id=? AND a.status='REFUNDED'",Long.class,id));
+        rejects(409,()->tx(()->amounts.refundAmounts(id,quantities(1,1),"RETURN_REFUND")));
+    }
+
+    @Test public void returnPolicyMustHavePositiveGoodsCentsEvenWhenShippingMakesUnitsPayable(){
+        jdbc.update("UPDATE product SET univalence=0.01 WHERE product_id=1");fee("1.00");String selected=promotion("0.01",Collections.emptyList());
+        rejects(409,()->amounts.quote(map("items",Collections.singletonList(map("productId",1,"quantity",1)),"promotionId",selected)));
+        rejects(409,()->create("shipping-only-unit",1,selected));assertEquals(0,count("commerce_order"));assertEquals(0,count("commerce_stock_hold"));
+        policy("1.00","PROPORTIONAL");assertEquals(new BigDecimal("1.00"),create("refundable-shipping-unit",1,selected).get("payableAmount"));
+    }
+
+    @Test public void actualAfterSalesReturnsAllGoodsWithoutClaimingFullAmountRefunded(){
+        jdbc.update("UPDATE product SET univalence=0.34 WHERE product_id=1");fee("1.01");String selected=promotion("0.02",Collections.emptyList()),order=paid("all-returned",3,selected);
+        assertEquals(new BigDecimal("2.01"),commerce.detail(order,OWNER).get("refundableAmount"));
+        tx(()->commerce.ship(order,map("carrier","学习物流","trackingNo","FREIGHT-TEST"),1));
+        assertEquals(new BigDecimal("1.00"),commerce.detail(order,OWNER).get("refundableAmount"));
+        for(int i=0;i<3;i++){
+            String key="goods-"+i;Map<String,Object> request=map("ownerId",OWNER,"requestKey",key,"kind","RETURN_REFUND","reason","学习退货","items",Collections.singletonList(map("productId",1,"quantity",1)));
+            Map<String,Object> applied=tx(()->fixture.afterSales.apply(order,request));String id=String.valueOf(applied.get("afterSalesId"));
+            assertEquals(new BigDecimal(i==0?"0.34":"0.33"),applied.get("refundAmount"));assertEquals(id,tx(()->fixture.afterSales.apply(order,request)).get("afterSalesId"));
+            tx(()->fixture.afterSales.review(id,map("requestKey",key+"-review","decision","APPROVE"),1));
+            tx(()->fixture.afterSales.acceptReturn(id,map("requestKey",key+"-return","condition","SELLABLE"),1));
+            tx(()->fixture.afterSales.refund(id,map("requestKey",key+"-refund","scenario","success"),1));
+            assertEquals(new BigDecimal(i==0?"0.66":i==1?"0.33":"0.00"),commerce.detail(order,OWNER).get("refundableAmount"));
+        }
+        Map<String,Object> result=commerce.detail(order,OWNER);assertEquals(true,result.get("allItemsRefunded"));assertEquals(false,result.get("fullAmountRefunded"));assertEquals("PARTIALLY_REFUNDED",result.get("afterSalesStatus"));
+        assertEquals(new BigDecimal("1.00"),result.get("refundedAmount"));assertEquals(new BigDecimal("2.01"),result.get("totalAmount"));assertEquals(new BigDecimal("0.00"),result.get("refundableAmount"));assertFalse(((List<?>)result.get("availableActions")).contains("AFTER_SALES"));assertEquals(3,count("commerce_refund_unit_allocation"));
     }
 }

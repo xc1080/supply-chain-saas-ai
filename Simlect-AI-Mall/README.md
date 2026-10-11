@@ -1,3 +1,7 @@
+# 当前融合项目入口
+
+当前消费者前端连接 `fusion-agent` 与统一 Java 业务服务，原 Java 微服务保留为参考。部署和验收以 [仓库根 README](../README.md) 为准。下面保留上游项目介绍。
+
 # Simlect
 
 **体验地址：[www.simlect.com](https://www.simlect.com)**

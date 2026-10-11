@@ -30,6 +30,7 @@ public class CommerceSettlementServiceTest {
         jdbc.execute("CREATE TABLE commerce_after_sales_case(after_sales_id VARCHAR(32),shop_id VARCHAR(32),order_id VARCHAR(32),status VARCHAR(20),return_receipt_id VARCHAR(32),return_condition VARCHAR(20))");
         jdbc.execute("CREATE TABLE commerce_order_item(order_id VARCHAR(32),product_id BIGINT,product_code VARCHAR(40),product_name VARCHAR(40),spec VARCHAR(40),quantity BIGINT)");
         jdbc.execute("CREATE TABLE commerce_stock_hold(order_id VARCHAR(32),product_id BIGINT,quantity BIGINT,status VARCHAR(20))");
+        jdbc.execute("CREATE TABLE commerce_fulfillment_line(order_id VARCHAR(32),product_id BIGINT,refunded BIGINT)");
         jdbc.execute("CREATE TABLE commerce_warehouse_ledger(ledger_id BIGINT AUTO_INCREMENT PRIMARY KEY,event_key VARCHAR(80),operation VARCHAR(20),receipt_id VARCHAR(32),product_id BIGINT,warehouse_id BIGINT,delta_quantity BIGINT,before_quantity BIGINT,after_quantity BIGINT)");
         jdbc.update("INSERT INTO commerce_shop(shop_id,shop_name) VALUES ('default','学习店'),('other','其他店')");
         jdbc.update("INSERT INTO commerce_shop_member VALUES ('default',1,'OWNER'),('default',2,'VIEWER'),('default',3,'FINANCE_REVIEW'),('default',4,'FINANCE_EXECUTE')");
@@ -102,7 +103,7 @@ public class CommerceSettlementServiceTest {
     }
     @Test public void completedLateChargeCompensationClosesWithBothGrossChannelMovements(){
         lateCharge(true);Map<String,Object> result=service.preview("SC_LATE",1);
-        assertEquals(true,result.get("moneyComplete"));assertEquals("CLOSED",result.get("resultStatus"));money("129",result.get("grossPaid"));money("129",result.get("refundedAmount"));money("0",result.get("netReceipts"));money("0",result.get("operatingResult"));
+        assertEquals(true,result.get("moneyComplete"));assertEquals("ACCOUNTED",result.get("resultStatus"));money("129",result.get("grossPaid"));money("129",result.get("refundedAmount"));money("0",result.get("netReceipts"));money("0",result.get("operatingResult"));
         money("0",jdbc.queryForObject("SELECT refunded_amount FROM commerce_order WHERE order_id='SC_LATE'",BigDecimal.class));
     }
     @Test public void pendingLateChargeCompensationCannotConfirmResult(){
@@ -133,5 +134,31 @@ public class CommerceSettlementServiceTest {
     @Test public void invalidMoneyAndDuplicateAllocationLeaveNoEntries(){
         rejects(400,()->run(()->service.expense("SC_TEST",expense("bad","1.001"),1)));assertEquals(0,count("commerce_order_expense"));
         String id=create("valid","1");approve(id);rejects(400,()->run(()->service.pay("SC_TEST",payment("dup",map("expenseId",id,"amount","0.5"),map("expenseId",id,"amount","0.5")),4)));assertEquals(0,count("commerce_expense_payment"));
+    }
+
+    @Test public void accountingCompletionIsIndependentOfExpensePayment(){
+        Map<String,Object> none=service.preview("SC_TEST",1);assertEquals("COMPLETE",none.get("accountingStatus"));assertEquals("NO_EXPENSES",none.get("expensePaymentStatus"));assertEquals(true,none.get("expensePaymentComplete"));
+        String id=create("accrual","10");Map<String,Object> draft=service.preview("SC_TEST",1);assertEquals("PROVISIONAL",draft.get("accountingStatus"));assertEquals("PENDING_REVIEW",draft.get("expensePaymentStatus"));assertEquals(false,draft.get("expensePaymentComplete"));
+        approve(id);Map<String,Object> unpaid=service.preview("SC_TEST",1);assertEquals("ACCOUNTED",unpaid.get("resultStatus"));assertEquals("COMPLETE",unpaid.get("accountingStatus"));assertEquals("UNPAID",unpaid.get("expensePaymentStatus"));assertEquals(false,unpaid.get("expensePaymentComplete"));money("75",unpaid.get("operatingResult"));
+        Map<String,Object> partial=run(()->service.pay("SC_TEST",payment("part",map("expenseId",id,"amount","4")),4));assertEquals("PARTIALLY_PAID",partial.get("expensePaymentStatus"));assertEquals("COMPLETE",partial.get("accountingStatus"));assertEquals(false,partial.get("expensePaymentComplete"));money("75",partial.get("operatingResult"));
+        Map<String,Object> paid=run(()->service.pay("SC_TEST",payment("rest",map("expenseId",id,"amount","6")),4));assertEquals("PAID",paid.get("expensePaymentStatus"));assertEquals(true,paid.get("expensePaymentComplete"));money("75",paid.get("operatingResult"));assertEquals(false,paid.get("externalChannel"));assertEquals("LOCAL_SANDBOX_ALLOCATIONS",paid.get("expensePaymentBasis"));
+        jdbc.update("DELETE FROM commerce_channel_entry WHERE movement='REFUND'");Map<String,Object> incomplete=service.preview("SC_TEST",1);assertEquals("PROVISIONAL",incomplete.get("accountingStatus"));assertEquals("PAID",incomplete.get("expensePaymentStatus"));assertNull(incomplete.get("operatingResult"));
+    }
+
+    @Test public void returnedGoodsCanCompleteAccountingWhileShippingRemainsPaid(){
+        jdbc.update("INSERT INTO commerce_order_item VALUES ('SC_TEST',1,'LAB','灯','WiFi',2)");jdbc.update("INSERT INTO commerce_fulfillment_line VALUES ('SC_TEST',1,2)");
+        jdbc.update("UPDATE commerce_order SET status=2,refunded_amount=295 WHERE order_id='SC_TEST'");jdbc.update("UPDATE commerce_channel_entry SET amount=295 WHERE movement='REFUND'");jdbc.update("UPDATE commerce_payment_operation SET amount=295 WHERE kind='REFUND'");jdbc.update("UPDATE commerce_cost_entry SET amount=140 WHERE event_type='RETURN'");
+        Map<String,Object> result=service.preview("SC_TEST",1);assertEquals(true,result.get("allItemsRefunded"));assertEquals(false,result.get("fullAmountRefunded"));assertEquals("COMPLETE",result.get("accountingStatus"));money("5",result.get("operatingResult"));money("295",result.get("refundedAmount"));
+        jdbc.update("UPDATE commerce_fulfillment_line SET refunded=1");result=service.preview("SC_TEST",1);assertEquals(false,result.get("allItemsRefunded"));assertEquals("PROVISIONAL",result.get("accountingStatus"));assertNull(result.get("operatingResult"));
+    }
+
+    @Test public void historicalClosedSnapshotReplaysWithoutChangingItsHashedFacts(){
+        Map<String,Object> saved=map("orderId","SC_TEST","resultStatus","CLOSED","operatingResult",new BigDecimal("85"),"snapshotId","ST_OLD","factsHash","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        String json=com.alibaba.fastjson2.JSON.toJSONString(saved);
+        jdbc.update("INSERT INTO commerce_order_settlement_snapshot VALUES ('ST_OLD','default','SC_TEST','legacy',?,?,1,CURRENT_TIMESTAMP)",saved.get("factsHash"),json);
+        Map<String,Object> replay=run(()->service.snapshot("SC_TEST",map("requestKey","legacy"),1));assertEquals("CLOSED",replay.get("resultStatus"));assertFalse(replay.containsKey("accountingStatus"));assertEquals(saved.get("factsHash"),replay.get("factsHash"));
+        assertEquals(json,jdbc.queryForObject("SELECT result_json FROM commerce_order_settlement_snapshot WHERE snapshot_id='ST_OLD'",String.class));
+        Map<String,Object> fresh=run(()->service.snapshot("SC_TEST",map("requestKey","current"),1));assertEquals(2,fresh.get("settlementSnapshotVersion"));assertEquals("ACCOUNTED",fresh.get("resultStatus"));assertEquals("COMPLETE",fresh.get("accountingStatus"));
+        Map<?,?> first=(Map<?,?>)((List<?>)service.preview("SC_TEST",1).get("snapshots")).get(0);assertEquals("CLOSED",((Map<?,?>)first.get("result")).get("resultStatus"));
     }
 }

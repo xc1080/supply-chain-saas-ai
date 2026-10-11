@@ -63,7 +63,7 @@ public class CommerceAfterSalesService {
         for(Map.Entry<Long,Long> entry:chosen.entrySet()){
             Map<String,Object> fact=index.get(entry.getKey());require(fact!=null&&number(fact.get(returning?"return_available":"unshipped_available"))>=entry.getValue(),"售后数量超过剩余可申请数量或已被其他售后锁定",409);
         }
-        SortedMap<Long,BigDecimal> refunds=amounts.refundAmounts(orderId,chosen);
+        SortedMap<Long,BigDecimal> refunds=amounts.refundAmounts(orderId,chosen,kind);
         BigDecimal amount=BigDecimal.ZERO;for(BigDecimal refund:refunds.values())amount=amount.add(refund);
         BigDecimal pending=jdbc.queryForObject("SELECT COALESCE(SUM(refund_amount),0) FROM commerce_after_sales_case WHERE order_id=? AND status NOT IN('REFUNDED','REJECTED')",BigDecimal.class,orderId);
         require(decimal(order.get("total_amount")).subtract(decimal(order.get("refunded_amount"))).subtract(pending).compareTo(amount)>=0,"售后金额超过尚未被其他申请占用的已付余额",409);
@@ -112,7 +112,7 @@ public class CommerceAfterSalesService {
         if(number(row.get("return_evidence_version"))>0)require(logistics!=null,"寄回凭证服务尚未就绪",503);
         if(logistics!=null)logistics.requireReceiptEvidence(row,request,actor);
         String orderId=String.valueOf(row.get("order_id")),receipt="RT"+id.substring(2);List<Map<String,Object>> caseItems=items(id);SortedMap<Long,Long> requested=quantities(caseItems);
-        List<Map<String,Object>> dispatch=jdbc.queryForList("SELECT l.receipt_id,l.product_id,l.warehouse_id,-SUM(l.delta_quantity) AS quantity FROM commerce_warehouse_ledger l JOIN head_receipt h ON h.systematic_receipt=l.receipt_id WHERE h.original_receipt=? AND h.receipt_type='3' AND l.operation='DISPATCH' GROUP BY l.receipt_id,l.product_id,l.warehouse_id ORDER BY MIN(l.ledger_id),l.product_id,l.warehouse_id",orderId);
+        List<Map<String,Object>> dispatch=dispatchSources(orderId);
         SortedMap<Long,Long> remaining=new TreeMap<>(requested);List<Map<String,Object>> allocations=new ArrayList<>();Set<String> sources=new LinkedHashSet<>();
         for(Map<String,Object> part:dispatch){
             long product=number(part.get("product_id"));if(!remaining.containsKey(product)||remaining.get(product)==0)continue;
@@ -148,6 +148,15 @@ public class CommerceAfterSalesService {
         jdbc.update("UPDATE commerce_after_sales_case SET status='RETURN_RECEIVED',return_key=?,return_receipt_id=?,return_condition=?,returned_at=CURRENT_TIMESTAMP WHERE after_sales_id=?",key,receipt,condition,id);header(orderId,id,"RETURN_RECEIVED");event(id,"RETURN","RETURN_RECEIVED",actor,condition+"：按原发货批次仓库返库");
         if(costs!=null)costs.recordReturn(id,actor);
         return detail(id,null);
+    }
+
+    private List<Map<String,Object>> dispatchSources(String orderId){
+        // ERP document IDs and commerce ledger IDs can have different collations. Bound
+        // values preserve the ERP source filter without a cross-collation column JOIN.
+        List<String> receipts=jdbc.queryForList("SELECT DISTINCT systematic_receipt FROM head_receipt WHERE original_receipt=? AND receipt_type='3'",String.class,orderId);
+        if(receipts.isEmpty())return Collections.emptyList();
+        String placeholders=String.join(",",Collections.nCopies(receipts.size(),"?"));
+        return jdbc.queryForList("SELECT l.receipt_id,l.product_id,l.warehouse_id,-SUM(l.delta_quantity) AS quantity FROM commerce_warehouse_ledger l WHERE l.receipt_id IN ("+placeholders+") AND l.operation='DISPATCH' GROUP BY l.receipt_id,l.product_id,l.warehouse_id ORDER BY MIN(l.ledger_id),l.product_id,l.warehouse_id",receipts.toArray());
     }
 
     private void recordReturnCondition(String id,Map<String,Object> target,String condition,long actor){

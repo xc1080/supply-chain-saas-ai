@@ -19,7 +19,7 @@ from retrieval import KNOWLEDGE, cosine, normalize_products, number, product_tex
 from business_catalog import profile_for, manufacturer_source, compatibility_assessment, mentioned_gateways
 from sku_catalog import public_sku_catalog, property_data
 from business_planning import public_restock_intent
-from ai_resources import provider_post, ResourceUnavailable, dependency_health
+from ai_resources import provider_post, ResourceUnavailable, dependency_health, tracking_event, tracked_operation, tracking_scope
 
 
 JAVA_URL = os.getenv("FUSION_JAVA_URL", "http://127.0.0.1:8035").rstrip("/")
@@ -159,6 +159,7 @@ async def embed_documents(texts: list[str]) -> list[list[float]]:
     return [VECTOR_CACHE[key] for key in keys]
 
 
+@tracked_operation('retrieve')
 async def retrieve(state: ChatState) -> dict:
     query, constraints, inherited = resolve_query(state["message"], state.get("history", []))
     vectors = None
@@ -179,6 +180,7 @@ async def retrieve(state: ChatState) -> dict:
             trace.append({"step": "embedding", "status": "ok", "detail": "商品和本地知识库使用真实 embedding；文档向量缓存在当前进程内。"})
         except (httpx.HTTPError, ValueError, KeyError, TypeError, ResourceUnavailable) as error:
             trace.append({"step": "embedding", "status": "fallback", "detail": f"Embedding 不可用（{safe_status(error)}），使用本地字符向量。"})
+            tracking_event('retrieval', 'fallback', kind='retrieval', summary={'error_type': type(error).__name__})
     else:
         trace.append({"step": "embedding", "status": "fallback", "detail": "未配置 embedding，使用本地字符向量；这不是语义 embedding。"})
     # A product-detail consultation keeps its server-validated product context.
@@ -200,6 +202,7 @@ async def retrieve(state: ChatState) -> dict:
         if evidence:
             sources.append(evidence)
     trace.append({"step": "retrieve", "status": "ok", "detail": f"硬过滤预算、协议、网关和库存后返回 {len(products)} 个匹配货品；采用 Simlect 原版 RRF 合并排名。"})
+    tracking_event('retrieval', 'completed', kind='retrieval', summary={'items': len(products), 'sources': len(sources)})
     return {"products": products, "sources": sources, "trace": trace, "mode": {"llm": "local", "retrieval": mode, "model": None}}
 
 
@@ -477,12 +480,15 @@ def parse_model_answer(raw: str, state: ChatState, sources: list[dict]) -> tuple
     return candidate.strip(), list(dict.fromkeys(cited))
 
 
+@tracked_operation('answer')
 async def answer(state: ChatState) -> dict:
     trace = list(state.get("trace", []))
     mode = dict(state.get("mode") or {"llm": "local", "retrieval": "local", "model": None})
     sources = answer_sources(state)
     fallback = deterministic_answer(state)
+    response = None
     if public_restock_intent(state["message"]) and (state.get("context") or {}).get("channel") != "workspace":
+        tracking_event('answer_validation', 'scope_limited', kind='validation')
         return {"answer": fallback, "citations": [], "sources": sources,
                 "mode": {**mode, "llm": "local", "model": None},
                 "trace": trace + [{"step": "answer_validation", "status": "ok", "detail": "未提供已核实的公开到货日期，不读取商家供货资料"}]}
@@ -512,19 +518,27 @@ async def answer(state: ChatState) -> dict:
                     raw = response.json()["choices"][0]["message"]["content"]
                     try:
                         candidate, cited = parse_model_answer(raw, state, sources)
+                        tracking_event('answer_validation', 'accepted', kind='validation',
+                                       summary={'attempt': attempt + 1, 'citations': len(cited)}, **response.extensions.get('ai_tracking', {}))
                         break
                     except ValueError as invalid:
+                        tracking_event('answer_validation', 'rejected', kind='validation',
+                                       summary={'attempt': attempt + 1, 'error_type': 'ValueError'}, **response.extensions.get('ai_tracking', {}))
                         if attempt:
                             raise
                         trace.append({"step": "answer_validation", "status": "repair", "detail": "首个回答未通过事实或格式校验，按具体校验结果请求模型修正一次。"})
+                        tracking_event('answer_validation', 'repair', kind='validation', summary={'attempt': attempt + 1}, **response.extensions.get('ai_tracking', {}))
                         payload = {**payload, "messages": [*payload["messages"], {"role": "assistant", "content": raw}, {"role": "user", "content": "上个回答未通过服务端校验：" + str(invalid) + "。请重新返回完整的 answer/citations JSON。只用当前资料和允许的数值占位符；不要自行写售价、库存、订单数量或数字序号，不补充资料外的规格、功能或查询能力。用必要的短段落答全最新问题，选品时不用重复商品卡的数值。"}]}
             mode.update({"llm": "online", "model": payload["model"]})
             trace.append({"step": "answer", "status": "ok", "detail": "真实大模型结合本次查询、相关资料与历史对话组织完整回答；数值由业务查询替换，依据单独展示。"})
             return {"answer": candidate, "citations": cited, "sources": sources, "trace": trace, "mode": mode}
         except (httpx.HTTPError, OSError, ValueError, KeyError, IndexError, TypeError, ResourceUnavailable) as error:
             trace.append({"step": "answer", "status": "fallback", "detail": f"模型调用或事实校验未通过（{safe_status(error)}），改用本次查询和本地规则简要回答。"})
+            tracking_event('answer', 'fallback', kind='validation', summary={'error_type': type(error).__name__},
+                           **(response.extensions.get('ai_tracking', {}) if response is not None else {}))
     else:
         trace.append({"step": "answer", "status": "fallback", "detail": "未配置大模型，当前回答由本次查询与本地规则生成。"})
+        tracking_event('answer', 'rules', kind='validation')
     mode.update({"llm": "local", "model": None})
     return {"answer": fallback, "citations": [source["id"] for source in sources], "sources": sources, "trace": trace, "mode": mode}
 
@@ -649,7 +663,7 @@ async def run_customer_plan(state, fetcher, tenant, owner, run_id=None, *, quote
 
 
 def agent_response(result):
-    return {key: result[key] for key in ("answer", "citations", "products", "sources", "trace", "mode", "runId", "planStatus", "businessPlan") if key in result}
+    return {key: result[key] for key in ("answer", "citations", "products", "sources", "trace", "mode", "runId", "planStatus", "businessPlan", "versions") if key in result}
 
 
 builder = StateGraph(ChatState)
@@ -717,7 +731,7 @@ async def inspect_agent(run_id: str, authorization: str | None = Header(None), x
     identity = await agent_identity(authorization)
     row = inspect_run(run_id,identity["tenantId"],owner_key("workspace:"+str(identity["userId"])))
     saved = json.loads(row["state"])
-    await authorize_saved_workspace(authorization, saved, x_shop_id)
+    await authorize_saved_run(run_id, identity["tenantId"], authorization, saved, x_shop_id)
     return {"runId":run_id,"status":row["status"],"version":row["version"],"trace":saved.get("trace",[])}
 
 @app.post("/agent/runs/{run_id}/resume")
@@ -728,11 +742,22 @@ async def resume_agent(run_id: str, authorization: str | None = Header(None), x_
     owner = "workspace:"+str(identity["userId"])
     row = inspect_run(run_id,identity["tenantId"],owner_key(owner))
     saved = json.loads(row["state"])
-    await authorize_saved_workspace(authorization, saved, x_shop_id)
+    await authorize_saved_run(run_id, identity["tenantId"], authorization, saved, x_shop_id)
     try:
         result = await run_agent(sys.modules[__name__],{**saved,"authorization":authorization},identity["tenantId"],owner,workspace_catalog,run_id=run_id)
     except AgentExecutionError as error: raise HTTPException(503,{"message":"任务恢复未完成","runId":error.run_id}) from None
     return agent_response(result)
+
+
+async def authorize_saved_run(run_id, tenant, authorization, saved, requested_shop):
+    with tracking_scope(tenant, run_id=run_id):
+        try:
+            identity = await authorize_saved_workspace(authorization, saved, requested_shop)
+        except HTTPException as error:
+            tracking_event('saved_authorization', 'rejected', kind='authorization', status=error.status_code)
+            raise
+        tracking_event('saved_authorization', 'accepted', kind='authorization')
+        return identity
 
 
 async def authorize_saved_workspace(authorization, saved, requested_shop):

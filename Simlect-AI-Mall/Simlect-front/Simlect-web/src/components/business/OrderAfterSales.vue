@@ -35,7 +35,7 @@
         <el-input-number v-model="quantities[String(item.productId)]" :min="0" :max="available(item, kind)" :precision="0" size="small" :disabled="submitting" :aria-label="`${item.productName}售后数量`" />
       </div>
       <el-input v-model="reason" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="请填写售后原因" aria-label="售后原因" :disabled="submitting" />
-      <p class="refund-note">退款金额按优惠和运费分摊计算，以申请结果为准。</p>
+      <p class="refund-note">运费退款：{{ shippingRefundPolicyLabel(order.shippingRefundPolicy) }}。退款金额以申请结果为准。</p>
       <el-button type="primary" :loading="submitting" :disabled="!reason.trim() || !selectedItems.length" @click="apply">提交售后申请</el-button>
     </div>
   </section>
@@ -45,6 +45,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { afterSalesApi } from '@/api/modules';
 import { toast } from '@/utils/toast';
 import ProductImage from '@/components/common/ProductImage.vue';
+import { shippingRefundPolicyLabel } from '@/utils/refundPolicy';
 const props = defineProps<{ order: Record<string, any> }>();
 const emit = defineEmits<{ updated: [] }>();
 const record = ref<Record<string, any> | null>(null);

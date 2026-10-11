@@ -85,6 +85,18 @@ public class CommercePlanningServiceTest {
         assertEquals(0L,(long)jdbc.queryForObject("SELECT COUNT(*) FROM commerce_condition_event",Long.class));
         assertEquals(6L,quote(1,1).get("promisableUnits"));
     }
+    @Test public void replenishmentPolicyCannotCrossTheCurrentNumericProductOwnershipScope(){
+        publish();jdbc.update("INSERT INTO commerce_supply_policy VALUES (1,'other',365,1,CURRENT_TIMESTAMP)");
+        Map<String,Object> report=planning.replenishment(1);Map<?,?> row=(Map<?,?>)((List<?>)report.get("items")).get(0);
+        assertEquals(1L,row.get("productId"));assertEquals(false,row.get("leadTimeKnown"));assertNull(row.get("supplierLeadDays"));
+        jdbc.update("UPDATE commerce_supply_policy SET shop_id='default',supplier_lead_days=7 WHERE product_id=1");
+        row=(Map<?,?>)((List<?>)planning.replenishment(1).get("items")).get(0);
+        assertEquals(true,row.get("leadTimeKnown"));assertEquals(7,row.get("supplierLeadDays"));
+        jdbc.update("INSERT INTO commerce_shop VALUES ('other','Other','ENABLED',CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO commerce_shop_member VALUES ('other',1,'OWNER')");
+        CommerceShopContext.set("other");assertTrue(((List<?>)planning.replenishment(1).get("items")).isEmpty());
+    }
+
     @Test public void replenishmentDraftRequiresReviewAndDoesNotPostStock(){
         publish();jdbc.update("UPDATE product SET lower_limit=12,upper_limit=20 WHERE product_id=1");
         Map<String,Object> report=planning.replenishment(1);Map<String,Object> row=(Map<String,Object>)((List<?>)report.get("items")).get(0);

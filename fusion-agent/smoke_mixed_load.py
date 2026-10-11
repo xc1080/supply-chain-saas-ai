@@ -50,10 +50,17 @@ def stock_balances(rows):
 
 def mysql(query):
     # Reuse the existing local CLI/config, without printing credentials or commands.
+    # MySQL 8.0 still reads login paths with --defaults-file. Select an absent
+    # path next to our explicit configuration instead of an inherited login file.
+    config = Path(CONFIG).resolve()
+    login_file = config.with_name('.no-login-' + uuid.uuid4().hex)
+    check(not login_file.exists(), 'Unexpected MySQL login file')
+    environment = {key: value for key, value in os.environ.items() if not key.upper().startswith('MYSQL_')}
+    environment['MYSQL_TEST_LOGIN_FILE'] = str(login_file)
     result = subprocess.run(
-        [str(MYSQL), "--defaults-extra-file=" + str(CONFIG), "--connect-timeout=5",
+        [str(MYSQL), "--defaults-file=" + str(config), "--connect-timeout=5",
          "--default-character-set=utf8mb4", "-N", "-B"], input=query,
-        capture_output=True, text=True, encoding="utf-8", timeout=30)
+        env=environment, capture_output=True, text=True, encoding="utf-8", timeout=30)
     check(result.returncode == 0, "MySQL verification failed: " + result.stderr[:400])
     return result.stdout.strip()
 
@@ -220,6 +227,36 @@ class MixedRun:
     async def warehouse_snapshot(self, database):
         return await self.query(f"SELECT product_id,warehouse_id,SUM(plan_quantity) FROM {database}.inventory_product GROUP BY product_id,warehouse_id ORDER BY product_id,warehouse_id")
 
+    async def dispatch_preflight(self):
+        # This read does not reserve stock or capacity. Java's transaction locks
+        # remain the final authority if another operation changes these facts.
+        quote = await self.java("POST", "/commerce/planning/quote", {
+            "items": [{"productId": self.pid, "quantity": 1}], "units": min(self.args.orders, 999)})
+        policy = (await self.java("GET", "/commerce/planning/replenishment")).get("dispatchPolicy")
+        promise_available = quote.get("deliveryCapacity")
+        proof = {"source": "SERVER_PLANNING_QUOTE_AND_READ_ONLY_DATED_BUCKET", "capacityReserved": False,
+                 "dispatchDate": quote.get("dispatchDate"), "promiseAvailableQuantity": promise_available,
+                 "requiredPromiseQuantity": self.args.orders, "requiredTodayDispatchQuantity": self.paid_count}
+        self.report["dispatchCapacityPreflight"] = proof
+        check(policy is not None and promise_available is not None, "Dispatch capacity is unknown; no sessions or procurement created")
+        dispatch_date = quote.get('dispatchDate')
+        check(isinstance(dispatch_date, str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', dispatch_date),
+              'Invalid server dispatch date; no sessions or procurement created')
+        day = (date.fromisoformat(dispatch_date) - timedelta(days=int(policy['dispatchDays']))).isoformat()
+        rows = await self.query(f"SELECT capacity,reserved_quantity,consumed_quantity FROM {self.args.studio_database}.commerce_delivery_bucket WHERE shop_id='{self.args.shop_id}' AND dispatch_date='{day}'")
+        if rows:
+            capacity, reserved, consumed = rows.split("\t")
+            capacity, reserved, consumed = int(capacity), int(reserved), int(consumed)
+        else:
+            capacity, reserved, consumed = int(policy["dailyItemCapacity"]), 0, 0
+        today_available = max(0, capacity - reserved - consumed)
+        proof.update(today=day, todayDateBasis='JAVA_QUOTE_DISPATCH_DATE_MINUS_POLICY_DAYS', todayCapacity=capacity, todayReservedQuantity=reserved,
+                     todayConsumedQuantity=consumed, todayAvailableQuantity=today_available)
+        check(int(promise_available) >= self.args.orders,
+              f"Promised dispatch capacity {promise_available} is below {self.args.orders}; no sessions or procurement created")
+        check(today_available >= self.paid_count,
+              f"Today dispatch capacity {today_available} is below {self.paid_count}; no sessions or procurement created")
+
     async def prepare(self):
         self.admin, self.merchant = await asyncio.gather(self.login("admin"), self.login("studio_admin"))
         check((await self.java("GET", "/commerce/context"))["tenantId"] == "studio", "Merchant is not bound to Studio")
@@ -235,6 +272,7 @@ class MixedRun:
               f"Baseline available stock must be >= {self.args.orders - self.paid_count}; no changes made")
         self.pid = int(product["productId"])
         self.report["productId"] = self.pid
+        await self.dispatch_preflight()
         self.before_warehouses, self.before_demo_warehouses = await asyncio.gather(
             self.warehouse_snapshot(self.args.studio_database), self.warehouse_snapshot(self.args.demo_database))
         warehouse = await self.query(f"SELECT warehouse_id FROM {self.args.studio_database}.inventory_product WHERE product_id={self.pid} AND warehouse_id>0 AND plan_quantity>0 ORDER BY warehouse_id,inventory_id LIMIT 1")

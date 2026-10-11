@@ -58,11 +58,13 @@ public class CommerceCostService {
                 &&"1".equals(String.valueOf(heads.get(0).get("receipt_type")))&&"2".equals(String.valueOf(heads.get(0).get("receipt_status")));
         if(!posted){reverseProcurementReceipt(receiptId,actor);return;}
         boolean sourceSchema=hasProcurementSources();
-        String sourceSelect=sourceSchema?",pl.receipt_line_id":"",sourceJoin=sourceSchema?" LEFT JOIN commerce_purchase_receipt_line pl ON pl.detail_id=d.systematic_id AND pl.receipt_id=d.systematic_receipt":"";
+        // detail_id is unique and shares the ERP numeric identity; document IDs may use a
+        // different database collation. Validate document membership separately below.
+        String sourceSelect=sourceSchema?",pl.receipt_line_id,pl.receipt_id AS source_receipt_id":"",sourceJoin=sourceSchema?" LEFT JOIN commerce_purchase_receipt_line pl ON pl.detail_id=d.systematic_id":"";
         List<Map<String,Object>> lines=jdbc.queryForList("SELECT d.*,COALESCE(d.warehousing_id,h.warehousing_ids) AS warehouse_id,ps.shop_id"+sourceSelect+" FROM detail_receipt d JOIN head_receipt h ON h.systematic_receipt=d.systematic_receipt JOIN commerce_product_shop ps ON ps.product_id=d.product_id"+sourceJoin+" WHERE d.systematic_receipt=? ORDER BY d.product_id,warehouse_id,"+(sourceSchema?"pl.receipt_line_id":"d.systematic_id"),receiptId);
         if(lines.isEmpty())return; // Private ERP goods outside the commerce catalog have no commerce cost book.
         List<Map<String,Object>> canonical=new ArrayList<>();
-        for(Map<String,Object> line:lines){Map<String,Object> snapshot=map("shop",line.get("shop_id"),"product",line.get("product_id"),"warehouse",line.get("warehouse_id"),"quantity",line.get("plan_quantity"),"unitCost",purchaseCost(line));
+        for(Map<String,Object> line:lines){requireSourceReceipt(line);Map<String,Object> snapshot=map("shop",line.get("shop_id"),"product",line.get("product_id"),"warehouse",line.get("warehouse_id"),"quantity",line.get("plan_quantity"),"unitCost",purchaseCost(line));
             if(line.get("receipt_line_id")!=null)snapshot.put("sourceLineId",line.get("receipt_line_id"));canonical.add(snapshot);}
         String hash=hash(canonical);
         List<Map<String,Object>> states=jdbc.queryForList("SELECT * FROM commerce_cost_receipt WHERE receipt_id=? FOR UPDATE",receiptId);
@@ -102,12 +104,13 @@ public class CommerceCostService {
 
     private void recordSupplierReturn(String receipt,long actor) {
         boolean sources=hasProcurementSources();
-        String sourceSelect=sources?",pl.receipt_line_id,pl.source_receipt_line_id":"",sourceJoin=sources?" LEFT JOIN commerce_purchase_receipt_line pl ON pl.detail_id=d.systematic_id AND pl.receipt_id=d.systematic_receipt":"";
+        String sourceSelect=sources?",pl.receipt_line_id,pl.source_receipt_line_id,pl.receipt_id AS source_receipt_id":"",sourceJoin=sources?" LEFT JOIN commerce_purchase_receipt_line pl ON pl.detail_id=d.systematic_id":"";
         List<Map<String,Object>> lines=jdbc.queryForList("SELECT d.*,d.retrieval_id AS warehouse_id,ps.shop_id"+sourceSelect+" FROM detail_receipt d JOIN commerce_product_shop ps ON ps.product_id=d.product_id"+sourceJoin+" WHERE d.systematic_receipt=? ORDER BY "+(sources?"pl.receipt_line_id":"d.systematic_id"),receipt);
         if(lines.isEmpty())return;
         List<Map<String,Object>> canonical=new ArrayList<>();
         List<Map<String,Object>> origins=new ArrayList<>();
         for(Map<String,Object> line:lines) {
+            requireSourceReceipt(line);
             List<Map<String,Object>> evidence=sources&&line.get("source_receipt_line_id")!=null
                     ?jdbc.queryForList("SELECT e.* FROM commerce_cost_source_line s JOIN commerce_cost_entry e ON e.entry_id=s.entry_id JOIN commerce_cost_receipt c ON c.receipt_id=e.receipt_id AND c.revision=s.receipt_revision AND c.active=1 WHERE s.receipt_line_id=? AND e.event_type='PURCHASE' AND NOT EXISTS(SELECT 1 FROM commerce_cost_entry r WHERE r.origin_entry_id=e.entry_id AND r.event_type='PURCHASE_REVERSAL')",line.get("source_receipt_line_id"))
                     :Collections.emptyList();
@@ -138,6 +141,10 @@ public class CommerceCostService {
         }
         if(states.isEmpty())jdbc.update("INSERT INTO commerce_cost_receipt VALUES (?,?,?,1,CURRENT_TIMESTAMP)",receipt,revision,content);
         else jdbc.update("UPDATE commerce_cost_receipt SET revision=?,content_hash=?,active=1,updated_at=CURRENT_TIMESTAMP WHERE receipt_id=?",revision,content,receipt);
+    }
+
+    private static void requireSourceReceipt(Map<String,Object> line) {
+        if(line.get("receipt_line_id")!=null)require(Objects.equals(line.get("source_receipt_id"),line.get("systematic_receipt")),"采购成本来源行与 ERP 单据不一致，请先核对",409);
     }
 
     private boolean hasProcurementSources() {

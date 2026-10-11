@@ -1,0 +1,161 @@
+name: Engineering verification
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: engineering-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  java:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: All Java reactor tests
+        working-directory: ks-inventory-system
+        run: mvn -B -ntp verify -Dmaven.test.skip=false -DskipTests=false
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: java-inventory-reports
+          path: |
+            ks-inventory-system/**/target/surefire-reports/
+            ks-inventory-system/**/target/failsafe-reports/
+          retention-days: 14
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      redis:
+        image: redis:7.4.2-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 3s
+          --health-timeout 3s --health-retries 30
+    env:
+      FUSION_REDIS_URL: redis://127.0.0.1:6379/8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: fusion-agent/requirements-lock.txt
+      - run: python -m pip install -r fusion-agent/requirements-lock.txt -r fusion-agent/requirements.txt
+      - name: All Python tests and verification guards
+        run: |
+          mkdir -p logs
+          python fusion-agent/run_tests.py > logs/python-tests.log 2>&1
+          python -B -m unittest discover -s scripts -p 'test_*.py' -v > logs/verification-guards.log 2>&1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: python-test-reports
+          path: logs/*.log
+          retention-days: 14
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: admin
+            directory: ks-inventory-system/ks-vue3
+            command: build:prod
+          - name: customer
+            directory: Simlect-AI-Mall/Simlect-front/Simlect-web
+            command: build:demo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ${{ matrix.directory }}/package-lock.json
+      - name: Clean install and frontend build
+        working-directory: ${{ matrix.directory }}
+        env:
+          VITE_APP_TITLE: 铠思进销存系统
+          VITE_APP_ENV: production
+          VITE_APP_BASE_API: /prod-api
+          VITE_BUILD_COMPRESS: gzip
+        run: |
+          npm ci
+          npm run ${{ matrix.command }}
+      - name: Customer SKU and refund policy tests
+        if: matrix.name == 'customer'
+        working-directory: ${{ matrix.directory }}
+        run: |
+          npm run test:sku
+          node --test scripts/refund-policy.test.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: success()
+        with:
+          name: frontend-${{ matrix.name }}-build
+          path: ${{ matrix.directory }}/dist/
+          retention-days: 7
+  mysql-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0.46
+        env:
+          MYSQL_ROOT_PASSWORD: verification-ci-only
+          MYSQL_ROOT_HOST: '%'
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u root --password=verification-ci-only --silent"
+          --health-interval 3s --health-timeout 3s --health-retries 40
+      redis:
+        image: redis:7.4.2-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 3s
+          --health-timeout 3s --health-retries 30
+    env:
+      VERIFY_MYSQL_PASSWORD: verification-ci-only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: fusion-agent/requirements-lock.txt
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y default-mysql-client
+          python -m pip install -r fusion-agent/requirements-lock.txt -r fusion-agent/requirements.txt
+      - name: MySQL install upgrade restart faults and HTTP closure
+        run: python scripts/verify_engineering.py --redis-url redis://127.0.0.1:6379/0 --output logs/mysql-e2e
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: mysql-migrations-and-business-evidence
+          path: |
+            logs/mysql-e2e/*.json
+            logs/mysql-e2e/*.log
+          retention-days: 14

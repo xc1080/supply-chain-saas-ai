@@ -115,7 +115,7 @@ public class CommerceService {
         }catch(java.sql.SQLException exception){throw new IllegalStateException("Return condition migration failed",exception);}
         TransactionTemplate transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         transaction.execute(status->{CommercePartialSupport.migrate(jdbc);return null;});
-        amounts.initializeSchema();
+        amounts.initializeAmountSchema();
         for (Long id : jdbc.queryForList("SELECT product_id FROM commerce_product_shop ORDER BY product_id",Long.class))
             transaction.execute(status -> stock.ensureStock(id));
     }

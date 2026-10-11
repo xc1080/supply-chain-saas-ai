@@ -90,7 +90,7 @@ public class CommerceSettlementService {
         requireCapability(actor,CommerceCapability.REFUND_REVIEW);String key=key(body.get("requestKey"));claim("SNAPSHOT",key,hash(id));order(id,true);
         List<Map<String,Object>> previous=jdbc.queryForList("SELECT * FROM commerce_order_settlement_snapshot WHERE shop_id=? AND request_key=?",shop(),key);
         if(!previous.isEmpty()){require(id.equals(previous.get(0).get("order_id")),"快照请求编号已用于其他订单",409);return JSON.parseObject(String.valueOf(previous.get(0).get("result_json")));}
-        Map<String,Object> result=view(id);String fingerprint=hash(result),snapshot=newId("ST");
+        Map<String,Object> result=view(id);result.put("settlementSnapshotVersion",2);String fingerprint=hash(result),snapshot=newId("ST");
         result.put("snapshotId",snapshot);result.put("factsHash",fingerprint);
         jdbc.update("INSERT INTO commerce_order_settlement_snapshot VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",snapshot,shop(),id,key,fingerprint,JSON.toJSONString(result),actor);
         return result;
@@ -135,8 +135,21 @@ public class CommerceSettlementService {
         long openCases=jdbc.queryForObject("SELECT COUNT(*) FROM commerce_after_sales_case WHERE order_id=? AND status NOT IN('REFUNDED','REJECTED')",Long.class,id);
         long draftExpenses=expenses.stream().filter(row->"DRAFT".equals(row.get("status"))).count();
         boolean complete=unknown==0&&missing==0&&missingReturn==0&&conditionPending==0;
-        boolean closed=(number(order.get("status"))==3||number(order.get("status"))==4)&&openCases==0&&draftExpenses==0&&complete&&moneyComplete;
-        return map("orderId",id,"currency","CNY","provider","LOCAL_SANDBOX","externalChannel",false,"grossPaid",paid,"refundedAmount",refunded,"netReceipts",receipts,"netStockCost",netCost,"costComplete",complete,"moneyComplete",moneyComplete,"coverage",map("unknownCostEntries",unknown,"missingDispatchCost",missing,"missingReturnCost",missingReturn,"conditionCostPending",conditionPending,"draftExpenses",draftExpenses,"pendingMoneyOperations",pendingMoney),"approvedExpenseAmount",approved,"settledExpenseAmount",settled,"outstandingExpenseAmount",approved.subtract(settled),"operatingResult",closed?contribution:null,"provisionalContribution",complete&&moneyComplete?contribution:null,"resultStatus",closed?"CLOSED":"PROVISIONAL","expenses",expenses,"payments",payments);
+        long itemCount=jdbc.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM commerce_order_item WHERE order_id=?",Long.class,id);
+        long refundedCount=jdbc.queryForObject("SELECT COALESCE(SUM(f.refunded),0) FROM commerce_fulfillment_line f JOIN commerce_order_item i ON i.order_id=f.order_id AND i.product_id=f.product_id WHERE f.order_id=?",Long.class,id);
+        boolean allItemsRefunded=itemCount>0&&refundedCount==itemCount,fullAmountRefunded=businessPaid.signum()>0&&businessRefund.compareTo(businessPaid)==0;
+        boolean closed=(number(order.get("status"))==3||number(order.get("status"))==4||allItemsRefunded)&&openCases==0&&draftExpenses==0&&complete&&moneyComplete;
+        return settlementStatuses(map("orderId",id,"currency","CNY","provider","LOCAL_SANDBOX","externalChannel",false,"grossPaid",paid,"refundedAmount",refunded,"netReceipts",receipts,"netStockCost",netCost,"costComplete",complete,"moneyComplete",moneyComplete,"allItemsRefunded",allItemsRefunded,"fullAmountRefunded",fullAmountRefunded,"coverage",map("unknownCostEntries",unknown,"missingDispatchCost",missing,"missingReturnCost",missingReturn,"conditionCostPending",conditionPending,"draftExpenses",draftExpenses,"pendingMoneyOperations",pendingMoney),"approvedExpenseAmount",approved,"settledExpenseAmount",settled,"outstandingExpenseAmount",approved.subtract(settled),"operatingResult",closed?contribution:null,"provisionalContribution",complete&&moneyComplete?contribution:null,"resultStatus",closed?"ACCOUNTED":"PROVISIONAL","expenses",expenses,"payments",payments));
+    }
+    /** Accrual of an approved expense affects operating results before its payment is allocated. */
+    private Map<String,Object> settlementStatuses(Map<String,Object> result){
+        boolean accounted="ACCOUNTED".equals(result.get("resultStatus"));
+        result.put("accountingStatus",accounted?"COMPLETE":"PROVISIONAL");
+        Map<?,?> coverage=result.get("coverage") instanceof Map?(Map<?,?>)result.get("coverage"):Collections.emptyMap();
+        long drafts=number(coverage.get("draftExpenses"));BigDecimal approved=decimal(result.get("approvedExpenseAmount")),settled=decimal(result.get("settledExpenseAmount")),outstanding=decimal(result.get("outstandingExpenseAmount"));
+        String paymentStatus=drafts>0?"PENDING_REVIEW":approved.signum()==0?"NO_EXPENSES":settled.signum()==0?"UNPAID":outstanding.signum()>0?"PARTIALLY_PAID":"PAID";
+        result.put("expensePaymentStatus",paymentStatus);result.put("expensePaymentComplete",drafts==0&&outstanding.signum()==0);
+        result.put("expensePaymentBasis","LOCAL_SANDBOX_ALLOCATIONS");return result;
     }
     private List<Map<String,Object>> snapshots(String id){List<Map<String,Object>> result=new ArrayList<>();for(Map<String,Object> row:jdbc.queryForList("SELECT snapshot_id,facts_hash,result_json,created_at FROM commerce_order_settlement_snapshot WHERE shop_id=? AND order_id=? ORDER BY created_at,snapshot_id",shop(),id))result.add(map("snapshotId",row.get("snapshot_id"),"factsHash",row.get("facts_hash"),"createdAt",row.get("created_at"),"result",JSON.parseObject(String.valueOf(row.get("result_json")))));return result;}
     private Map<String,Object> order(String id,boolean lock){require(id!=null&&id.matches("[A-Za-z0-9_-]{1,32}"),"订单编号无效",400);List<Map<String,Object>> rows=jdbc.queryForList("SELECT * FROM commerce_order WHERE order_id=? AND shop_id=?"+(lock?" FOR UPDATE":""),id,shop());require(!rows.isEmpty(),"订单不存在",404);return rows.get(0);}

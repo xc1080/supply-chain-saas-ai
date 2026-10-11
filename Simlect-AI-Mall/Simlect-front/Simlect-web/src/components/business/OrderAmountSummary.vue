@@ -30,7 +30,8 @@
     <template v-if="breakdown && !compact">
       <div class="amount-row"><span class="label">实付</span><span class="value">¥{{ formatOrderMoney(breakdown.paidAmount) }}</span></div>
       <div class="amount-row"><span class="label">已退</span><span class="value">¥{{ formatOrderMoney(breakdown.refundedAmount) }}</span></div>
-      <div class="amount-row"><span class="label">可退</span><span class="value">¥{{ formatOrderMoney(breakdown.refundableAmount) }}</span></div>
+      <div class="amount-row"><span class="label">可退上限</span><span class="value">¥{{ formatOrderMoney(breakdown.refundableAmount) }}</span></div>
+      <div v-if="Number(breakdown.shippingAmount) > 0" class="amount-row"><span class="label">运费退款</span><span class="value">{{ shippingRefundPolicyLabel(order?.shippingRefundPolicy) }}</span></div>
     </template>
   <!-- [zh] 闭合标签 `</div>` -->
   </div>
@@ -39,6 +40,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { DEMO_MODE } from '@/integrations/demo';
+import { shippingRefundPolicyLabel } from '@/utils/refundPolicy';
 import {
   formatOrderMoney,
   hasOrderCouponDiscount,

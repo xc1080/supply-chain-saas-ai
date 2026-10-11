@@ -92,7 +92,7 @@ public class CommercePlanningService {
     private Map<String,Object> replenishment(long actor,String excludeDraft) {
         merchant(actor,CommerceCapability.READ);
         List<Map<String,Object>> result=new ArrayList<>();
-        for(Map<String,Object> p:jdbc.queryForList("SELECT p.product_id,p.product_code,p.product_name,p.lower_limit,p.upper_limit,s.on_hand,s.reserved,s.activity_reserved,s.unavailable,sp.supplier_lead_days FROM product p JOIN commerce_product_shop ps ON ps.product_id=p.product_id LEFT JOIN commerce_stock s ON s.product_id=p.product_id LEFT JOIN commerce_supply_policy sp ON sp.product_id=p.product_id AND sp.shop_id=ps.shop_id WHERE ps.shop_id=? AND ps.listed=1 AND p.status='0' ORDER BY p.product_id",shop())) {
+        for(Map<String,Object> p:jdbc.queryForList("SELECT p.product_id,p.product_code,p.product_name,p.lower_limit,p.upper_limit,s.on_hand,s.reserved,s.activity_reserved,s.unavailable,sp.supplier_lead_days FROM product p JOIN commerce_product_shop ps ON ps.product_id=p.product_id LEFT JOIN commerce_stock s ON s.product_id=p.product_id LEFT JOIN commerce_supply_policy sp ON sp.product_id=p.product_id AND sp.shop_id=? WHERE ps.shop_id=? AND ps.listed=1 AND p.status='0' ORDER BY p.product_id",shop(),shop())) {
             long id=n(p.get("product_id")),onHand=n(p.get("on_hand")),reserved=n(p.get("reserved")),activity=n(p.get("activity_reserved")),unavailable=n(p.get("unavailable"));
             long available=Math.max(0,onHand-reserved-activity-unavailable),lower=n(p.get("lower_limit")),target=Math.max(lower,n(p.get("upper_limit")));
             Object leadValue=p.get("supplier_lead_days");boolean leadKnown=leadValue!=null;

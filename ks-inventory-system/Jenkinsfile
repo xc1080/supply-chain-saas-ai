@@ -1,61 +1,26 @@
-pipeline{
+// Verification only: Linux, JDK 17, Maven, Python 3.12, Node 24, mysql and Docker Compose.
+pipeline {
     agent any
-    environment {
-      IMAGE_NAME = "ruoyi-admin"
-      WS = "${WORKSPACE}"
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        timeout(time: 60, unit: 'MINUTES')
     }
-
-    //定义流水线的加工流程
     stages {
-        //流水线的所有阶段
-        stage('1.环境检查'){
+        stage('Verify active application and isolated MySQL closure') {
             steps {
-               sh 'pwd && ls -alh'
-               sh 'printenv'
-               sh 'docker --version'
-               sh 'java --version'
-               sh 'git --version'
-            }
-        }
-
-        stage('2.编译'){
-            agent {
-                docker {
-                    image 'maven:3-alpine'
-                    args '-v maven-repository:/root/.m2'
+                script {
+                    if (!isUnix()) { error('This verification entry requires a Linux agent') }
+                    if (!fileExists('scripts/verify-ci.sh')) { error('Check out the learning repository root') }
                 }
-
-            }
-            steps {
-                sh 'pwd && ls -alh'
-                sh 'mvn -v'
-                sh 'cd ${WS} && mvn clean package -s "/var/jenkins_home/appconfig/maven/settings.xml" -Dmaven.test.skip=true'
-                // sh 'mvn -B -DskipTests clean package'
-            }
-        }
-
-        stage('3.打包'){
-            steps {
-               sh 'pwd && ls -alh'
-               sh 'echo ${WS}'
-               sh 'docker build -t ${IMAGE_NAME} -f Dockerfile ${WS}/${IMAGE_NAME}/target/'
-            }
-        }
-
-        stage('4.部署'){
-            // 删除容器和虚拟镜像
-            steps {
-               sh 'pwd && ls -alh'
-               sh 'docker rm -f ${IMAGE_NAME} || true && docker rmi $(docker images -q -f dangling=true) || true'
-               sh 'docker run -d -p 8035:8035 --name ${IMAGE_NAME} -v /mydata/logs/${IMAGE_NAME}:/logs/${IMAGE_NAME} ${IMAGE_NAME}'
+                sh 'bash scripts/verify-ci.sh'
             }
         }
     }
-
-    // 清理工作空间
-    // post {
-    //     always {
-    //         cleanWs()
-    //     }
-    // }
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: 'ks-inventory-system/**/target/surefire-reports/*.xml,ks-inventory-system/**/target/failsafe-reports/*.xml'
+            archiveArtifacts allowEmptyArchive: true, artifacts: 'logs/engineering-ci/**/*.json,logs/engineering-ci/**/*.log'
+        }
+    }
 }

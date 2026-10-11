@@ -234,6 +234,41 @@ class StoreClosingTests(unittest.TestCase):
                 self.assertEqual(len(self.authority.calls), count)
                 self.assertEqual(self.authority.orders, {})
 
+    def test_order_adapter_preserves_top_level_policy_and_independent_refund_facts(self):
+        order_id = self.create_order(self.alice, promotionId="PR_TEST")
+        authority_order = self.authority.orders[order_id]
+        authority_order.update(shippingRefundPolicy="UNSHIPPED_ONLY", allItemsRefunded=True,
+                               fullAmountRefunded=False)
+        expected_breakdown = copy.deepcopy(authority_order["amountBreakdown"])
+        result = self.detail(self.alice, order_id)
+        self.assertEqual(result["shippingRefundPolicy"], "UNSHIPPED_ONLY")
+        self.assertIs(result["allItemsRefunded"], True)
+        self.assertIs(result["fullAmountRefunded"], False)
+        self.assertEqual(result["amountBreakdown"], expected_breakdown)
+        self.assertNotIn("shippingRefundPolicy", result["amountBreakdown"])
+        listed = self.data(self.alice, "order/loadMyOrder")["list"][0]
+        for key in ("shippingRefundPolicy", "allItemsRefunded", "fullAmountRefunded"):
+            self.assertEqual(listed[key], result[key])
+
+    def test_order_adapter_does_not_invent_legacy_or_unknown_refund_policy(self):
+        order_id = self.create_order(self.alice)
+        authority_order = self.authority.orders[order_id]
+        authority_order["amountSnapshotVersion"] = 0
+        expected_breakdown = copy.deepcopy(authority_order["amountBreakdown"])
+        for policy in ("LEGACY_ORIGINAL_PRICE", "PROPORTIONAL", "FUTURE_POLICY", None):
+            with self.subTest(policy=policy):
+                authority_order["shippingRefundPolicy"] = policy
+                result = self.detail(self.alice, order_id)
+                self.assertEqual(result["shippingRefundPolicy"], policy)
+                self.assertIsNone(result["allItemsRefunded"])
+                self.assertIsNone(result["fullAmountRefunded"])
+                self.assertEqual(result["amountBreakdown"], expected_breakdown)
+                self.assertEqual(result["payAmount"], authority_order["totalAmount"])
+        authority_order.pop("shippingRefundPolicy")
+        result = self.detail(self.alice, order_id)
+        self.assertIsNone(result["shippingRefundPolicy"])
+        self.assertEqual(result["amountBreakdown"], expected_breakdown)
+
     def test_tracking_uses_session_owner_and_preserves_simulated_observation(self):
         order_id = self.shipment_fixture()
         response = self.alice.get("/api/order/shipmentTracking", params={"shipmentId": "SH_TEST", "ownerId": self.bob_owner})

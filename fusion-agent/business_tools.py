@@ -18,6 +18,7 @@ for name, capability in (("read_order_stock", "READ"), ("read_order_settlement",
     TOOL_CATALOG[name] = {"name": name, "version": 1, "effect": "READ", "channel": "workspace", "capability": capability,
         "inputSchema": {"type": "object", "required": ["orderId"], "additionalProperties": False,
                         "properties": {"orderId": {"type": "string", "pattern": "^SC[A-Z0-9]{1,30}$"}}}, "timeoutSeconds": 12}
+TOOL_CATALOG['read_order_settlement']['version'] = 2
 
 def tool_enabled(name: str) -> bool:
     disabled = {part.strip() for part in os.getenv("FUSION_DISABLED_TOOLS", "").split(",") if part.strip()}
@@ -52,7 +53,7 @@ def safe_settlement(raw: dict, order_id: str) -> dict:
     if not isinstance(raw, dict) or raw.get("orderId") != order_id: raise HTTPException(502, "结算证据不属于当前订单")
     fields = ("orderId", "currency", "provider", "externalChannel", "grossPaid", "refundedAmount", "netReceipts", "netStockCost",
               "costComplete", "moneyComplete", "approvedExpenseAmount", "settledExpenseAmount", "outstandingExpenseAmount", "operatingResult",
-              "provisionalContribution", "resultStatus")
+              "provisionalContribution", "resultStatus", "accountingStatus", "expensePaymentStatus", "expensePaymentComplete")
     result = {field: raw.get(field) for field in fields}
     rows = raw.get("expenses")
     if not isinstance(rows, list) or len(rows) > 2000 or not all(isinstance(row, dict) for row in rows): raise HTTPException(502, "费用证据格式错误")
@@ -81,11 +82,15 @@ def review_answer(plan: dict) -> str:
              f"已审核费用 {money['approvedExpenseAmount']} 元，其中已结算 {money['settledExpenseAmount']} 元，待结算 {money['outstandingExpenseAmount']} 元。"]
     if money.get("costComplete") is not True or money.get("moneyComplete") is not True:
         lines.append("成本或资金证据尚未完整，当前不能确认经营结果。")
-    elif money.get("operatingResult") is not None:
+    elif money.get("resultStatus") in ("ACCOUNTED", "CLOSED") and money.get("operatingResult") is not None:
         lines.append(f"按原出入库成本快照核算，经营结果为 {money['operatingResult']} 元。")
     else:
-        lines.append(f"订单仍在履约或售后处理中，暂估经营贡献 {money.get('provisionalContribution')} 元。")
+        lines.append(f"当前暂估经营贡献 {money.get('provisionalContribution')} 元。")
     lines.append(f"库存变更可追溯到 {len(plan['facts']['stock']['warehouseEvents'])} 条仓库凭证。")
+    if money.get("expensePaymentComplete") is True:
+        lines.append("费用已结清；费用付款状态与经营核算状态分别核对。")
+    elif money.get("expensePaymentComplete") is False:
+        lines.append("费用尚未结清；经营核算结果不代表已执行费用付款。")
     if plan["actions"]: lines.append("建议先核对待审费用及未结余额，再由有权限的人员确认执行。")
     lines.append("本次只查询并形成建议，未修改库存或执行付款；资金来源为本地沙箱。[B-ORDER]")
     return "\n".join(lines)

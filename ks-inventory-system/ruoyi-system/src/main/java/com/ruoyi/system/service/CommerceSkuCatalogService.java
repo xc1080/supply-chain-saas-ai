@@ -97,9 +97,11 @@ public class CommerceSkuCatalogService {
 
     private Map<Long,Map<String,Object>> current(Collection<Long> ids) {
         Map<Long,Map<String,Object>> result=new HashMap<>();if(ids.isEmpty())return result;
-        List<Object> args=new ArrayList<>(ids);args.add(shop());
+        String scope=shop();List<Object> args=new ArrayList<>(ids);args.add(scope);args.add(scope);
         String in=String.join(",",Collections.nCopies(ids.size(),"?"));
-        for(Map<String,Object> row:jdbc.queryForList("SELECT k.*,g.name,g.properties_json FROM commerce_sku k JOIN commerce_spu g ON g.spu_id=k.spu_id JOIN commerce_product_shop owned ON owned.product_id=k.product_id AND owned.shop_id=g.shop_id WHERE k.product_id IN ("+in+") AND g.shop_id=?",args.toArray())) {
+        // V13 catalog tables inherit the database collation; V7 ownership tables do not.
+        // Scope both tables independently and join only the stable numeric product ID.
+        for(Map<String,Object> row:jdbc.queryForList("SELECT k.*,g.name,g.properties_json FROM commerce_sku k JOIN commerce_spu g ON g.spu_id=k.spu_id JOIN commerce_product_shop owned ON owned.product_id=k.product_id WHERE k.product_id IN ("+in+") AND g.shop_id=? AND owned.shop_id=?",args.toArray())) {
             result.put(((Number)row.get("product_id")).longValue(),catalog(row));
         }
         return result;
@@ -131,7 +133,8 @@ public class CommerceSkuCatalogService {
     /** Historical orders use only persisted snapshots, never today's catalog metadata. */
     public Map<Long,Map<String,Object>> orderSnapshots(String order) {
         Map<Long,Map<String,Object>> result=new HashMap<>();
-        for(Map<String,Object> row:jdbc.queryForList("SELECT s.product_id,s.snapshot_json FROM commerce_order_sku_snapshot s JOIN commerce_order o ON o.order_id=s.order_id WHERE s.order_id=? AND o.shop_id=?",order,shop()))
+        // Keep order ownership mandatory without comparing V13 and trade ID collations.
+        for(Map<String,Object> row:jdbc.queryForList("SELECT s.product_id,s.snapshot_json FROM commerce_order_sku_snapshot s WHERE s.order_id=? AND EXISTS(SELECT 1 FROM commerce_order o WHERE o.order_id=? AND o.shop_id=?)",order,order,shop()))
             result.put(((Number)row.get("product_id")).longValue(),JSON.parseObject(String.valueOf(row.get("snapshot_json"))));
         return result;
     }

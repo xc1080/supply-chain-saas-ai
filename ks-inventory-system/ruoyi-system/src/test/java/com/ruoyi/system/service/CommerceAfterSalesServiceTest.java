@@ -115,6 +115,28 @@ public class CommerceAfterSalesServiceTest {
         identifier.setSystematicReceipt(original);rejected(409,()->tx(()->fixture.warehouse.delete(Collections.singletonList(identifier))));healthy();
     }
 
+    @Test public void returnSourcesKeepErpOrderAndTypeFiltersAndOriginalBatchOrder(){
+        String order=paid("source-boundary",3);
+        // Earlier unrelated journals must never become this order's return sources.
+        for(String receipt:Arrays.asList("OTHER_ORDER_OUT","SAME_ORDER_IN")){
+            jdbc.update("INSERT INTO head_receipt(systematic_receipt,original_receipt,receipt_type) VALUES (?,?,?)",receipt,"OTHER_ORDER_OUT".equals(receipt)?"OTHER_ORDER":order,"OTHER_ORDER_OUT".equals(receipt)?"3":"1");
+            jdbc.update("INSERT INTO commerce_warehouse_ledger(event_key,receipt_id,related_receipts,operation,product_id,warehouse_id,delta_quantity,before_quantity,after_quantity,created_at) VALUES (?,?,?,'DISPATCH',1,1,-1,10,9,CURRENT_TIMESTAMP)","BOUNDARY:"+receipt,receipt,receipt);
+        }
+        Map<String,Object> first=tx(()->service.ship(order,map("requestKey","source-batch1","items",Collections.singletonList(map("productId",1,"quantity",1))),1));
+        String firstReceipt=String.valueOf(first.get("receiptId"));
+        tx(()->service.ship(order,map("requestKey","source-batch2","items",Collections.singletonList(map("productId",1,"quantity",2))),1));
+        String id=String.valueOf(tx(()->after.apply(order,map("ownerId",OWNER,"requestKey","source-return","kind","RETURN_REFUND","reason","核对原发货批次","items",Collections.singletonList(map("productId",1,"quantity",1))))).get("afterSalesId"));
+        review(id);Map<String,Object> accepted=accept(id);
+        assertEquals(firstReceipt,jdbc.queryForObject("SELECT source_receipt_id FROM commerce_return_allocation WHERE after_sales_id=?",String.class,id));
+        assertEquals(1L,n("SELECT SUM(quantity) FROM commerce_return_allocation WHERE after_sales_id=?",id));
+        assertEquals(8L,n("SELECT plan_quantity FROM inventory_product WHERE inventory_id=1"));
+        assertEquals(accepted.get("returnReceiptId"),accept(id).get("returnReceiptId"));
+        assertEquals(1L,n("SELECT COUNT(*) FROM commerce_return_allocation WHERE after_sales_id=?",id));
+        jdbc.update("DELETE FROM commerce_warehouse_ledger WHERE event_key IN ('BOUNDARY:OTHER_ORDER_OUT','BOUNDARY:SAME_ORDER_IN')");
+        jdbc.update("DELETE FROM head_receipt WHERE systematic_receipt IN ('OTHER_ORDER_OUT','SAME_ORDER_IN')");
+        healthy();
+    }
+
     @Test public void failedRefundIsAuditedWithoutMutationAndCannotChangeScenarioOnSameKey() {
         String order=paid("failure",2),id=apply(order,"request");review(id);
         assertEquals("FAILED",refund(id,"attempt1","failure").get("refundOutcome"));

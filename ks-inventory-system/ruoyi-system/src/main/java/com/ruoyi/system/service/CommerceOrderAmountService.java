@@ -29,6 +29,8 @@ import java.util.*;
 @Profile({"local","commerce"})
 public class CommerceOrderAmountService {
     private static final long MAX_CENTS=99999999999999L; // DECIMAL(14,2)
+    private static final String DEFAULT_SHIPPING_REFUND_POLICY="UNSHIPPED_ONLY";
+    private static final String LEGACY_SHIPPING_REFUND_POLICY="PROPORTIONAL";
     private final DataSource source;
     private final JdbcTemplate jdbc;
     private final CommerceMerchantService merchants;
@@ -38,8 +40,28 @@ public class CommerceOrderAmountService {
     }
 
     public void initializeSchema() {
+        initializeAmountSchema();initializeRefundPolicySchema();
+    }
+    /** V14 only: versioned startup must never apply a later extension from this callback. */
+    public void initializeAmountSchema() {
         ResourceDatabasePopulator script=new ResourceDatabasePopulator(new ClassPathResource("db/commerce-order-amount.sql"));
         script.setSqlScriptEncoding("UTF-8");script.execute(source);
+    }
+    /** V17 extends V14 without changing its immutable checksum or existing order promises. */
+    public void initializeRefundPolicySchema() {
+        String[] tables={"commerce_pricing_policy","commerce_order_amount"};
+        try(java.io.InputStream input=new ClassPathResource("db/commerce-shipping-refund-policy.sql").getInputStream()) {
+            List<String> statements=new ArrayList<>();
+            for(String line:org.springframework.util.StreamUtils.copyToString(input,java.nio.charset.StandardCharsets.UTF_8).split("\\r?\\n"))if(!line.trim().startsWith("--"))statements.add(line);
+            String[] changes=String.join("\n",statements).split(";");
+            for(int i=0;i<tables.length;i++)if(!hasRefundPolicyColumn(tables[i]))jdbc.execute(changes[i].trim());
+        } catch(java.io.IOException error){throw new IllegalStateException("Shipping refund policy migration failed",error);}
+    }
+    private boolean hasRefundPolicyColumn(String table) {
+        Connection connection=DataSourceUtils.getConnection(source);
+        try(ResultSet columns=connection.getMetaData().getColumns(connection.getCatalog(),null,table,"shipping_refund_policy")) {return columns.next();}
+        catch(java.sql.SQLException error){throw new IllegalStateException("Shipping refund policy schema inspection failed",error);}
+        finally {DataSourceUtils.releaseConnection(connection,source);}
     }
 
     /** Only legacy test/upgrade databases may omit V14. Never silently drop a selected promotion. */
@@ -60,14 +82,17 @@ public class CommerceOrderAmountService {
     @Transactional(readOnly=true)
     public Map<String,Object> policy() {
         requireSchema();requireShop();
-        List<Map<String,Object>> rows=jdbc.queryForList("SELECT shipping_cents FROM commerce_pricing_policy WHERE shop_id=?",shop());
-        return map("shopId",shop(),"shippingFee",money(rows.isEmpty()?0:n(rows.get(0).get("shipping_cents"))));
+        List<Map<String,Object>> rows=jdbc.queryForList("SELECT * FROM commerce_pricing_policy WHERE shop_id=?",shop());
+        return map("shopId",shop(),"shippingFee",money(rows.isEmpty()?0:n(rows.get(0).get("shipping_cents"))),"shippingRefundPolicy",rows.isEmpty()?DEFAULT_SHIPPING_REFUND_POLICY:policyForShop(rows.get(0)));
     }
     @Transactional
     public Map<String,Object> savePolicy(Map<String,Object> body,long actor) {
         merchants.requireCapability(shop(),actor,CommerceCapability.CATALOG);requireSchema();
         require(body!=null,"金额配置不能为空",400);long fee=inputCents(body.get("shippingFee"),false,"运费");
-        jdbc.update("INSERT INTO commerce_pricing_policy(shop_id,shipping_cents,updated_at) VALUES (?,?,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE shipping_cents=VALUES(shipping_cents),updated_at=CURRENT_TIMESTAMP",shop(),fee);
+        require(hasRefundPolicyColumn("commerce_pricing_policy"),"运费退款政策尚未完成迁移",503);
+        List<Map<String,Object>> previous=jdbc.queryForList("SELECT * FROM commerce_pricing_policy WHERE shop_id=? FOR UPDATE",shop());
+        String policy=body.containsKey("shippingRefundPolicy")?shippingRefundPolicy(body.get("shippingRefundPolicy")):(previous.isEmpty()?DEFAULT_SHIPPING_REFUND_POLICY:policyForShop(previous.get(0)));
+        jdbc.update("INSERT INTO commerce_pricing_policy(shop_id,shipping_cents,shipping_refund_policy,updated_at) VALUES (?,?,?,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE shipping_cents=VALUES(shipping_cents),shipping_refund_policy=VALUES(shipping_refund_policy),updated_at=CURRENT_TIMESTAMP",shop(),fee,policy);
         return policy();
     }
     @Transactional(readOnly=true)
@@ -121,10 +146,12 @@ public class CommerceOrderAmountService {
             long line=checked(Math.multiplyExact(price,quantities.get(productId)));original=checked(Math.addExact(original,line));originals.put(productId,line);
         }
         require(originals.size()==quantities.size(),"报价商品不完整",409);
-        long shipping=0,discount=0;String title=null;SortedMap<Long,Long> eligible=new TreeMap<>();
+        boolean refundPolicySchema=snapshots&&hasRefundPolicyColumn("commerce_order_amount");
+        long shipping=0,discount=0;String title=null,refundPolicy=LEGACY_SHIPPING_REFUND_POLICY;SortedMap<Long,Long> eligible=new TreeMap<>();
         if(snapshots) {
-            List<Long> fees=jdbc.queryForList("SELECT shipping_cents FROM commerce_pricing_policy WHERE shop_id=?",Long.class,shop());
-            shipping=fees.isEmpty()?0:checked(fees.get(0));
+            List<Map<String,Object>> policies=jdbc.queryForList("SELECT * FROM commerce_pricing_policy WHERE shop_id=?",shop());
+            shipping=policies.isEmpty()?0:checked(n(policies.get(0).get("shipping_cents")));
+            if(refundPolicySchema)refundPolicy=policies.isEmpty()?DEFAULT_SHIPPING_REFUND_POLICY:policyForShop(policies.get(0));
             if(selectedPromotion!=null) {
                 List<Map<String,Object>> rows=jdbc.queryForList("SELECT * FROM commerce_promotion WHERE promotion_id=? AND shop_id=?",selectedPromotion,shop());require(rows.size()==1,"优惠不存在",404);
                 Map<String,Object> promotion=rows.get(0);LocalDateTime now=LocalDateTime.now();
@@ -144,9 +171,10 @@ public class CommerceOrderAmountService {
             // Payment/fulfillment currently close an order by its money balance. Every refundable
             // unit therefore needs at least one cent; free gifts require a separate quantity lifecycle.
             require(linePayable>=quantities.get(product),"优惠后每件商品含分摊运费的实付须至少为0.01元，请调整优惠",409);
+            if(DEFAULT_SHIPPING_REFUND_POLICY.equals(refundPolicy))require(entry.getValue()-lineDiscount>=quantities.get(product),"不退已发货运费时，每件商品优惠后货款须至少为0.01元，请调整优惠",409);
             lines.put(product,new AmountLine(product,quantities.get(product),entry.getValue(),lineDiscount,lineShipping,linePayable));
         }
-        return new AmountQuote(snapshots?1:0,original,discount,shipping,payable,selectedPromotion,title,lines);
+        return new AmountQuote(snapshots?(refundPolicySchema?2:1):0,original,discount,shipping,payable,selectedPromotion,title,refundPolicy,lines);
     }
 
     /** Largest remainder allocation, with productId as the stable tie-breaker. */
@@ -165,7 +193,8 @@ public class CommerceOrderAmountService {
     }
     public void snapshot(String orderId,AmountQuote quote) {
         if(quote.version==0)return;
-        jdbc.update("INSERT INTO commerce_order_amount(order_id,shop_id,snapshot_version,original_cents,discount_cents,shipping_cents,payable_cents,promotion_id,promotion_title) VALUES (?,?,?,?,?,?,?,?,?)",orderId,shop(),quote.version,quote.original,quote.discount,quote.shipping,quote.payable,quote.promotionId,quote.promotionTitle);
+        if(quote.version>=2)jdbc.update("INSERT INTO commerce_order_amount(order_id,shop_id,snapshot_version,original_cents,discount_cents,shipping_cents,payable_cents,promotion_id,promotion_title,shipping_refund_policy) VALUES (?,?,?,?,?,?,?,?,?,?)",orderId,shop(),quote.version,quote.original,quote.discount,quote.shipping,quote.payable,quote.promotionId,quote.promotionTitle,quote.shippingRefundPolicy);
+        else jdbc.update("INSERT INTO commerce_order_amount(order_id,shop_id,snapshot_version,original_cents,discount_cents,shipping_cents,payable_cents,promotion_id,promotion_title) VALUES (?,?,?,?,?,?,?,?,?)",orderId,shop(),quote.version,quote.original,quote.discount,quote.shipping,quote.payable,quote.promotionId,quote.promotionTitle);
         for(AmountLine line:quote.lines.values())jdbc.update("INSERT INTO commerce_order_line_amount(order_id,product_id,quantity,original_cents,discount_cents,shipping_cents,payable_cents) VALUES (?,?,?,?,?,?,?)",orderId,line.productId,line.quantity,line.original,line.discount,line.shipping,line.payable);
     }
     public void requireReplayPromotion(String orderId,String selected) {
@@ -187,30 +216,53 @@ public class CommerceOrderAmountService {
         Map<String,Object> values=snapshots.isEmpty()?breakdown(original,0,0,inputCents(order.get("totalAmount"),false,"订单实付金额")):breakdown(n(snapshots.get(0).get("original_cents")),n(snapshots.get(0).get("discount_cents")),n(snapshots.get(0).get("shipping_cents")),n(snapshots.get(0).get("payable_cents")));
         long paid=n(order.get("orderStatus"))>=1&&n(order.get("orderStatus"))<=3?inputCents(order.get("totalAmount"),false,"订单实付金额"):0,refunded=inputCents(order.get("refundedAmount"),false,"已退金额");
         BigDecimal pending=jdbc.queryForObject("SELECT COALESCE(SUM(refund_amount),0) FROM commerce_after_sales_case WHERE order_id=? AND status NOT IN('REFUNDED','REJECTED','REFUND_FAILED')",BigDecimal.class,orderId);
-        values.put("paidAmount",money(paid));values.put("refundedAmount",money(refunded));values.put("refundableAmount",money(Math.max(0,paid-refunded-inputCents(pending,false,"售后占用金额"))));
+        long refundable=Math.max(0,paid-refunded-inputCents(pending,false,"售后占用金额"));
+        if(!snapshots.isEmpty()&&DEFAULT_SHIPPING_REFUND_POLICY.equals(policyForOrder(snapshots.get(0))))refundable=Math.min(refundable,availablePolicyRefund(order,lineSnapshots));
+        values.put("paidAmount",money(paid));values.put("refundedAmount",money(refunded));values.put("refundableAmount",money(Boolean.TRUE.equals(order.get("allItemsRefunded"))?0:refundable));
         putAmounts(order,values);order.put("amountSnapshotVersion",snapshots.isEmpty()?0:(int)n(snapshots.get(0).get("snapshot_version")));
+        order.put("shippingRefundPolicy",snapshots.isEmpty()?"LEGACY_ORIGINAL_PRICE":policyForOrder(snapshots.get(0)));
         order.put("promotionId",snapshots.isEmpty()?null:snapshots.get(0).get("promotion_id"));order.put("promotionTitle",snapshots.isEmpty()?null:snapshots.get(0).get("promotion_title"));
     }
 
-    /** Caller must hold the order transaction. Preview and reserve use identical deterministic units. */
+    /** Upper bound over all remaining eligible units. Only unshipped units can carry freight;
+     * customers can choose the order of separate return/unshipped applications, so use the
+     * largest remaining unit freight shares, rather than promising the current money balance. */
+    private long availablePolicyRefund(Map<String,Object> order,SortedMap<Long,Map<String,Object>> lines){
+        String id=String.valueOf(order.get("orderId"));Map<Long,Set<Long>> occupied=new HashMap<>();
+        for(Map<String,Object> row:jdbc.queryForList("SELECT u.product_id,u.unit_index FROM commerce_refund_unit_allocation u JOIN commerce_after_sales_case a ON a.after_sales_id=u.after_sales_id WHERE u.order_id=? AND a.status NOT IN('REJECTED','REFUND_FAILED')",id))occupied.computeIfAbsent(n(row.get("product_id")),key->new HashSet<>()).add(n(row.get("unit_index")));
+        long total=0;for(Object value:(List<?>)order.get("items")){
+            Map<?,?> item=(Map<?,?>)value;long product=n(item.get("productId")),unsent=n(item.get("unshippedRefundAvailableQuantity")),returned=n(item.get("returnAvailableQuantity"));
+            if(unsent+returned==0)continue;Map<String,Object> line=lines.get(product);if(line==null)continue;
+            long count=n(line.get("quantity")),goods=checked(n(line.get("original_cents"))-n(line.get("discount_cents"))),payable=n(line.get("payable_cents"));Set<Long> used=occupied.getOrDefault(product,Collections.emptySet());List<Long> freight=new ArrayList<>();
+            for(long unit=0;unit<count;unit++)if(!used.contains(unit)){long merchandise=unitAmount(goods,count,unit);total=checked(total+merchandise);freight.add(unitAmount(payable,count,unit)-merchandise);}
+            freight.sort(Collections.reverseOrder());for(int i=0;i<freight.size()&&i<unsent;i++)total=checked(total+freight.get(i));
+        }
+        return total;
+    }
+
+    /** Compatibility preview for unshipped refunds. Production callers must supply the case kind. */
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public SortedMap<Long,BigDecimal> refundAmounts(String orderId,SortedMap<Long,Long> quantities) {
-        return refundPlan(orderId,quantities,null,false);
+        return refundAmounts(orderId,quantities,"UNSHIPPED_REFUND");
+    }
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public SortedMap<Long,BigDecimal> refundAmounts(String orderId,SortedMap<Long,Long> quantities,String kind) {
+        return refundPlan(orderId,quantities,null,false,refundKind(kind));
     }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public SortedMap<Long,BigDecimal> reserveRefund(String orderId,String caseId,SortedMap<Long,Long> quantities) {
         require(TransactionSynchronizationManager.isActualTransactionActive(),"退款金额占用必须处于订单事务",409);
-        List<Map<String,Object>> cases=jdbc.queryForList("SELECT refund_amount FROM commerce_after_sales_case WHERE after_sales_id=? AND order_id=? AND shop_id=?",caseId,orderId,shop());require(cases.size()==1,"售后不存在",404);
+        List<Map<String,Object>> cases=jdbc.queryForList("SELECT refund_amount,kind FROM commerce_after_sales_case WHERE after_sales_id=? AND order_id=? AND shop_id=?",caseId,orderId,shop());require(cases.size()==1,"售后不存在",404);
         SortedMap<Long,Long> saved=new TreeMap<>();SortedMap<Long,BigDecimal> savedAmounts=new TreeMap<>();
         for(Map<String,Object> item:jdbc.queryForList("SELECT product_id,quantity,amount FROM commerce_after_sales_item WHERE after_sales_id=? ORDER BY product_id",caseId)){saved.put(n(item.get("product_id")),n(item.get("quantity")));savedAmounts.put(n(item.get("product_id")),money(inputCents(item.get("amount"),false,"售后行金额")));}
         require(saved.equals(quantities),"售后金额占用必须与已保存商品数量一致",409);
-        SortedMap<Long,BigDecimal> result=refundPlan(orderId,quantities,caseId,true);long total=0;for(BigDecimal amount:result.values())total=checked(total+inputCents(amount,false,"售后金额"));
+        SortedMap<Long,BigDecimal> result=refundPlan(orderId,quantities,caseId,true,refundKind(String.valueOf(cases.get(0).get("kind"))));long total=0;for(BigDecimal amount:result.values())total=checked(total+inputCents(amount,false,"售后金额"));
         require(savedAmounts.equals(result)&&total==inputCents(cases.get(0).get("refund_amount"),false,"售后总金额"),"售后金额与订单单位分摊不一致",409);return result;
     }
-    private SortedMap<Long,BigDecimal> refundPlan(String orderId,SortedMap<Long,Long> quantities,String caseId,boolean reserve) {
+    private SortedMap<Long,BigDecimal> refundPlan(String orderId,SortedMap<Long,Long> quantities,String caseId,boolean reserve,String kind) {
         require(quantities!=null&&!quantities.isEmpty(),"退款商品不能为空",400);
         List<Map<String,Object>> orders=jdbc.queryForList("SELECT order_id FROM commerce_order WHERE order_id=? AND shop_id=? FOR UPDATE",orderId,shop());require(orders.size()==1,"订单不存在",404);
-        List<Map<String,Object>> snapshot=schemaAvailable()?jdbc.queryForList("SELECT order_id FROM commerce_order_amount WHERE order_id=? AND shop_id=?",orderId,shop()):Collections.emptyList();
+        List<Map<String,Object>> snapshot=schemaAvailable()?jdbc.queryForList("SELECT * FROM commerce_order_amount WHERE order_id=? AND shop_id=?",orderId,shop()):Collections.emptyList();
         SortedMap<Long,BigDecimal> result=new TreeMap<>();
         if(snapshot.isEmpty()) {
             for(Map.Entry<Long,Long> entry:quantities.entrySet()) {
@@ -227,9 +279,10 @@ public class CommerceOrderAmountService {
                 require(prior.equals(quantities),"同一售后不能改变金额占用数量",409);return result;
             }
         }
+        boolean freightRefund=LEGACY_SHIPPING_REFUND_POLICY.equals(policyForOrder(snapshot.get(0)))||"UNSHIPPED_REFUND".equals(kind);
         for(Map.Entry<Long,Long> entry:quantities.entrySet()) {
-            List<Map<String,Object>> lines=jdbc.queryForList("SELECT quantity,payable_cents FROM commerce_order_line_amount WHERE order_id=? AND product_id=?",orderId,entry.getKey());require(lines.size()==1,"退款商品不存在",404);
-            long count=n(lines.get(0).get("quantity")),payable=n(lines.get(0).get("payable_cents")),wanted=entry.getValue();require(wanted>0&&wanted<=count,"退款数量错误",409);
+            List<Map<String,Object>> lines=jdbc.queryForList("SELECT quantity,original_cents,discount_cents,payable_cents FROM commerce_order_line_amount WHERE order_id=? AND product_id=?",orderId,entry.getKey());require(lines.size()==1,"退款商品不存在",404);
+            Map<String,Object> line=lines.get(0);long count=n(line.get("quantity")),payable=freightRefund?n(line.get("payable_cents")):checked(n(line.get("original_cents"))-n(line.get("discount_cents"))),wanted=entry.getValue();require(wanted>0&&wanted<=count,"退款数量错误",409);
             Set<Long> occupied=new HashSet<>(jdbc.queryForList("SELECT u.unit_index FROM commerce_refund_unit_allocation u JOIN commerce_after_sales_case a ON a.after_sales_id=u.after_sales_id WHERE u.order_id=? AND u.product_id=? AND a.status NOT IN('REJECTED','REFUND_FAILED')",Long.class,orderId,entry.getKey()));
             long sum=0,selected=0;for(long unit=0;unit<count&&selected<wanted;unit++)if(!occupied.contains(unit)) {
                 long amount=unitAmount(payable,count,unit);sum=checked(sum+amount);selected++;
@@ -245,12 +298,12 @@ public class CommerceOrderAmountService {
     }
 
     public static final class AmountQuote {
-        public final int version;public final long original,discount,shipping,payable;public final String promotionId,promotionTitle;public final SortedMap<Long,AmountLine> lines;
-        private AmountQuote(int version,long original,long discount,long shipping,long payable,String id,String title,SortedMap<Long,AmountLine> lines) {
-            this.version=version;this.original=original;this.discount=discount;this.shipping=shipping;this.payable=payable;this.promotionId=id;this.promotionTitle=title;this.lines=Collections.unmodifiableSortedMap(lines);
+        public final int version;public final long original,discount,shipping,payable;public final String promotionId,promotionTitle,shippingRefundPolicy;public final SortedMap<Long,AmountLine> lines;
+        private AmountQuote(int version,long original,long discount,long shipping,long payable,String id,String title,String shippingRefundPolicy,SortedMap<Long,AmountLine> lines) {
+            this.version=version;this.original=original;this.discount=discount;this.shipping=shipping;this.payable=payable;this.promotionId=id;this.promotionTitle=title;this.shippingRefundPolicy=shippingRefundPolicy;this.lines=Collections.unmodifiableSortedMap(lines);
         }
         public Map<String,Object> view() {
-            Map<String,Object> result=map("shopId",shop(),"promotionId",promotionId,"promotionTitle",promotionTitle,"amountSnapshotVersion",version);putAmounts(result,breakdown(original,discount,shipping,payable));
+            Map<String,Object> result=map("shopId",shop(),"promotionId",promotionId,"promotionTitle",promotionTitle,"amountSnapshotVersion",version,"shippingRefundPolicy",version==0?"LEGACY_ORIGINAL_PRICE":shippingRefundPolicy);putAmounts(result,breakdown(original,discount,shipping,payable));
             List<Map<String,Object>> items=new ArrayList<>();for(AmountLine line:lines.values()){Map<String,Object> item=map("productId",line.productId,"quantity",line.quantity);putAmounts(item,breakdown(line.original,line.discount,line.shipping,line.payable));items.add(item);}result.put("items",items);return result;
         }
     }
@@ -270,6 +323,10 @@ public class CommerceOrderAmountService {
         SortedSet<Long> result=new TreeSet<>();for(Object value:items){require(value!=null&&String.valueOf(value).matches("[1-9][0-9]{0,17}"),"优惠商品标识错误",400);result.add(Long.parseLong(String.valueOf(value)));}return result;
     }
     private static Map<String,Object> promotionView(Map<String,Object> row) {return map("promotionId",row.get("promotion_id"),"shopId",row.get("shop_id"),"title",row.get("title"),"discountAmount",money(n(row.get("discount_cents"))),"productIds",JSON.parseArray(String.valueOf(row.get("product_ids_json")),Long.class),"startsAt",date(row.get("starts_at")).toString(),"endsAt",date(row.get("ends_at")).toString(),"enabled",n(row.get("enabled"))==1);}
+    private static String shippingRefundPolicy(Object value){require(value instanceof String&&(DEFAULT_SHIPPING_REFUND_POLICY.equals(value)||LEGACY_SHIPPING_REFUND_POLICY.equals(value)),"运费退款政策必须为 UNSHIPPED_ONLY 或 PROPORTIONAL",400);return (String)value;}
+    private static String policyForShop(Map<String,Object> row){return row.containsKey("shipping_refund_policy")?shippingRefundPolicy(row.get("shipping_refund_policy")):LEGACY_SHIPPING_REFUND_POLICY;}
+    private static String policyForOrder(Map<String,Object> row){return row.containsKey("shipping_refund_policy")?shippingRefundPolicy(row.get("shipping_refund_policy")):LEGACY_SHIPPING_REFUND_POLICY;}
+    private static String refundKind(String value){require("UNSHIPPED_REFUND".equals(value)||"RETURN_REFUND".equals(value),"售后退款类型无效",400);return value;}
     private static LocalDateTime date(Object value) {try {if(value instanceof LocalDateTime)return (LocalDateTime)value;if(value instanceof Timestamp)return ((Timestamp)value).toLocalDateTime();require(value instanceof String,"优惠日期格式错误",400);return LocalDateTime.parse(((String)value).replace(' ','T'));}catch(java.time.format.DateTimeParseException error){throw new ServiceException("优惠日期格式错误",400);}}
     private static String text(Object raw,int maximum,String label){require(raw instanceof String,label+"格式错误",400);String value=((String)raw).trim();require(!value.isEmpty()&&value.length()<=maximum,label+"长度错误",400);return value;}
     private static Map<String,Object> breakdown(long original,long discount,long shipping,long payable){return map("originalAmount",money(original),"discountAmount",money(discount),"shippingAmount",money(shipping),"payableAmount",money(payable));}

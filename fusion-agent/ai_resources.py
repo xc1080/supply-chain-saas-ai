@@ -13,7 +13,8 @@ import os
 import sqlite3
 import time
 import uuid
-from contextlib import asynccontextmanager, closing
+from contextlib import asynccontextmanager, closing, contextmanager
+from functools import wraps
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,8 +23,52 @@ import redis.asyncio as redis
 from redis.exceptions import RedisError
 from redis.backoff import NoBackoff
 from redis.retry import Retry
+from ai_versions import digest, provider_id, safe_label, version_manifest
 
 CURRENT = contextvars.ContextVar("ai_resource_scope", default=None)
+TRACKING = contextvars.ContextVar("ai_tracking_scope", default=None)
+
+
+@contextmanager
+def tracking_scope(tenant, *, run_id=None, versions=None):
+    context = {"tenant": str(tenant), "runId": run_id or uuid.uuid4().hex,
+               "versions": versions if versions is not None else version_manifest()}
+    token = TRACKING.set(context)
+    try:
+        yield context
+    finally:
+        TRACKING.reset(token)
+
+
+def tracked_operation(operation):
+    def decorate(function):
+        @wraps(function)
+        async def wrapped(*args, **kwargs):
+            if TRACKING.get() is None:
+                with tracking_scope(os.getenv("FUSION_TENANT", "demo")):
+                    tracking_event(operation, 'started', kind='request')
+                    return await function(*args, **kwargs)
+            return await function(*args, **kwargs)
+        return wrapped
+    return decorate
+
+
+def tracking_event(operation, outcome, **fields):
+    scope = TRACKING.get()
+    tenant = scope["tenant"] if scope else os.getenv("FUSION_TENANT", "demo")
+    metric(tenant, operation, outcome, **fields)
+
+
+def safe_summary(summary):
+    # Deliberate allowlist: never persist arbitrary tool payloads or error text.
+    result = {}
+    for key, value in (summary or {}).items():
+        if key in {"items", "sources", "citations", "required_tools", "completed_tools", "attempt", "rows"}:
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1000000: result[key] = value
+        elif key == "cached" and isinstance(value, bool): result[key] = value
+        elif key == "result_digest" and isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value): result[key] = value
+        elif key == "error_type" and isinstance(value, str) and value in {"HTTPException", "ValueError", "KeyError", "TypeError", "IndexError", "OSError", "TimeoutError", "CancelledError", "ResourceUnavailable", "HTTPStatusError", "ConnectError", "ReadTimeout", "LostLease", "RuntimeError"}: result[key] = value
+    return result
 
 
 class ResourceUnavailable(RuntimeError):
@@ -70,15 +115,34 @@ return 1
 """
 
 
-def metric(tenant, operation, outcome, *, elapsed=0, tokens=0, status=None):
+def metric(tenant, operation, outcome, *, elapsed=0, tokens=0, status=None, kind="runtime", call_id="",
+           provider="", model="", prompt_version="", tool_name="", input_tokens=None, output_tokens=None,
+           usage_source="", summary=None):
     # No question, document text, address, bearer token or model response stored.
     path = Path(os.getenv("FUSION_AI_METRICS_DB", str(Path(__file__).parent.parent / "runtime/ai-metrics.sqlite3")))
     path.parent.mkdir(parents=True, exist_ok=True)
     with closing(sqlite3.connect(path, timeout=3)) as connection:
         connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("BEGIN IMMEDIATE")
         connection.execute("CREATE TABLE IF NOT EXISTS ai_metrics(id INTEGER PRIMARY KEY,created REAL NOT NULL,tenant TEXT NOT NULL,operation TEXT NOT NULL,outcome TEXT NOT NULL,elapsed REAL NOT NULL,tokens INTEGER NOT NULL,status INTEGER)")
-        connection.execute("INSERT INTO ai_metrics(created,tenant,operation,outcome,elapsed,tokens,status) VALUES(?,?,?,?,?,?,?)",
-                           (time.time(), str(tenant)[:80], operation[:40], outcome[:40], elapsed, tokens, status))
+        extra = {name: "TEXT NOT NULL DEFAULT ''" for name in ("run_id", "event_id", "kind", "call_id", "provider", "model", "prompt_version", "tool_name", "tool_version", "knowledge_version", "usage_source")}
+        extra.update(input_tokens="INTEGER", output_tokens="INTEGER", summary="TEXT NOT NULL DEFAULT '{}'", versions="TEXT NOT NULL DEFAULT '{}'")
+        existing = {row[1] for row in connection.execute("PRAGMA table_info(ai_metrics)")}
+        for name, definition in extra.items():
+            if name not in existing: connection.execute(f"ALTER TABLE ai_metrics ADD COLUMN {name} {definition}")
+        connection.execute("CREATE INDEX IF NOT EXISTS ix_ai_metrics_run ON ai_metrics(run_id,created,id)")
+        scope = TRACKING.get() or {}
+        versions = scope.get("versions") or {}
+        values = {"created": time.time(), "tenant": safe_label(tenant), "operation": safe_label(operation), "outcome": safe_label(outcome),
+                  "elapsed": elapsed, "tokens": tokens, "status": status, "run_id": safe_label(scope.get("runId")),
+                  "event_id": uuid.uuid4().hex, "kind": safe_label(kind), "call_id": safe_label(call_id),
+                  "provider": safe_label(provider), "model": safe_label(model), "prompt_version": safe_label(prompt_version),
+                  "tool_name": safe_label(tool_name), "tool_version": (versions.get("tools") or {}).get("catalogVersion", ""),
+                  "knowledge_version": digest(versions["knowledge"]) if versions.get("knowledge") else "",
+                  "input_tokens": input_tokens, "output_tokens": output_tokens, "usage_source": safe_label(usage_source),
+                  "summary": json.dumps(safe_summary(summary), sort_keys=True), "versions": json.dumps(versions, sort_keys=True)}
+        columns = ",".join(values)
+        connection.execute(f"INSERT INTO ai_metrics({columns}) VALUES({','.join('?' for _ in values)})", tuple(values.values()))
         connection.execute("DELETE FROM ai_metrics WHERE created<?", (time.time()-max(1, int(os.getenv("FUSION_AI_METRICS_RETENTION_DAYS", "30")))*86400,))
         connection.commit()
 
@@ -194,21 +258,47 @@ async def provider_post(client, endpoint, *, headers, json, operation):
     charged = estimate  # Ambiguous timeout consumes reservation conservatively.
     status = None
     outcome = "transport_error"
+    call_id = uuid.uuid4().hex
+    metadata = {"call_id": call_id, "provider": provider_id(endpoint), "model": safe_label(json.get("model")),
+                "prompt_version": digest([message.get("content") for message in json.get("messages", []) if message.get("role") == "system"]) if json.get("messages") else ""}
+    input_tokens = output_tokens = None
+    usage_source = "estimated"
     try:
         response = await client.post(endpoint, headers=headers, json=json)
+        response.extensions["ai_tracking"] = metadata
         status = response.status_code
         if status >= 400:
             charged = 0
+            usage_source = "none"
             outcome = "rate_limited" if status == 429 else "provider_error"
             response.raise_for_status()
-        body = response.json()
+        try:
+            body = response.json()
+        except ValueError:
+            outcome = "invalid_response"
+            raise
+        if not isinstance(body, dict):
+            outcome = "invalid_response"
+            raise ValueError("Invalid provider response")
         usage = body.get("usage", {})
-        charged = max(0, int(usage.get("total_tokens", estimate)))
+        if not isinstance(usage, dict):
+            outcome = "invalid_response"
+            raise ValueError("Invalid provider usage response")
+        def count(value): return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+        input_tokens = count(usage.get("prompt_tokens", usage.get("input_tokens")))
+        output_tokens = count(usage.get("completion_tokens", usage.get("output_tokens")))
+        total = count(usage.get("total_tokens"))
+        if total is None and input_tokens is not None and output_tokens is not None: total = input_tokens + output_tokens
+        charged = total if total is not None else estimate
+        usage_source = "provider" if total is not None else "estimated"
         outcome = "ok"
         return response
     finally:
-        await resources.call(SETTLE, keys, charged-estimate)
-        metric(resources.tenant, operation, outcome, elapsed=time.monotonic()-started, tokens=charged, status=status)
+        try:
+            await resources.call(SETTLE, keys, charged-estimate)
+        finally:
+            metric(resources.tenant, operation, outcome, elapsed=time.monotonic()-started, tokens=charged, status=status,
+                   kind="provider", input_tokens=input_tokens, output_tokens=output_tokens, usage_source=usage_source, **metadata)
 
 
 async def dependency_health():

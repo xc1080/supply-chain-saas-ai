@@ -1,0 +1,70 @@
+package com.ruoyi.system.service;
+
+import javax.sql.DataSource;
+import java.util.*;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
+import com.ruoyi.common.core.tenant.TenantContext;
+
+/** Verification-only executable. The migration expressions come from CommerceMaintenance. */
+public final class CommerceMigrationProbe {
+    private final DataSource source;
+    private CommerceMigrationProbe(DataSource source) { this.source=source; }
+    private void applySql(String path) {
+        ResourceDatabasePopulator script=new ResourceDatabasePopulator(new ClassPathResource(path));
+        script.setSqlScriptEncoding("UTF-8");script.execute(source);
+    }
+    private List<CommerceSchemaMigrator.Migration> migrations() {
+        CommerceInventoryService stock=new CommerceInventoryService(source);
+        CommerceMerchantService merchants=new CommerceMerchantService(source,stock);
+        CommerceService service=new CommerceService(source,stock,merchants);
+        CommerceQueueService queue=new CommerceQueueService(source,service);
+        CommercePlanningService planning=new CommercePlanningService(source,stock,merchants);
+        CommercePaymentService payments=new CommercePaymentService(source);
+        CommerceDeliveryService delivery=new CommerceDeliveryService(source);
+        // The real Maintenance receives Spring's transactional service proxy.
+        // Preserve that boundary when executing its exact callbacks outside Boot.
+        ProxyFactory warehouseProxy=new ProxyFactory(new CommerceWarehouseAllocationService(source));
+        warehouseProxy.setProxyTargetClass(true);
+        warehouseProxy.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(source),new AnnotationTransactionAttributeSource()));
+        CommerceWarehouseAllocationService warehouses=(CommerceWarehouseAllocationService)warehouseProxy.getProxy();
+        CommerceCostService costs=new CommerceCostService(source);
+        CommerceAgentTaskService agentTasks=new CommerceAgentTaskService(source,planning,merchants);
+        CommerceProcurementService procurement=new CommerceProcurementService(source,null,null);
+        CommerceSkuCatalogService skuCatalog=new CommerceSkuCatalogService(source,merchants);
+        CommerceOrderAmountService orderAmounts=new CommerceOrderAmountService(source,merchants);
+        CommerceLogisticsService logistics=new CommerceLogisticsService(source);
+        CommerceSettlementService settlements=new CommerceSettlementService(source);
+        return Arrays.asList(__MIGRATIONS__);
+    }
+    public static void main(String[] args) {
+        DriverManagerDataSource source=new DriverManagerDataSource();
+        source.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        source.setUrl(System.getenv("VERIFY_JDBC_URL"));
+        source.setUsername(System.getenv("VERIFY_DB_USER"));
+        source.setPassword(System.getenv("VERIFY_DB_PASSWORD"));
+        int stop=Integer.parseInt(args[0]);
+        boolean retry=Boolean.parseBoolean(args[1]);
+        boolean inject=args.length>2 && "inject-after-ddl".equals(args[2]);
+        TenantContext.set(args.length>3?args[3]:"demo");
+        try {
+            List<CommerceSchemaMigrator.Migration> selected=new ArrayList<>();
+            for(CommerceSchemaMigrator.Migration migration:new CommerceMigrationProbe(source).migrations()) {
+                if(migration.version>stop)continue;
+                if(inject && migration.version==12) {
+                    selected.add(new CommerceSchemaMigrator.Migration(migration.version,migration.name,migration.checksum,()->{
+                        migration.action.run();
+                        throw new IllegalStateException("INJECTED_AFTER_DDL_FAILURE");
+                    }));
+                } else selected.add(migration);
+            }
+            new CommerceSchemaMigrator(source).migrate(selected,true,retry);
+            System.out.println("MIGRATION_PROBE_APPLIED_THROUGH="+stop);
+        } finally { TenantContext.clear(); }
+    }
+}

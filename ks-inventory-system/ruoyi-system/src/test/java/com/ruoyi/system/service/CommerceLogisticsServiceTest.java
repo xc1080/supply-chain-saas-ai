@@ -162,11 +162,13 @@ public class CommerceLogisticsServiceTest {
 
     @Test public void allocatedRefundCentsAndSellableReturnsKeepOriginalDispatchCostsAcrossCurrentPriceChanges() {
         CommerceOrderAmountService amounts=new CommerceOrderAmountService(jdbc.getDataSource());amounts.initializeSchema();
-        tx(()->amounts.savePolicy(map("shippingFee","0.03"),1));
+        // This scenario exercises prorated freight promises, independently of the new shop default.
+        tx(()->amounts.savePolicy(map("shippingFee","0.03","shippingRefundPolicy","PROPORTIONAL"),1));
         String promotion=String.valueOf(tx(()->amounts.savePromotion(null,map("title","学习优惠","discountAmount","0.04","productIds",Collections.emptyList(),"startsAt",LocalDateTime.now().minusMinutes(1).toString(),"endsAt",LocalDateTime.now().plusHours(1).toString(),"enabled",true),1)).get("promotionId"));
         jdbc.update("UPDATE product SET univalence=0.05 WHERE product_id=1");Map<String,Object> request=fixture.request("money-evidence",3);request.put("promotionId",promotion);
         String order=fixture.id(tx(()->commerce.create(request)));tx(()->commerce.pay(order,map("ownerId",OWNER,"paymentRequestId","pay","scenario","success")));String shipment=ship(order,"first",3);
         assertEquals(new BigDecimal("0.14"),commerce.detail(order,OWNER).get("totalAmount"));
+        assertEquals("PROPORTIONAL",commerce.detail(order,OWNER).get("shippingRefundPolicy"));
         jdbc.update("UPDATE product SET univalence=999,cost_price=555 WHERE product_id=1");
         String one=apply(order,"one","RETURN_REFUND",1);Map<String,Object> first=after.detail(one,OWNER);assertEquals(new BigDecimal("0.05"),first.get("refundAmount"));
         assertEquals(new BigDecimal("0.05"),((Map<?,?>)((List<?>)first.get("items")).get(0)).get("amount"));

@@ -122,6 +122,40 @@ public class CommerceSkuCatalogServiceTest {
         assertEquals(2L,fixture.count("commerce_sku"));
     }
 
+    @Test public void currentCatalogRequiresBothGroupAndNumericProductOwnershipInTheCurrentShop(){
+        String id=group();
+        jdbc.update("INSERT INTO commerce_shop VALUES ('other','Other','ENABLED',CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO commerce_shop_member VALUES ('other',1,'OWNER')");
+        List<Map<String,Object>> rows=Collections.singletonList(map("productId",1L));
+        catalog.enrich(rows);assertNotNull(rows.get(0).get("skuCatalog"));
+        jdbc.update("UPDATE commerce_spu SET shop_id='other' WHERE spu_id=?",id);
+        catalog.enrich(rows);assertNull(rows.get(0).get("skuCatalog"));
+        CommerceShopContext.set("other");catalog.enrich(rows);assertNull(rows.get(0).get("skuCatalog"));
+        rejected(409,()->catalog.validateSelection(Collections.singletonList(map("productId",1,"propertyValueIds","white-zigbee"))));
+        CommerceShopContext.clear();jdbc.update("UPDATE commerce_spu SET shop_id='default' WHERE spu_id=?",id);
+        jdbc.update("UPDATE commerce_product_shop SET shop_id='other' WHERE product_id=1");
+        catalog.enrich(rows);assertNull(rows.get(0).get("skuCatalog"));
+        rejected(409,()->catalog.validateSelection(Collections.singletonList(map("productId",1,"propertyValueIds","white-zigbee"))));
+        rejected(404,()->checkout("wrong-ownership",1,"white-zigbee"));
+        assertEquals(0L,fixture.count("commerce_order"));assertEquals(0L,fixture.count("commerce_stock"));
+        jdbc.update("UPDATE commerce_product_shop SET shop_id='default' WHERE product_id=1");
+        catalog.enrich(rows);assertEquals(id,((Map<?,?>)rows.get(0).get("skuCatalog")).get("spuId"));
+    }
+
+    @Test public void historicalSkuSnapshotsRequireAnExistingOrderInTheCurrentShop(){
+        group();Map<String,Object> order=checkout("snapshot-scope",1,"white-zigbee");String id=String.valueOf(order.get("orderId"));
+        Map<Long,Map<String,Object>> expected=catalog.orderSnapshots(id);assertEquals(1,expected.size());
+        jdbc.update("INSERT INTO commerce_shop VALUES ('other','Other','ENABLED',CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO commerce_shop_member VALUES ('other',1,'OWNER')");
+        CommerceShopContext.set("other");assertTrue(catalog.orderSnapshots(id).isEmpty());
+        rejected(404,()->commerce.detail(id,CommerceServiceTest.OWNER));
+        CommerceShopContext.clear();
+        jdbc.update("INSERT INTO commerce_order_sku_snapshot(order_id,product_id,snapshot_json) SELECT 'MISSING_ORDER',product_id,snapshot_json FROM commerce_order_sku_snapshot WHERE order_id=?",id);
+        assertTrue(catalog.orderSnapshots("MISSING_ORDER").isEmpty());
+        jdbc.update("UPDATE commerce_spu SET name='Changed catalog'");
+        assertEquals(expected,catalog.orderSnapshots(id));
+    }
+
     @Test public void skuInventoryAndPriceRemainIndependentAndWrongSelectionReplayCannotBypassCheck() {
         create(properties(),Arrays.asList(sku(1,"white","zigbee"),sku(2,"black","wifi")));
         tx(()->{fixture.merchants.listing(1,true);fixture.merchants.listing(2,true);return null;});

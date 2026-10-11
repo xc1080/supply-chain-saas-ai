@@ -1,0 +1,24 @@
+# Only infrastructure for a NEW verification project. No application/demo volumes.
+services:
+  mysql:
+    image: mysql:8.0.46
+    environment:
+      MYSQL_ROOT_PASSWORD: ${VERIFY_MYSQL_PASSWORD:?Provide a disposable verification password}
+      MYSQL_ROOT_HOST: "%"
+    ports:
+      - "127.0.0.1:${VERIFY_MYSQL_PORT:-13306}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root --password=$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  redis:
+    image: redis:7.4.2-alpine
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    ports:
+      - "127.0.0.1:${VERIFY_REDIS_PORT:-16379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 30

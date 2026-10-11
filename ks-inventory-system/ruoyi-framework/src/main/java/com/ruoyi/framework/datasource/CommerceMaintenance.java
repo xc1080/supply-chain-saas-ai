@@ -86,9 +86,10 @@ public class CommerceMaintenance {
                 CommerceSchemaMigrator.Migration.resources(11,"durable-procurement-agent-tasks",agentTasks::initializeSchema,"db/commerce-agent-tasks.sql"),
                 CommerceSchemaMigrator.Migration.resources(12,"procurement-source-lines",()->{procurement.initializeSchema();applySql("db/commerce-procurement-commands.sql");costs.initializeProcurementSchema();},"db/commerce-procurement.sql","db/commerce-procurement-commands.sql","db/commerce-procurement-cost.sql"),
                 CommerceSchemaMigrator.Migration.resources(13,"immutable-sku-catalog",skuCatalog::initializeSchema,"db/commerce-sku-catalog.sql"),
-                CommerceSchemaMigrator.Migration.resources(14,"order-amount-allocation",orderAmounts::initializeSchema,"db/commerce-order-amount.sql"),
+                CommerceSchemaMigrator.Migration.resources(14,"order-amount-allocation",orderAmounts::initializeAmountSchema,"db/commerce-order-amount.sql"),
                 CommerceSchemaMigrator.Migration.resources(15,"parcel-tracking-return-evidence",logistics::initializeSchema,"db/commerce-logistics.sql"),
-                CommerceSchemaMigrator.Migration.resources(16,"order-expense-settlement",settlements::initializeSchema,"db/commerce-order-settlement.sql")
+                CommerceSchemaMigrator.Migration.resources(16,"order-expense-settlement",settlements::initializeSchema,"db/commerce-order-settlement.sql"),
+                CommerceSchemaMigrator.Migration.resources(17,"shipping-refund-policy",orderAmounts::initializeRefundPolicySchema,"db/commerce-shipping-refund-policy.sql")
             ),migrationsEnabled,retryFailed);
         } ready = true; }
         finally { TenantContext.clear(); }

@@ -40,17 +40,19 @@ final class CommercePartialSupport {
     static void decorate(JdbcTemplate jdbc,Map<String,Object> result) {
         String order=String.valueOf(result.get("orderId"));List<Map<String,Object>> facts=lines(jdbc,order);
         Map<Long,Map<String,Object>> index=new HashMap<>();for(Map<String,Object> fact:facts)index.put(n(fact.get("product_id")),fact);
-        BigDecimal shipped=BigDecimal.ZERO,returned=BigDecimal.ZERO,cancelled=BigDecimal.ZERO;long orderedCount=0,shippedCount=0,returnedCount=0,unshippedCount=0;
+        BigDecimal shipped=BigDecimal.ZERO,returned=BigDecimal.ZERO,cancelled=BigDecimal.ZERO;long orderedCount=0,shippedCount=0,returnedCount=0,unshippedCount=0,refundedCount=0;
         for(Object value:(List<?>)result.get("items")) {
             Map<String,Object> item=(Map<String,Object>)value,fact=index.get(n(item.get("productId")));long qty=n(fact.get("quantity")),sent=n(fact.get("shipped")),back=n(fact.get("returned")),released=n(fact.get("released"));
             item.put("orderedQuantity",qty);item.put("shippedQuantity",sent);item.put("returnedQuantity",back);item.put("cancelledQuantity",released);item.put("refundedQuantity",n(fact.get("refunded")));item.put("unshippedQuantity",qty-sent-released);
             item.put("unshippedRefundAvailableQuantity",fact.get("unshipped_available"));item.put("returnAvailableQuantity",fact.get("return_available"));item.put("afterSalesAvailableQuantity",n(fact.get("unshipped_available"))+n(fact.get("return_available")));
             item.put("shippableQuantity",fact.get("unshipped_available"));BigDecimal price=new BigDecimal(String.valueOf(fact.get("unit_price")));
             shipped=shipped.add(price.multiply(BigDecimal.valueOf(sent)));returned=returned.add(price.multiply(BigDecimal.valueOf(back)));cancelled=cancelled.add(price.multiply(BigDecimal.valueOf(released)));
-            orderedCount+=qty;shippedCount+=sent;returnedCount+=back;unshippedCount+=qty-sent-released;
+            orderedCount+=qty;shippedCount+=sent;returnedCount+=back;unshippedCount+=qty-sent-released;refundedCount+=n(fact.get("refunded"));
         }
         String fulfillment=shippedCount>0?(unshippedCount>0?"PARTIALLY_SHIPPED":returnedCount==shippedCount?"RETURNED":"SHIPPED"):(unshippedCount==0&&orderedCount>0?"SETTLED":"UNSHIPPED");
         result.put("fulfillmentStatus",fulfillment);result.put("shippedAmount",shipped);result.put("returnedAmount",returned);result.put("cancelledAmount",cancelled);result.put("reservationActive",unshippedCount>0&&n(result.get("orderStatus"))!=4);
+        result.put("allItemsRefunded",orderedCount>0&&refundedCount==orderedCount);
+        result.put("fullAmountRefunded",new BigDecimal(String.valueOf(result.get("refundedAmount"))).signum()>0&&new BigDecimal(String.valueOf(result.get("refundedAmount"))).compareTo(new BigDecimal(String.valueOf(result.get("totalAmount"))))==0);
         if("PARTIALLY_SHIPPED".equals(fulfillment))result.put("statusName","部分已发货·剩余待处理");
         List<Map<String,Object>> shipments=new ArrayList<>();
         for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_shipment WHERE order_id=? ORDER BY created_at,shipment_id",order)) {

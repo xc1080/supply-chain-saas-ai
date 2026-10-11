@@ -101,6 +101,41 @@ public class CommerceCostServiceTest {
         assertNotEquals(jdbc.queryForObject("SELECT origin_entry_id FROM commerce_cost_entry WHERE event_type='SUPPLIER_RETURN' AND receipt_id='RETURN_CHEAP'",Long.class),jdbc.queryForObject("SELECT origin_entry_id FROM commerce_cost_entry WHERE event_type='SUPPLIER_RETURN' AND receipt_id='RETURN_EXPENSIVE'",Long.class));
     }
 
+    @Test public void numericPurchaseSourceMustBelongToItsErpReceiptBeforeReplayOrRevision(){
+        supplierReceipt("SOURCE_IDENTITY","1");String line=sourceLine("SOURCE_IDENTITY",2,"10","1",0,"1",null);
+        hook(()->costs.recordProcurementReceipt("SOURCE_IDENTITY",1));
+        Map<String,Object> state=jdbc.queryForMap("SELECT * FROM commerce_cost_receipt WHERE receipt_id='SOURCE_IDENTITY'");
+        jdbc.update("UPDATE commerce_purchase_receipt_line SET receipt_id='OTHER_RECEIPT' WHERE receipt_line_id=?",line);
+        rejected(409,()->hook(()->costs.recordProcurementReceipt("SOURCE_IDENTITY",1)));
+        jdbc.update("UPDATE detail_receipt SET univalence=20 WHERE systematic_receipt='SOURCE_IDENTITY'");
+        rejected(409,()->hook(()->costs.recordProcurementReceipt("SOURCE_IDENTITY",1)));
+        assertEquals(state,jdbc.queryForMap("SELECT * FROM commerce_cost_receipt WHERE receipt_id='SOURCE_IDENTITY'"));
+        assertEquals(1,count("commerce_cost_entry"));assertEquals(1,count("commerce_cost_source_line"));
+        assertEquals(0,new BigDecimal("20").compareTo(amount("1=1")));
+        jdbc.update("UPDATE commerce_purchase_receipt_line SET receipt_id='SOURCE_IDENTITY' WHERE receipt_line_id=?",line);
+        hook(()->costs.recordProcurementReceipt("SOURCE_IDENTITY",1));hook(()->costs.recordProcurementReceipt("SOURCE_IDENTITY",1));
+        assertEquals(3,count("commerce_cost_entry"));assertEquals(2,count("commerce_cost_source_line"));
+        assertEquals(0,new BigDecimal("40").compareTo(amount("1=1")));
+    }
+
+    @Test public void numericSupplierReturnSourceRejectsWrongDocumentWithoutReversingExistingCosts(){
+        supplierReceipt("RETURN_SOURCE_IDENTITY","1");String original=sourceLine("RETURN_SOURCE_IDENTITY",3,"10","1",0,"1",null);
+        hook(()->costs.recordProcurementReceipt("RETURN_SOURCE_IDENTITY",1));supplierReturn("RETURN_IDENTITY",original,1);
+        hook(()->costs.recordProcurementReceipt("RETURN_IDENTITY",1));
+        Map<String,Object> state=jdbc.queryForMap("SELECT * FROM commerce_cost_receipt WHERE receipt_id='RETURN_IDENTITY'");
+        jdbc.update("UPDATE commerce_purchase_receipt_line SET receipt_id='OTHER_RECEIPT' WHERE receipt_id='RETURN_IDENTITY'");
+        rejected(409,()->hook(()->costs.recordProcurementReceipt("RETURN_IDENTITY",1)));
+        jdbc.update("UPDATE detail_receipt SET plan_quantity=2 WHERE systematic_receipt='RETURN_IDENTITY'");
+        rejected(409,()->hook(()->costs.recordProcurementReceipt("RETURN_IDENTITY",1)));
+        assertEquals(state,jdbc.queryForMap("SELECT * FROM commerce_cost_receipt WHERE receipt_id='RETURN_IDENTITY'"));
+        assertEquals(2,count("commerce_cost_entry"));assertEquals(1,count("commerce_cost_source_line"));
+        assertEquals(0,new BigDecimal("20").compareTo(amount("1=1")));
+        jdbc.update("UPDATE commerce_purchase_receipt_line SET receipt_id='RETURN_IDENTITY' WHERE receipt_id='OTHER_RECEIPT'");
+        hook(()->costs.recordProcurementReceipt("RETURN_IDENTITY",1));hook(()->costs.recordProcurementReceipt("RETURN_IDENTITY",1));
+        assertEquals(4,count("commerce_cost_entry"));assertEquals(0,new BigDecimal("10").compareTo(amount("1=1")));
+        assertEquals(new BigDecimal("10.0000"),jdbc.queryForObject("SELECT unit_cost FROM commerce_cost_entry WHERE event_type='SUPPLIER_RETURN' AND quantity=-2",BigDecimal.class));
+    }
+
     @Test public void supplierReturnReverseReapproveAndDeleteAppendSignedEntriesIdempotently(){
         supplierReceipt("SOURCE_LIFECYCLE","1");String original=sourceLine("SOURCE_LIFECYCLE",5,"17.25","0.80",0,"1",null);
         hook(()->costs.recordProcurementReceipt("SOURCE_LIFECYCLE",1));supplierReturn("RETURN_LIFECYCLE",original,2);

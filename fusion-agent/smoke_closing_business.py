@@ -147,6 +147,16 @@ class ClosingBusiness(Acceptance):
                 warehouse = int(next(row for row in warehouses if int(row.get("warehouseValid", 0)) == 0)["warehouseId"])
                 a, a_body = self.create_product(admin, "A", 99, category, warehouse)
                 b, b_body = self.create_product(admin, "B", 129, category, warehouse)
+                group_name = "闭环学习变体 " + self.run_id
+                group = self.api(admin, "ownedSkuGroup", "POST", "/commerce/spus", {
+                    "name": group_name,
+                    "properties": [{"propertyId": "variant", "propertyName": "学习规格",
+                                    "propertyValues": [{"propertyValueId": "a", "propertyValue": "A"},
+                                                       {"propertyValueId": "b", "propertyValue": "B"}]}],
+                    "skus": [{"productId": a, "attributes": {"variant": "a"}},
+                             {"productId": b, "attributes": {"variant": "b"}}]})
+                self.check("twoOwnedSkuIdentities", bool(group["spuId"]) and len(group["skus"]) == 2)
+                self.report["state"]["spuId"] = group["spuId"]
                 self.purchase(admin, "A", a, 6, a_body, warehouse, identity["userId"])
                 self.purchase(admin, "B", b, 3, b_body, warehouse, identity["userId"])
                 self.report["state"]["warehouseId"] = warehouse
@@ -155,18 +165,20 @@ class ClosingBusiness(Acceptance):
                 old_policy = self.api(admin, "pricingPolicyBefore", "GET", "/commerce/pricing/policy")
                 self.report["proof"]["shippingPolicyBefore"] = old_policy
                 shipping_attempted = True
-                self.api(admin, "temporaryShippingPolicy", "PUT", "/commerce/pricing/policy", {"shippingFee": "9.99"})
+                self.api(admin, "temporaryShippingPolicy", "PUT", "/commerce/pricing/policy", {"shippingFee": "9.99", "shippingRefundPolicy": "UNSHIPPED_ONLY"})
                 promotion_body = {"title": "闭环专属学习优惠 " + self.run_id, "discountAmount": "20.01", "productIds": [a, b],
                                   "startsAt": (datetime.now() - timedelta(minutes=1)).isoformat(timespec="seconds"),
                                   "endsAt": (datetime.now() + timedelta(hours=2)).isoformat(timespec="seconds"), "enabled": True}
                 promotion_id = self.api(admin, "ownedPromotion", "POST", "/commerce/pricing/promotions", promotion_body)["promotionId"]
                 self.report["state"]["promotionId"] = promotion_id
-                order_lines = [{"productId": str(a), "buyCount": 2, "price": .01}, {"productId": str(b), "buyCount": 1, "price": .01}]
+                order_lines = [{"productId": str(a), "propertyValueIds": "a", "buyCount": 2, "price": .01},
+                               {"productId": str(b), "propertyValueIds": "b", "buyCount": 1, "price": .01}]
                 quote = self.call(buyer, "customerServerQuote", "pricing/quote", orderList=order_lines, promotionId=promotion_id,
                                   shippingFee=.01, discountAmount=.01, totalAmount=.01)
                 for key, amount in {"originalAmount": "327.00", "discountAmount": "20.01", "shippingAmount": "9.99", "payableAmount": "316.98"}.items():
                     self.check("quote." + key, self.money(quote[key]) == Decimal(amount))
                 line_quote = {int(row["productId"]): row for row in quote["items"]}
+                self.check("quoteExplicitShippingRefundPolicy", quote["shippingRefundPolicy"] == "UNSHIPPED_ONLY")
                 self.check("quoteExactLineAllocation", len(quote["items"]) == 2 and set(line_quote) == {a, b}
                            and line_quote[a]["quantity"] == 2 and line_quote[b]["quantity"] == 1
                            and self.money(line_quote[a]["payableAmount"]) == Decimal("191.93")
@@ -184,8 +196,14 @@ class ClosingBusiness(Acceptance):
                 self.check("orderIdempotent", self.call(buyer, "ownedOrderReplay", "order/postOrder", **order_args)["orderId"] == order_id)
                 self.check("orderReplayDoesNotDuplicateHold", self.stock_pair(admin, (a, b), "stockAfterOrderReplay") == held)
                 detail = self.call(buyer, "ownedPriceSnapshot", "order/getMyOrderDetail", orderId=order_id)
+                sku_snapshots = {int(line["productId"]): line["skuSnapshot"] for line in detail["orderItemList"]}
+                self.check("orderKeepsBothOwnedSkuSnapshots", set(sku_snapshots) == {a, b}
+                           and all(row["spuId"] == group["spuId"] and row["spuName"] == group_name
+                                   for row in sku_snapshots.values())
+                           and sku_snapshots[a]["propertyValueIds"] == "a" and sku_snapshots[b]["propertyValueIds"] == "b")
+                self.report["proof"]["skuSnapshots"] = sku_snapshots
                 self.check("clientPriceIgnoredAndServerSnapshotSaved", self.money(detail["amount"]) == Decimal("316.98")
-                           and detail["amountSnapshotVersion"] == 1
+                           and detail["amountSnapshotVersion"] == 2 and detail["shippingRefundPolicy"] == "UNSHIPPED_ONLY"
                            and all(self.money(detail["amountBreakdown"][key]) == self.money(quote["amountBreakdown"][key])
                                    for key in ("originalAmount", "discountAmount", "shippingAmount", "payableAmount")))
                 self.report["proof"]["quote"] = quote
@@ -233,7 +251,7 @@ class ClosingBusiness(Acceptance):
                 case = self.call(buyer, "applyOneAReturn", "afterSales/apply", **application)
                 case_id = case["afterSalesId"]
                 self.report["state"]["afterSalesId"] = case_id
-                self.check("refundIncludesExactDiscountAndShippingShare", self.money(case["refundAmount"]) == Decimal("95.97") and case["returnEvidenceRequired"] is True)
+                self.check("shippedRefundRetainsShippingUnderSnapshotPolicy", self.money(case["refundAmount"]) == Decimal("92.94") and case["returnEvidenceRequired"] is True)
                 self.api(admin, "approveReturn", "POST", f"/commerce/after-sales/{case_id}/review", {"requestKey": "review_" + self.run_id, "decision": "APPROVE"})
                 before_return = self.stock_pair(admin, (a, b), "stockBeforeReturnRegistration")
                 accept = {"requestKey": "accept_" + self.run_id, "condition": "SELLABLE"}
@@ -261,11 +279,11 @@ class ClosingBusiness(Acceptance):
                                                        "unavailableStock": 0, "availableStock": quantity}
                                                   for pid, quantity in ((a, 5), (b, 2))})
                 refunded = self.api(admin, "sandboxRefund", "POST", f"/commerce/after-sales/{case_id}/sandbox-refund", {"requestKey": "refund_" + self.run_id, "scenario": "success"})
-                self.check("partialRefundConfirmed", refunded["status"] == "REFUNDED" and self.money(refunded["refundedAmount"]) == Decimal("95.97")
+                self.check("partialRefundConfirmed", refunded["status"] == "REFUNDED" and self.money(refunded["refundedAmount"]) == Decimal("92.94")
                            and refunded["paymentProvider"] == "LOCAL_SANDBOX" and refunded["refundOperation"]["kind"] == "REFUND"
                            and refunded["refundOperation"]["provider"] == "LOCAL_SANDBOX"
                            and refunded["refundOperation"]["outcome"] == "SUCCEEDED" and refunded["refundOperation"]["currency"] == "CNY"
-                           and self.money(refunded["refundOperation"]["amount"]) == Decimal("95.97"))
+                           and self.money(refunded["refundOperation"]["amount"]) == Decimal("92.94"))
                 self.check("refundDoesNotRestock", self.stock_pair(admin, (a, b), "stockAfterRefund") == accepted_stock)
                 settlement_path = f"/commerce/settlements/orders/{order_id}"
                 expense_ids = []
@@ -278,22 +296,41 @@ class ClosingBusiness(Acceptance):
                     expense_ids.append(expense["expenseId"])
                     self.api(admin, category + ".approve", "POST", f"/commerce/settlements/expenses/{expense['expenseId']}/review", {"requestKey": "approve_" + category + "_" + self.run_id, "decision": "APPROVE"})
                 before_bad = self.api(admin, "settlementBeforeBadAllocation", "GET", settlement_path)
+                self.check("accountingCompleteDoesNotMeanExpensesPaid", before_bad["accountingStatus"] == "COMPLETE"
+                           and before_bad["resultStatus"] == "ACCOUNTED" and before_bad["expensePaymentStatus"] == "UNPAID"
+                           and before_bad["expensePaymentComplete"] is False and self.money(before_bad["outstandingExpenseAmount"]) == Decimal("15.00")
+                           and self.money(before_bad["operatingResult"]) == Decimal("173.04"))
+                unpaid_snapshot_body = {"requestKey": "unpaid_snapshot_" + self.run_id}
+                unpaid_snapshot = self.api(admin, "unpaidAccountingSnapshot", "POST", settlement_path + "/snapshots", unpaid_snapshot_body)
+                self.report["proof"]["unpaidAccountingSnapshot"] = unpaid_snapshot
+                before_bad = self.api(admin, "settlementBeforeBadAllocationSnapshot", "GET", settlement_path)
                 bad = {"requestKey": "bad_allocation_" + self.run_id, "evidenceReference": "BAD-" + self.run_id,
                        "allocations": [{"expenseId": expense_ids[0], "amount": "12.51"}, {"expenseId": expense_ids[1], "amount": "2.50"}]}
                 self.api(admin, "overAllocationRejected", "POST", settlement_path + "/payments", bad, 409)
                 self.check("badAllocationWritesNothing", self.api(admin, "settlementAfterBadAllocation", "GET", settlement_path) == before_bad)
+                partial_payment = {"requestKey": "partial_settle_" + self.run_id, "evidenceReference": "LOCAL-PARTIAL-" + self.run_id,
+                                   "allocations": [{"expenseId": expense_ids[0], "amount": "7.50"}]}
+                partial = self.api(admin, "partialExpensePayment", "POST", settlement_path + "/payments", partial_payment)
+                self.check("partialPaymentDoesNotChangeAccounting", partial["accountingStatus"] == "COMPLETE"
+                           and partial["expensePaymentStatus"] == "PARTIALLY_PAID" and partial["expensePaymentComplete"] is False
+                           and self.money(partial["outstandingExpenseAmount"]) == Decimal("7.50")
+                           and self.money(partial["operatingResult"]) == self.money(before_bad["operatingResult"]))
+                self.check("partialExpensePaymentReplayWritesNothing", self.api(admin, "partialExpensePaymentReplay", "POST", settlement_path + "/payments", partial_payment) == partial)
                 payment = {"requestKey": "settle_" + self.run_id, "evidenceReference": "LOCAL-SETTLEMENT-" + self.run_id,
-                           "allocations": [{"expenseId": expense_ids[0], "amount": "12.50"}, {"expenseId": expense_ids[1], "amount": "2.50"}]}
+                           "allocations": [{"expenseId": expense_ids[0], "amount": "5.00"}, {"expenseId": expense_ids[1], "amount": "2.50"}]}
                 self.api(nonfinance, "nonFinanceRoleCannotPay", "POST", settlement_path + "/payments", payment, 403)
                 settled = self.api(admin, "onePaymentTwoAllocations", "POST", settlement_path + "/payments", payment)
                 self.check("expensePaymentReplayWritesNothing", self.api(admin, "expensePaymentReplay", "POST", settlement_path + "/payments", payment) == settled)
                 self.api(admin, "differentRequestCannotOverpay", "POST", settlement_path + "/payments", {**payment, "requestKey": "overpay_" + self.run_id}, 409)
-                self.check("expensePaymentOnceAndFullyAllocated", len(settled["payments"]) == 1 and len(settled["payments"][0]["allocations"]) == 2
-                           and settled["payments"][0]["provider"] == "LOCAL_SANDBOX" and settled["payments"][0]["status"] == "SUCCESS"
-                           and self.money(settled["payments"][0]["amount"]) == Decimal("15.00")
-                           and {row["expenseId"]: self.money(row["amount"]) for row in settled["payments"][0]["allocations"]}
-                               == {expense_ids[0]: Decimal("12.50"), expense_ids[1]: Decimal("2.50")}
+                final_payment = next(row for row in settled["payments"] if len(row["allocations"]) == 2)
+                self.check("expensePaymentOnceAndFullyAllocated", len(settled["payments"]) == 2
+                           and final_payment["provider"] == "LOCAL_SANDBOX" and final_payment["status"] == "SUCCESS"
+                           and self.money(final_payment["amount"]) == Decimal("7.50")
+                           and sum((self.money(row["amount"]) for row in settled["payments"]), Decimal("0.00")) == Decimal("15.00")
+                           and {row["expenseId"]: self.money(row["amount"]) for row in final_payment["allocations"]}
+                               == {expense_ids[0]: Decimal("5.00"), expense_ids[1]: Decimal("2.50")}
                            and self.money(settled["settledExpenseAmount"]) == Decimal("15.00") and self.money(settled["outstandingExpenseAmount"]) == 0)
+                self.check("unpaidSnapshotReplayKeepsOriginalFacts", self.api(admin, "unpaidAccountingSnapshotReplayAfterPayment", "POST", settlement_path + "/snapshots", unpaid_snapshot_body) == unpaid_snapshot)
                 snapshot_body = {"requestKey": "snapshot_" + self.run_id}
                 snapshot = self.api(admin, "settlementSnapshot", "POST", settlement_path + "/snapshots", snapshot_body)
                 self.check("snapshotReplay", self.api(admin, "settlementSnapshotReplay", "POST", settlement_path + "/snapshots", snapshot_body) == snapshot)
@@ -336,7 +373,7 @@ class ClosingBusiness(Acceptance):
                            and {row["step"] for row in agent_result["trace"]}.issuperset({"read_order_stock", "read_order_settlement"}))
                 self.check("agentFactsMatchAuthorizedEvidence", plan["facts"]["stock"] == stock_flow
                            and all(plan["facts"]["settlement"][key] == before_agent[key]
-                                   for key in ("orderId", "currency", "provider", "externalChannel", "costComplete", "moneyComplete", "resultStatus"))
+                                   for key in ("orderId", "currency", "provider", "externalChannel", "costComplete", "moneyComplete", "resultStatus", "accountingStatus", "expensePaymentStatus", "expensePaymentComplete"))
                            and all(self.money(plan["facts"]["settlement"][key]) == self.money(before_agent[key])
                                    for key in ("grossPaid", "refundedAmount", "netReceipts", "netStockCost", "approvedExpenseAmount",
                                                "settledExpenseAmount", "outstandingExpenseAmount", "operatingResult")))
@@ -344,10 +381,12 @@ class ClosingBusiness(Acceptance):
                 self.check("agentDoesNotWriteExpensesPaymentsOrStock", before_agent == after_agent
                            and self.api(admin, "stockExplanationAfterAgent", "GET", settlement_path + "/stock-explanation") == stock_flow
                            and self.stock_pair(admin, (a, b), "stockAfterAgent") == accepted_stock)
-                for key, value in {"grossPaid": "316.98", "refundedAmount": "95.97", "netReceipts": "221.01", "netStockCost": "36.00",
-                                   "approvedExpenseAmount": "15.00", "settledExpenseAmount": "15.00", "outstandingExpenseAmount": "0.00", "operatingResult": "170.01"}.items():
+                for key, value in {"grossPaid": "316.98", "refundedAmount": "92.94", "netReceipts": "224.04", "netStockCost": "36.00",
+                                   "approvedExpenseAmount": "15.00", "settledExpenseAmount": "15.00", "outstandingExpenseAmount": "0.00", "operatingResult": "173.04"}.items():
                     self.check("settlement." + key, self.money(after_agent[key]) == Decimal(value))
-                self.check("completeClosedSettlement", after_agent["resultStatus"] == "CLOSED" and after_agent["costComplete"] is True and after_agent["moneyComplete"] is True)
+                self.check("accountingAndExpensePaymentBothComplete", after_agent["resultStatus"] == "ACCOUNTED" and after_agent["accountingStatus"] == "COMPLETE"
+                           and after_agent["expensePaymentStatus"] == "PAID" and after_agent["expensePaymentComplete"] is True
+                           and after_agent["costComplete"] is True and after_agent["moneyComplete"] is True)
                 protected_after = {int(row["productId"]): self.balances(row) for row in self.api(admin, "protectedAfter", "GET", "/commerce/inventory") if int(row["productId"]) in (27, 28)}
                 self.check("protected27And28Unchanged", protected_after == protected_before)
                 self.check("ownedCartUnchanged", self.call(buyer, "ownedCartAfter", "productCart/loadCart")["list"] == cart_before)
@@ -385,9 +424,9 @@ class ClosingBusiness(Acceptance):
                 if shipping_attempted:
                     try:
                         current = self.api(admin, "pricingPolicyBeforeRestore", "GET", "/commerce/pricing/policy")
-                        self.check("shippingPolicyStillOwnedTemporaryValue", self.money(current["shippingFee"]) == Decimal("9.99"))
-                        restored = self.api(admin, "restoreOriginalShippingPolicy", "PUT", "/commerce/pricing/policy", {"shippingFee": str(self.money(old_policy["shippingFee"]))})
-                        self.check("shippingPolicyRestored", self.money(restored["shippingFee"]) == self.money(old_policy["shippingFee"]))
+                        self.check("shippingPolicyStillOwnedTemporaryValue", self.money(current["shippingFee"]) == Decimal("9.99") and current["shippingRefundPolicy"] == "UNSHIPPED_ONLY")
+                        restored = self.api(admin, "restoreOriginalShippingPolicy", "PUT", "/commerce/pricing/policy", {"shippingFee": str(self.money(old_policy["shippingFee"])), "shippingRefundPolicy": old_policy["shippingRefundPolicy"]})
+                        self.check("shippingPolicyRestored", self.money(restored["shippingFee"]) == self.money(old_policy["shippingFee"]) and restored["shippingRefundPolicy"] == old_policy["shippingRefundPolicy"])
                         self.report["proof"]["shippingPolicyRestored"] = restored
                         self.report["state"]["shippingPolicyRestored"] = True
                     except BaseException as error:
@@ -402,9 +441,11 @@ class ClosingBusiness(Acceptance):
                 raise primary_error
             preserved = self.call(buyer, "snapshotAfterPolicyRestore", "order/getMyOrderDetail", orderId=order_id)
             self.check("orderPricePreservedAfterPromotionDisableAndPolicyRestore", preserved["orderStatus"] == 3
-                       and self.money(preserved["refundedAmount"]) == Decimal("95.97") and self.money(preserved["amount"]) == Decimal("316.98")
+                       and self.money(preserved["refundedAmount"]) == Decimal("92.94") and self.money(preserved["amount"]) == Decimal("316.98")
                        and self.money(preserved["amountBreakdown"]["discountAmount"]) == Decimal("20.01")
-                       and self.money(preserved["amountBreakdown"]["shippingAmount"]) == Decimal("9.99"))
+                       and self.money(preserved["amountBreakdown"]["shippingAmount"]) == Decimal("9.99")
+                       and preserved["shippingRefundPolicy"] == "UNSHIPPED_ONLY"
+                       and {int(line["productId"]): line["skuSnapshot"] for line in preserved["orderItemList"]} == sku_snapshots)
             self.report.update(passed=True, status="PASSED")
             self.save_report()
 
