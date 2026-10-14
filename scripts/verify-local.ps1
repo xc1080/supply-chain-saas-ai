@@ -4,7 +4,7 @@ param(
     [string]$Output,
     [string]$Jar,
     [string]$Python,
-    [string]$HistoricalRef = 'e6f22cc'
+    [string]$HistoricalRef = 'f8095f63760a'
 )
 $ErrorActionPreference = 'Stop'
 $verificationRoot = Split-Path -Parent $PSScriptRoot

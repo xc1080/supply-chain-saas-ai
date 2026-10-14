@@ -37,7 +37,7 @@ JAVA_ROOT = ROOT / "ks-inventory-system"
 MAINTENANCE = "ruoyi-framework/src/main/java/com/ruoyi/framework/datasource/CommerceMaintenance.java"
 RESOURCE_ROOT = "ruoyi-system/src/main/resources"
 PROTECTED_PORTS = {8035, 7050, 7051, 5173, 6001, 6002}
-HISTORICAL_REF = "e6f22cc"
+HISTORICAL_REF = "f8095f63760a"
 HISTORICAL_FIXTURE_KIND = "ARCHIVED_V11_SOURCE_REBUILD_CHECKOUT_BYTES_WITH_SYNTHETIC_DATA"
 
 

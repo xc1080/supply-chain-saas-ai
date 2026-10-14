@@ -58,7 +58,7 @@ docker compose -p supply-chain-verification -f scripts/compose.engineering.yml u
 
 验收包括全新 ERP 建库与 V1–最新迁移、归档 V11 程序启动后升级、重复启动、DDL 后失败与显式重试、checksum 变更拦截，以及采购、优惠订单、支付、部分发货、寄回凭证、质检返库、退款、费用审批/分次支付、经营快照和只读 Agent 联调。另验证支付成功但响应丢失、应用重启、共享会话恢复、支付查询重试和未付款订单超时释放。
 
-升级入口默认 `--historical-ref e6f22cc`，需要该 Git 历史。脚本通过 `git archive` 导出并构建旧程序，实际运行到 V11，再启动当前程序；遗留业务数据为合成验收数据。迁移 checksum 按文件原始字节计算，因此旧源码只在确认 SQL 内容一致后，在私有构建副本中对齐当前平台的换行。报告保存旧提交、旧产物 SHA 和每份资源的对齐记录；该测试证明同平台升级，不代替跨平台换行兼容验证。
+升级入口默认 `--historical-ref f8095f63760a`，需要该 Git 历史。脚本通过 `git archive` 导出并构建旧程序，实际运行到 V11，再启动当前程序；遗留业务数据为合成验收数据。迁移 checksum 按文件原始字节计算，因此旧源码只在确认 SQL 内容一致后，在私有构建副本中对齐当前平台的换行。报告保存旧提交、旧产物 SHA 和每份资源的对齐记录；该测试证明同平台升级，不代替跨平台换行兼容验证。
 
 结果在指定目录的 `engineering-result.json` 与每个场景的 `*-closing-business.json`；混合负载另有 `isolated-mixed-load.json`。必须检查 `passed`、`httpSmokeExecuted`、`latestMigration`、失败项及构建 SHA；`--migrations-only` 不能证明交易联调通过。报告目录需新建或为空，重复执行使用新的目录。
 
