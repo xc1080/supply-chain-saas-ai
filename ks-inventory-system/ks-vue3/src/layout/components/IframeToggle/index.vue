@@ -3,6 +3,7 @@
     v-for="(item, index) in tagsViewStore.iframeViews"
     :key="item.path"
     :iframeId="'iframe' + index"
+    :title="item.meta.title || '嵌入页面'"
     v-show="route.path === item.path"
     :src="iframeUrl(item.meta.link, item.query)"
   ></inner-link>

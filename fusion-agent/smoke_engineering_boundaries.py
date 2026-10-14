@@ -23,6 +23,23 @@ import httpx
 
 BASE = os.getenv("FUSION_JAVA_URL", "http://127.0.0.1:8035").rstrip("/")
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+from verify_engineering import extract_migrations, JAVA_ROOT, MAINTENANCE
+
+
+def expected_schema_versions():
+    """Use the same declared migration list as the isolated MySQL verifier."""
+    _, migrations = extract_migrations((JAVA_ROOT / MAINTENANCE).read_text(encoding="utf-8"))
+    return [version for version, _ in migrations]
+
+
+def migrations_applied(schema, expected_versions):
+    return (isinstance(schema, list)
+            and all(isinstance(row, dict) for row in schema)
+            and [row.get("version") for row in schema] == expected_versions
+            and all(row.get("state") == "APPLIED" for row in schema))
+
+
 CREDENTIALS_PATH = ROOT / "runtime" / "commerce-service-credentials.json"
 RESULT_PATH = ROOT / "logs" / "engineering-boundaries-result.json"
 OWNER_CAPABILITIES = {
@@ -147,7 +164,8 @@ class Smoke:
         health = self.data(client, prefix + "operationsHealth", "GET", "/commerce/operations/health")
         self.check(prefix + "databaseAndRedis", health.get("database") is True and health.get("redis") is True)
         schema = health.get("schema", [])
-        self.check(prefix + "elevenAppliedMigrations", [row.get("version") for row in schema] == list(range(1,12)) and all(row.get("state") == "APPLIED" for row in schema))
+        expected_versions = expected_schema_versions()
+        self.check(prefix + "allDeclaredMigrationsApplied", migrations_applied(schema, expected_versions))
         planning = self.data(client, prefix + "replenishmentWithCompatibleJoins", "GET", "/commerce/planning/replenishment")
         policy = planning.get("dispatchPolicy")
         self.check(prefix + "dispatchPolicyProjection", isinstance(policy,dict) and set(('dailyItemCapacity','dispatchDays','actorId','updatedAt')).issubset(policy))
@@ -156,7 +174,8 @@ class Smoke:
         self.report["sections"][tenant + ".admin"] = {
             "status": "PASSED", "tenantId": tenant, "memberRole": default["memberRole"],
             "capabilities": sorted(default["capabilities"]), "database": health["database"], "redis": health["redis"],
-            "migrationCount": len(schema), "migrationStates": [row["state"] for row in schema],
+            "migrationCount": len(schema), "expectedMigrationVersions": expected_versions,
+            "migrationStates": [row["state"] for row in schema],
             "healthReady": health["ready"], "healthHealthy": health.get("healthy"), "healthAlerts": health.get("alerts", []),
         }
         return client, identity

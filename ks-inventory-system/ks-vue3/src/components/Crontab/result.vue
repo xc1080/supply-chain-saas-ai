@@ -5,7 +5,7 @@
 			<template v-if='isShow'>
 				<li v-for='item in resultList' :key="item">{{item}}</li>
 			</template>
-			<li v-else>计算结果中...</li>
+			<li v-else>正在计算…</li>
 		</ul>
 	</div>
 </template>

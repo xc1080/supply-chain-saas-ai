@@ -15,8 +15,7 @@
       <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
       <template v-else>
       <p v-if="!businessPlan && resultMode && resultMode.llm !== 'online' && !isStreaming" class="answer-mode" role="status">
-        {{ resultMode.llm === 'online' ? '大模型回答' : '本地检索回答' }}
-        <span v-if="resultMode.retrieval === 'hybrid'"> · 关键词 + 向量检索</span>
+        本地资料回答
       </p>
       <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
       <template v-if="businessPlan"><AgentBundleQuote :data="businessPlan" /></template>
@@ -28,7 +27,7 @@
           :content="productIntro"
         />
         <!-- [zh] 开始标签 `<p>` -->
-        <p v-else class="biz-title">为您推荐以下商品</p>
+        <p v-else class="biz-title">匹配商品</p>
         <!-- [zh] 开始标签 `<AgentProductList>` -->
         <AgentProductList :list="productList" />
       </template>
@@ -42,7 +41,7 @@
       <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
       <template v-else-if="orderList?.length">
         <!-- [zh] 开始标签 `<p>` -->
-        <p class="biz-title">为您查询到以下订单</p>
+        <p class="biz-title">订单查询结果</p>
         <!-- [zh] 开始标签 `<AgentOrderList>` -->
         <AgentOrderList :list="orderList" />
       </template>

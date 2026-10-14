@@ -66,6 +66,18 @@ public class CommerceAgentTaskService {
         for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_agent_task WHERE tenant_id=? AND shop_id=? ORDER BY updated_at DESC,task_id DESC LIMIT 100",tenant(),shop()))result.add(view(row,false));return result;
     }
     @Transactional(readOnly=true)
+    public Map<String,Object> page(long actor,Map<String,String> query) {
+        authority(actor,CommerceCapability.READ);
+        CommerceHistoryPage page=CommerceHistoryPage.of(query,"UNFINISHED","WAITING_APPROVAL","APPROVED","EXECUTED","NO_ACTION","REJECTED","CANCELLED");
+        String where=" WHERE tenant_id=? AND shop_id=?";List<Object> args=new ArrayList<>(Arrays.asList(tenant(),shop()));
+        if("UNFINISHED".equals(page.status))where+=" AND status IN ('WAITING_APPROVAL','APPROVED')";
+        else if(!"ALL".equals(page.status)){where+=" AND status=?";args.add(page.status);}
+        long total=jdbc.queryForObject("SELECT COUNT(*) FROM commerce_agent_task"+where,Long.class,args.toArray());
+        args.add(page.pageSize);args.add(page.offset());List<Map<String,Object>> rows=new ArrayList<>();
+        for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_agent_task"+where+" ORDER BY updated_at DESC,task_id DESC LIMIT ? OFFSET ?",args.toArray()))rows.add(view(row,false));
+        return page.result(total,rows);
+    }
+    @Transactional(readOnly=true)
     public Map<String,Object> get(String task,long actor) {authority(actor,CommerceCapability.READ);return view(owned(task,false),true);}
     @Transactional(readOnly=true)
     public Map<String,Object> byRequest(String key,long actor) {

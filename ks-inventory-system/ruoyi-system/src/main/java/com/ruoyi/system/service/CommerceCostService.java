@@ -283,6 +283,18 @@ public class CommerceCostService {
         authority(actor);List<Map<String,Object>> result=new ArrayList<>();
         for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_money_reconciliation WHERE shop_id=? ORDER BY created_at DESC,reconciliation_id DESC LIMIT 100",shop()))result.add(reconciliation(row));return result;
     }
+    @Transactional(readOnly=true)
+    public Map<String,Object> reconciliationsPage(long actor,Map<String,String> query) {
+        authority(actor);CommerceHistoryPage page=CommerceHistoryPage.of(query,"OPEN","MATCHED","RESOLVED");
+        String from=" FROM commerce_money_reconciliation c LEFT JOIN commerce_money_resolution r ON r.reconciliation_id=c.reconciliation_id AND r.shop_id=c.shop_id";
+        String where=" WHERE c.shop_id=?";
+        if("OPEN".equals(page.status))where+=" AND c.healthy=0 AND r.resolution_id IS NULL";
+        else if("MATCHED".equals(page.status))where+=" AND c.healthy=1 AND r.resolution_id IS NULL";
+        else if("RESOLVED".equals(page.status))where+=" AND r.resolution_id IS NOT NULL";
+        long total=jdbc.queryForObject("SELECT COUNT(*)"+from+where,Long.class,shop());List<Map<String,Object>> rows=new ArrayList<>();
+        for(Map<String,Object> row:jdbc.queryForList("SELECT c.*"+from+where+" ORDER BY c.created_at DESC,c.reconciliation_id DESC LIMIT ? OFFSET ?",shop(),page.pageSize,page.offset()))rows.add(reconciliation(row));
+        return page.result(total,rows);
+    }
 
     private Map<String,Object> facts(String orderId) {
         Map<String,Object> order=order(orderId,false);int status=(int)number(order.get("status"));

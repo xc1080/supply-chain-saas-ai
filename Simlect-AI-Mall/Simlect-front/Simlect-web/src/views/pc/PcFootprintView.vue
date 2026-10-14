@@ -16,7 +16,11 @@
         v-for="row in list"
         :key="row.historyId"
         class="pc-footprint-card"
+        role="link"
+        tabindex="0"
         @click="goDetail(row.productId)"
+        @keydown.enter.self="goDetail(row.productId)"
+        @keydown.space.self.prevent="goDetail(row.productId)"
       >
         <!-- [zh] 开始标签 `<div>` -->
         <div class="cover-col">

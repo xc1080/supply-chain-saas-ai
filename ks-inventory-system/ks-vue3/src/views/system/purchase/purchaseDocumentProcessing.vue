@@ -1,6 +1,6 @@
 <template>
   <!-- 采购单据制作 -->
-  <div class="app-container" v-loading="detailLoading">
+  <div class="app-container erp-page" v-loading="detailLoading">
     <el-row :gutter="10">
       <el-col :span="24" :xs="24">
         <el-form
@@ -12,21 +12,21 @@
           :disabled="detailLoading"
         >
           <el-form-item label="系统单号" prop="systematicReceipt">
-            <el-input
+            <el-input aria-label="系统单号"
               class="form-item"
               v-model="form.systematicReceipt"
               disabled
             ></el-input>
           </el-form-item>
           <el-form-item label="原始单号" prop="originalReceipt">
-            <el-input
+            <el-input aria-label="原始单号"
               v-model="form.originalReceipt"
               class="form-item"
               clearable
             />
           </el-form-item>
           <el-form-item label="单据类型" prop="receiptType">
-            <el-radio-group class="form-item" v-model="form.receiptType" :disabled="isSourcedReceipt">
+            <el-radio-group aria-label="单据类型" class="form-item" v-model="form.receiptType" :disabled="isSourcedReceipt">
               <el-radio-button
                 label="1"
                 :value="1"
@@ -44,7 +44,7 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item label="单据状态" prop="receiptStatus">
-            <el-radio-group class="form-item" v-model="form.receiptStatus">
+            <el-radio-group aria-label="单据状态" class="form-item" v-model="form.receiptStatus">
               <el-radio-button label="1" :value="1">待审核</el-radio-button>
               <el-radio-button label="2" :value="2" :disabled="takeEffect"
                 >已审核</el-radio-button
@@ -52,7 +52,7 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item label="开单日期" prop="invoiceDate">
-            <el-date-picker
+            <el-date-picker aria-label="开单日期"
               v-model="form.invoiceDate"
               type="date"
               placeholder="请选择开单日期"
@@ -61,11 +61,11 @@
             ></el-date-picker>
           </el-form-item>
           <el-form-item label="调出仓库" prop="retrievalIds" v-if="retrieval">
-            <el-select
+            <el-select aria-label="调出仓库"
               class="form-item"
               v-model="form.retrievalIds"
               :disabled="isSourcedReceipt"
-              placeholder="请输入仓库"
+              placeholder="搜索调出仓库"
               filterable
               clearable
               remote
@@ -86,11 +86,11 @@
             prop="warehousingIds"
             v-if="warehousing"
           >
-            <el-select
+            <el-select aria-label="调入仓库"
               class="form-item"
               v-model="form.warehousingIds"
               :disabled="isSourcedReceipt"
-              placeholder="请输入仓库"
+              placeholder="搜索调入仓库"
               filterable
               clearable
               remote
@@ -111,10 +111,10 @@
             prop="userIds"
             v-hasPermi="['purchase:purchaseReceiptProcessing:selectUser']"
           >
-            <el-select
+            <el-select aria-label="经手人"
               class="form-item"
               v-model="form.userIds"
-              placeholder="请选择"
+              placeholder="选择经手人"
               filterable
               clearable
             >
@@ -127,11 +127,11 @@
             </el-select>
           </el-form-item>
           <el-form-item label="供应商" prop="supplierIds">
-            <el-select
+            <el-select aria-label="供应商"
               class="form-item"
               v-model="form.supplierIds"
               :disabled="isSourcedReceipt"
-              placeholder="请输入供应商"
+              placeholder="搜索供应商"
               filterable
               clearable
               remote
@@ -148,17 +148,18 @@
             </el-select>
           </el-form-item>
           <el-form-item :label="isSourcedReceipt ? '采购订单' : '计划单号'" prop="planReceipt">
-            <el-input v-model="form.planReceipt" class="form-item" clearable :disabled="isSourcedReceipt" />
+            <SourceReceiptLink v-if="isSourcedReceipt" :receipt="form.planReceipt" kind="order" :category="1" verify />
+            <el-input v-else v-model="form.planReceipt" class="form-item" clearable />
           </el-form-item>
           <el-form-item label="备注" prop="receiptNotes">
-            <el-input
+            <el-input aria-label="备注"
               v-model="form.receiptNotes"
               class="form-item"
               type="textarea"
             />
           </el-form-item>
           <el-form-item label="定金" prop="deposit">
-            <el-input
+            <el-input aria-label="定金"
               v-model="form.deposit"
               class="form-item"
               clearable
@@ -166,7 +167,7 @@
             />
           </el-form-item>
           <el-form-item label="总金额" prop="totalAmount">
-            <el-input
+            <el-input aria-label="总金额"
               v-model="form.totalAmount"
               class="form-item"
               disabled="disabled"
@@ -177,7 +178,7 @@
             />
           </el-form-item>
           <el-form-item label="总金额(大写)" prop="capitalizeTotalAmount">
-            <el-input
+            <el-input aria-label="总金额(大写)"
               v-model="form.capitalizeTotalAmount"
               class="form-item"
               disabled="disabled"
@@ -190,7 +191,7 @@
               prop="findingOfAudit"
               :disabled="['purchase:purchaseReceiptProcessing:takeEffect']"
             >
-              <el-select
+              <el-select aria-label="审核结果"
                 v-model="form.findingOfAudit"
                 filterable
                 clearable
@@ -209,7 +210,7 @@
               prop="reviewComments"
               :disabled="['purchase:purchaseReceiptProcessing:takeEffect']"
             >
-              <el-input
+              <el-input aria-label="审核意见"
                 v-model="form.reviewComments"
                 clearable
                 style="width: 530px"
@@ -221,7 +222,7 @@
           <div>
             <el-row :gutter="10">
               <el-col :span="1.5">
-                <div>货品明细</div>
+                <h2 class="erp-section-title">货品明细</h2>
               </el-col>
             </el-row>
           </div>
@@ -245,10 +246,10 @@
                 width="180"
               >
                 <template #default="scope">
-                  <el-select
+                  <el-select aria-label="序号"
                     v-model="scope.row.productCode"
                     :disabled="hasPurchaseSource(scope.row)"
-                    placeholder="请输入货品编号"
+                    placeholder="搜索序号"
                     @change="changeProduct(scope.$index, scope.row)"
                     filterable
                     remote
@@ -273,10 +274,10 @@
               >
                 <template #default="scope">
                   <ProductIdentity :product="scope.row">
-                  <el-select
+                  <el-select aria-label="货品名称"
                     v-model="scope.row.productName"
                     :disabled="hasPurchaseSource(scope.row)"
-                    placeholder="请输入货品名称"
+                    placeholder="搜索货品名称"
                     @change="changeProduct(scope.$index, scope.row)"
                     filterable
                     remote
@@ -306,30 +307,30 @@
                 width="100"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="类型"
                     v-model="scope.row.productSpecifications"
                   ></el-input>
                 </template>
               </el-table-column>
-              <el-table-column label="单位" align="center" prop="measureUnit">
+              <el-table-column min-width="80" label="单位" align="center" prop="measureUnit">
                 <template #default="scope">
-                  <el-input v-model="scope.row.measureUnit"></el-input>
+                  <el-input aria-label="单位" v-model="scope.row.measureUnit"></el-input>
                 </template>
               </el-table-column>
-              <el-table-column label="产地" align="center" prop="producer" />
-              <el-table-column
+              <el-table-column min-width="140" label="产地" align="center" prop="producer" />
+              <el-table-column min-width="110"
                 label="库存数量"
-                align="center"
+                align="right"
                 prop="inventoryQty"
               />
               <el-table-column
                 label="数量"
-                align="center"
+                align="right"
                 prop="planQuantity"
                 width="100"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="产地"
                     v-model="scope.row.planQuantity"
                     @change="calculateDetails(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2')"
@@ -338,12 +339,12 @@
               </el-table-column>
               <el-table-column
                 label="单价"
-                align="center"
+                align="right"
                 prop="univalence"
                 width="150"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="单价"
                     v-model="scope.row.univalence"
                     :disabled="hasPurchaseSource(scope.row)"
                     @change="calculateDetails(scope.row)"
@@ -353,12 +354,12 @@
               </el-table-column>
               <el-table-column
                 label="折扣"
-                align="center"
+                align="right"
                 prop="discount"
                 width="80"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="折扣"
                     v-model="scope.row.discount"
                     :disabled="hasPurchaseSource(scope.row)"
                     @change="calculateDetails(scope.row)"
@@ -368,12 +369,12 @@
               </el-table-column>
               <el-table-column
                 label="金额"
-                align="center"
+                align="right"
                 prop="money"
                 width="150"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="金额"
                     v-model="scope.row.money"
                     :disabled="hasPurchaseSource(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
@@ -382,12 +383,12 @@
               </el-table-column>
               <el-table-column
                 label="成本"
-                align="center"
+                align="right"
                 prop="cost"
                 width="150"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="成本"
                     v-model="scope.row.cost"
                     :disabled="hasPurchaseSource(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
@@ -396,7 +397,7 @@
               </el-table-column>
               <el-table-column label="备注" align="center" width="180">
                 <template #default="scope">
-                  <el-input v-model="scope.row.remarks"></el-input>
+                  <el-input aria-label="备注" v-model="scope.row.remarks"></el-input>
                 </template>
               </el-table-column>
               <el-table-column fixed="right" label="操作" align="center">
@@ -412,9 +413,9 @@
               </el-table-column>
             </el-table>
           </div>
-          <el-affix class="tc mt16 footer" position="bottom" :offset="20">
+          <div class="erp-document-actions" role="group" aria-label="单据操作">
             <el-button
-              color="#BB5500"
+              type="primary" plain
               icon="Plus"
               round
               @click="addOrder"
@@ -422,23 +423,23 @@
               >新增单据</el-button
             >
             <el-button
-              color="#00AAAA"
+              type="primary" plain
               icon="CirclePlus"
               round
               @click="addItem"
               v-hasPermi="['purchase:purchaseReceiptProcessing:detail']"
               >添加明细</el-button
             >
-            <el-button
-              type="success"
+            <el-button plain
+              type="default"
               icon="Upload"
               round
               @click="supplierAdd"
               v-hasPermi="['baseDate:supplier:add']"
               >新增供应商</el-button
             >
-            <el-button
-              type="warning"
+            <el-button plain
+              type="default"
               icon="Upload"
               round
               @click="handleAdd"
@@ -464,7 +465,7 @@
             >
             <el-button
               @click="printOut"
-              color="#626aef"
+              plain
               icon="Printer"
               round
               :disabled="printBtn"
@@ -476,7 +477,7 @@
               content="删除单据，重新制作"
               placement="top"
             >
-              <el-button
+              <el-button aria-label="删除单据，重新制作"
                 @click="deleteReceipt"
                 type="danger"
                 icon="delete"
@@ -492,21 +493,21 @@
               content="取消制作，返回查询"
               placement="top"
             >
-              <el-button type="info" round icon="close" @click="cancel"
+              <el-button aria-label="取消制作，返回查询" type="info" round icon="close" @click="cancel"
                 >取消制作</el-button
               >
             </el-tooltip>
-          </el-affix>
+          </div>
         </div>
       </el-col>
     </el-row>
   </div>
 
   <!-- 添加供应商配置对话框 -->
-  <el-dialog
+  <el-dialog class="erp-dialog"
     :title="titleSupplier"
     v-model="openSupplier"
-    width="700px"
+    width="min(700px, calc(100vw - 24px))"
     append-to-body
   >
     <el-form
@@ -518,7 +519,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="供应商编号" prop="supplierCode">
-            <el-input
+            <el-input aria-label="供应商编号"
               v-model="supplierForm.supplierCode"
               placeholder="请输入供应商编号"
               maxlength="30"
@@ -527,7 +528,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="供应商名称" prop="supplierName">
-            <el-input
+            <el-input aria-label="供应商名称"
               v-model="supplierForm.supplierName"
               placeholder="请输入供应商名称"
               maxlength="30"
@@ -538,7 +539,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="业务员" prop="supplierSalesPerson">
-            <el-input
+            <el-input aria-label="业务员"
               v-model="supplierForm.supplierSalesPerson"
               placeholder="请输入业务员"
               maxlength="30"
@@ -547,7 +548,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="联系人" prop="supplierContacts">
-            <el-input
+            <el-input aria-label="联系人"
               v-model="supplierForm.supplierContacts"
               placeholder="请输入联系人"
               maxlength="30"
@@ -558,7 +559,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="联系电话" prop="supplierContactNumber">
-            <el-input
+            <el-input aria-label="联系电话"
               v-model="supplierForm.supplierContactNumber"
               placeholder="请输入联系电话"
               maxlength="30"
@@ -567,7 +568,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="邮编" prop="supplierPostalCode">
-            <el-input
+            <el-input aria-label="邮编"
               v-model="supplierForm.supplierPostalCode"
               placeholder="请输入邮编"
               maxlength="30"
@@ -578,7 +579,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="期初欠款" prop="supplierOpeningDebt">
-            <el-input
+            <el-input aria-label="期初欠款"
               v-model="supplierForm.supplierOpeningDebt"
               placeholder="请输入期初欠款"
               maxlength="30"
@@ -587,7 +588,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="开户银行" prop="supplierOpeningBank">
-            <el-input
+            <el-input aria-label="开户银行"
               v-model="supplierForm.supplierOpeningBank"
               placeholder="请输入开户银行"
               maxlength="30"
@@ -598,7 +599,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="银行账号" prop="supplierAccountNumber">
-            <el-input
+            <el-input aria-label="银行账号"
               v-model="supplierForm.supplierAccountNumber"
               placeholder="请输入银行账号"
               maxlength="30"
@@ -607,7 +608,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="纳税号" prop="supplierTaxId">
-            <el-input
+            <el-input aria-label="纳税号"
               v-model="supplierForm.supplierTaxId"
               placeholder="请输入纳税号"
               maxlength="30"
@@ -618,7 +619,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="公司主页" prop="supplierCompanyHomepage">
-            <el-input
+            <el-input aria-label="公司主页"
               v-model="supplierForm.supplierCompanyHomepage"
               placeholder="请输入公司主页"
               maxlength="30"
@@ -627,7 +628,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="电子邮箱" prop="supplierEmail">
-            <el-input
+            <el-input aria-label="电子邮箱"
               v-model="supplierForm.supplierEmail"
               placeholder="请输入电子邮箱"
               maxlength="30"
@@ -638,7 +639,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="公司法人" prop="supplierLegalPerson">
-            <el-input
+            <el-input aria-label="公司法人"
               v-model="supplierForm.supplierLegalPerson"
               placeholder="请输入公司法人"
               maxlength="30"
@@ -647,9 +648,9 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="状态" prop="status">
-            <el-select
+            <el-select aria-label="状态"
               v-model="supplierForm.status"
-              placeholder="请选择"
+              placeholder="选择状态"
               clearable
             >
               <el-option
@@ -665,7 +666,7 @@
       <el-row>
         <el-col :span="24">
           <el-form-item label="单位地址" prop="supplierWorkAddress">
-            <el-input
+            <el-input aria-label="单位地址"
               v-model="supplierForm.supplierWorkAddress"
               placeholder="请输入单位地址"
             />
@@ -675,7 +676,7 @@
       <el-row>
         <el-col :span="24">
           <el-form-item label="备注">
-            <el-input
+            <el-input aria-label="备注"
               v-model="supplierForm.remarks"
               type="textarea"
               placeholder="请输入备注"
@@ -686,14 +687,14 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="submitSupplierForm">确 定</el-button>
-        <el-button @click="cancelSupplierForm">取 消</el-button>
+        <el-button type="primary" @click="submitSupplierForm">保存</el-button>
+        <el-button @click="cancelSupplierForm">取消</el-button>
       </div>
     </template>
   </el-dialog>
 
   <!-- 添加货品配置对话框 -->
-  <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+  <el-dialog class="erp-dialog" :title="title" v-model="open" width="min(600px, calc(100vw - 24px))" append-to-body>
     <el-form
       :model="productForm"
       :rules="rules"
@@ -703,7 +704,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="货品编号" prop="productCode">
-            <el-input
+            <el-input aria-label="货品编号"
               v-model="productForm.productCode"
               placeholder="请输入货品编号"
               maxlength="30"
@@ -712,7 +713,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="货品名称" prop="productName">
-            <el-input
+            <el-input aria-label="货品名称"
               v-model="productForm.productName"
               placeholder="请输入货品名称"
               maxlength="30"
@@ -723,7 +724,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="货品类型" prop="productType">
-            <el-tree-select
+            <el-tree-select aria-label="货品类型"
               v-model="productForm.productType"
               :data="typeOptions"
               :props="{ value: 'id', label: 'label', children: 'children' }"
@@ -735,7 +736,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="货品规格" prop="productSpecifications">
-            <el-input
+            <el-input aria-label="货品规格"
               v-model="productForm.productSpecifications"
               placeholder="请输入货品规格"
               maxlength="30"
@@ -746,7 +747,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="计量单位" prop="measureUnit">
-            <el-input
+            <el-input aria-label="计量单位"
               v-model="productForm.measureUnit"
               placeholder="请输入计量单位"
               maxlength="30"
@@ -755,7 +756,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="货品条码" prop="productBarcode">
-            <el-input
+            <el-input aria-label="货品条码"
               v-model="productForm.productBarcode"
               placeholder="请输入货品条码"
               maxlength="30"
@@ -766,7 +767,7 @@
       <el-row>
         <el-col :span="24">
           <el-form-item label="产地" prop="producer">
-            <el-input
+            <el-input aria-label="产地"
               v-model="productForm.producer"
               placeholder="请输入产地"
               maxlength="30"
@@ -777,7 +778,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="成本价" prop="costPrice">
-            <el-input
+            <el-input aria-label="成本价"
               v-model="productForm.costPrice"
               placeholder="请输入成本价"
               maxlength="30"
@@ -786,7 +787,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="参考售价" prop="univalence">
-            <el-input
+            <el-input aria-label="参考售价"
               v-model="productForm.univalence"
               placeholder="请输入参考售价"
               maxlength="30"
@@ -797,7 +798,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="销售折扣" prop="discount">
-            <el-input
+            <el-input aria-label="销售折扣"
               v-model="form.discount"
               placeholder="请输入销售折扣"
               maxlength="30"
@@ -806,7 +807,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="库存数量" prop="costPrice">
-            <el-input
+            <el-input aria-label="库存数量"
               v-model="form.inventoryQty"
               placeholder="系统自动计算"
               disabled
@@ -817,7 +818,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="库存上限" prop="upperLimit">
-            <el-input
+            <el-input aria-label="库存上限"
               v-model="productForm.upperLimit"
               placeholder="请输入库存上限"
               maxlength="30"
@@ -826,7 +827,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="库存下限" prop="lowerLimit">
-            <el-input
+            <el-input aria-label="库存下限"
               v-model="productForm.lowerLimit"
               placeholder="请输入库存下限"
               maxlength="30"
@@ -837,7 +838,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="默认仓库" prop="defaultWarehouse">
-            <el-input
+            <el-input aria-label="默认仓库"
               v-model="productForm.defaultWarehouse"
               placeholder="请输入默认仓库"
               maxlength="30"
@@ -846,7 +847,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="状态">
-            <el-radio-group v-model="productForm.status">
+            <el-radio-group aria-label="状态" v-model="productForm.status">
               <el-radio
                 v-for="dict in sys_normal_disable"
                 :key="dict.value"
@@ -860,7 +861,7 @@
       <el-row>
         <el-col :span="24">
           <el-form-item label="备注">
-            <el-input
+            <el-input aria-label="备注"
               v-model="productForm.notes"
               type="textarea"
               placeholder="请输入内容"
@@ -871,8 +872,8 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="submitProductForm">确 定</el-button>
-        <el-button @click="cancelProductForm">取 消</el-button>
+        <el-button type="primary" @click="submitProductForm">保存</el-button>
+        <el-button @click="cancelProductForm">取消</el-button>
       </div>
     </template>
   </el-dialog>
@@ -880,6 +881,7 @@
 
 <script setup name="PurchaseDocumentProcessing">
 import { getToken } from "@/utils/auth";
+import SourceReceiptLink from "@/components/SourceReceiptLink.vue";
 import { useRouter } from "vue-router";
 import { listUser, getUserProfile } from "@/api/system/user";
 import { listSupplier, addSupplier } from "@/api/basedate/supplier";
@@ -1657,3 +1659,5 @@ getList();
   text-align: center;
 }
 </style>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

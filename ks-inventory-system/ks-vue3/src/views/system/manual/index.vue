@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="app-container operations-help">
     <el-row :gutter="5">
       <el-col :span="24">
         <el-card>
@@ -8,29 +8,18 @@
               <span>采购管理</span>
             </div>
           </template>
-          <el-tabs tab-position="left" class="demo-tabs">
+          <el-tabs :tab-position="isMobile ? 'top' : 'left'" class="demo-tabs">
             <el-tab-pane label="采购订单制作">
               <el-descriptions
                 class="margin-top"
                 direction="vertical"
                 title="总览"
-                :column="3"
-                :size="size"
+                :column="isMobile ? 1 : 3"
                 border
               >
-                <el-descriptions-item label="采购订单制作页面图片" :span="1"
-                  ><el-image
-                    style="width: 100px; height: 100px"
-                    :src="url"
-                    :zoom-rate="1.2"
-                    :max-scale="7"
-                    :min-scale="0.2"
-                    :preview-src-list="srcList"
-                    :initial-index="4"
-                    fit="cover"
-                /></el-descriptions-item>
+
                 <el-descriptions-item label="采购订单业务流程" :span="2"
-                  ><el-steps style="max-width: 100%">
+                  ><el-steps :direction="isMobile ? 'vertical' : 'horizontal'" style="max-width: 100%">
                     <el-step title="新建订单" />
                     <el-step title="填写订单信息" />
                     <el-step title="保存订单" />
@@ -46,8 +35,7 @@
               <el-descriptions
                 class="margin-top"
                 title="填写信息"
-                :column="3"
-                :size="size"
+                :column="isMobile ? 1 : 3"
                 border
               >
                 <el-descriptions-item label="系统单号"
@@ -105,8 +93,7 @@
               <el-descriptions
                 class="margin-top"
                 title="可用按钮"
-                :column="3"
-                :size="size"
+                :column="isMobile ? 1 : 3"
                 border
               >
                 <el-descriptions-item label="添加货品"
@@ -134,23 +121,12 @@
                 class="margin-top"
                 direction="vertical"
                 title="筛选条件"
-                :column="3"
-                :size="size"
+                :column="isMobile ? 1 : 3"
                 border
               >
-                <el-descriptions-item label="采购单据制作页面图片" :span="1"
-                  ><el-image
-                    style="width: 100px; height: 100px"
-                    :src="url"
-                    :zoom-rate="1.2"
-                    :max-scale="7"
-                    :min-scale="0.2"
-                    :preview-src-list="srcList"
-                    :initial-index="4"
-                    fit="cover"
-                /></el-descriptions-item>
+
                 <el-descriptions-item label="采购单据业务流程" :span="2"
-                  ><el-steps style="max-width: 100%">
+                  ><el-steps :direction="isMobile ? 'vertical' : 'horizontal'" style="max-width: 100%">
                     <el-step title="新增单据" />
                     <el-step title="选择单据类型" />
                     <el-step title="填写单据信息" />
@@ -169,18 +145,9 @@
   </div>
 </template>
 
-<script setup name="Index">
-const url =
-  "https://fuss10.elemecdn.com/a/3f/3302e58f9a181d2509f3dc0fa68b0jpeg.jpeg";
-const srcList = [
-  "https://fuss10.elemecdn.com/a/3f/3302e58f9a181d2509f3dc0fa68b0jpeg.jpeg",
-  "https://fuss10.elemecdn.com/1/34/19aa98b1fcb2781c4fba33d850549jpeg.jpeg",
-  "https://fuss10.elemecdn.com/0/6f/e35ff375812e6b0020b6b4e8f9583jpeg.jpeg",
-  "https://fuss10.elemecdn.com/9/bb/e27858e973f5d7d3904835f46abbdjpeg.jpeg",
-  "https://fuss10.elemecdn.com/d/e6/c4d93a3805b3ce3f323f7974e6f78jpeg.jpeg",
-  "https://fuss10.elemecdn.com/3/28/bbf893f792f03a54408b3b7a7ebf0jpeg.jpeg",
-  "https://fuss10.elemecdn.com/2/11/6535bcfb26e4c79b48ddde44f4b6fjpeg.jpeg",
-];
+<script setup name="OperationsHelp">
+import { useMediaQuery } from "@vueuse/core";
+const isMobile = useMediaQuery("(max-width: 767px)");
 </script>
 
 <style scoped>
@@ -194,11 +161,11 @@ const srcList = [
   width: 100%;
   height: 200px;
 }
-.demo-tabs > .el-tabs__content {
-  padding: 32px;
-  color: #6b778c;
-  font-size: 32px;
-  font-weight: 600;
+.demo-tabs :deep(.el-tabs__content) {
+  padding: 16px;
+  color: var(--sc-text);
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .el-tabs--right .el-tabs__content,

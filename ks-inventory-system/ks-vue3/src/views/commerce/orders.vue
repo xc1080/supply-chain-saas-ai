@@ -35,14 +35,14 @@
                 <span>{{ formatNumber(item.quantity) }} 件 × {{ formatMoney(item.unitPrice) }}<small v-if="item.orderedQuantity != null" class="commerce-quantity-note">已发 {{ item.shippedQuantity }} · 待发 {{ item.unshippedQuantity }} · 已退 {{ item.returnedQuantity }} · 已取消 {{ item.cancelledQuantity }}</small></span>
                 <strong>{{ formatMoney(item.amount) }}</strong>
               </div>
-              <p v-if="scope.row.receiptId" class="commerce-record-note">销售出库单：{{ scope.row.receiptId }} · {{ scope.row.carrier || '未填写承运商' }}<template v-if="scope.row.trackingNo"> · {{ scope.row.trackingNo }}</template></p>
+              <p v-if="scope.row.receiptId" class="commerce-record-note">销售出库单：<SourceReceiptLink :receipt="scope.row.receiptId" :category="2" /> · {{ scope.row.carrier || '未填写承运商' }}<template v-if="scope.row.trackingNo"> · {{ scope.row.trackingNo }}</template></p>
             </div>
           </template>
         </el-table-column>
         <el-table-column label="订单编号" prop="orderId" min-width="220" />
         <el-table-column label="下单时间" min-width="170"><template #default="scope">{{ formatTime(scope.row.createTime) }}</template></el-table-column>
         <el-table-column label="订单金额" align="right" width="120"><template #default="scope">{{ formatMoney(scope.row.totalAmount) }}</template></el-table-column>
-        <el-table-column label="状态" width="160"><template #default="scope"><el-tag :type="statusTone(scope.row)">{{ statusLabel(scope.row) }}</el-tag></template></el-table-column>
+        <el-table-column label="订单 / 履约 / 售后" min-width="240"><template #default="scope"><CommerceOrderStatus :order="scope.row" /></template></el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="showDetail(scope.row)">查看</el-button>
@@ -84,7 +84,7 @@
         <el-table-column label="活动待抢" align="right" min-width="115"><template #default="scope">{{ formatNumber(scope.row.activityStock || 0) }}</template></el-table-column>
         <el-table-column label="不可售" align="right" min-width="100"><template #default="scope"><el-button v-if="Number(scope.row.unavailableStock) > 0" link type="warning" @click="openConditions(scope.row)">{{ formatNumber(scope.row.unavailableStock) }} · 原因</el-button><span v-else>0</span></template></el-table-column>
         <el-table-column label="流水" width="85"><template #default="scope"><el-button link type="primary" @click="showLedger(scope.row)">查看</el-button></template></el-table-column>
-        <el-table-column label="上架" width="85"><template #default="scope"><el-switch :model-value="!!Number(scope.row.listed)" :disabled="!hasCapability('CATALOG')" @change="value => toggleListing(scope.row,value)" /></template></el-table-column>
+        <el-table-column label="上架" width="85"><template #default="scope"><el-switch :model-value="!!Number(scope.row.listed)" :aria-label="`${scope.row.productName}上架状态`" :disabled="!hasCapability('CATALOG')" @change="value => toggleListing(scope.row,value)" /></template></el-table-column>
         <el-table-column v-if="hasCapability('CATALOG')" label="活动" width="110"><template #default="scope"><el-button link type="primary" :disabled="Number(scope.row.availableStock) <= 0 || !Number(scope.row.listed)" @click="openActivity(scope.row)">创建秒杀</el-button></template></el-table-column>
         <el-table-column label="可售库存" align="right" min-width="115"><template #header><el-tooltip content="账面库存减去订单预留、活动待抢和不可售数量；取消释放预留，发货扣减账面。" placement="top"><span tabindex="0">可售库存 ⓘ</span></el-tooltip></template><template #default="scope"><strong :class="{ 'commerce-out': Number(scope.row.availableStock) <= 0 }">{{ formatNumber(scope.row.availableStock) }}</strong></template></el-table-column>
       </el-table>
@@ -112,7 +112,7 @@
       </el-table>
     </el-drawer>
     <el-drawer v-model="ledgerVisible" :title="ledgerProduct.productName + ' · 库存流水'" size="min(760px, 100vw)">
-      <el-radio-group v-model="ledgerTab" style="margin-bottom:20px"><el-radio-button value="sellable" label="sellable">可售库存</el-radio-button><el-radio-button value="warehouse" label="warehouse">仓库出入库</el-radio-button></el-radio-group>
+      <el-radio-group v-model="ledgerTab" aria-label="库存流水类型" style="margin-bottom:20px"><el-radio-button value="sellable" label="sellable">可售库存</el-radio-button><el-radio-button value="warehouse" label="warehouse">仓库出入库</el-radio-button></el-radio-group>
       <el-alert v-if="ledgerError" :title="ledgerError" type="error" :closable="false" />
       <el-table v-if="ledgerTab==='sellable'" :data="ledgerRows" v-loading="ledgerLoading" empty-text="暂无流水">
         <el-table-column label="时间" prop="created_at" min-width="165" />
@@ -128,11 +128,11 @@
         <el-table-column label="数量变化" prop="delta_quantity" width="100" />
         <el-table-column label="变化前" prop="before_quantity" width="90" />
         <el-table-column label="变化后" prop="after_quantity" width="90" />
-        <el-table-column label="关联单据" prop="related_receipts" min-width="240" />
+        <el-table-column label="关联单据" min-width="240"><template #default="scope"><SourceReceiptLink :receipt="scope.row.related_receipts" /></template></el-table-column>
       </el-table>
     </el-drawer>
-    <el-dialog v-model="listingVisible" title="上架货品" width="480px">
-      <el-select v-model="listingProduct" filterable placeholder="选择本企业的货品" style="width:100%"><el-option v-for="product in listingCandidates" :key="product.productId" :value="product.productId" :label="product.productName + ' · ' + product.productCode" /></el-select>
+    <el-dialog v-model="listingVisible" title="上架货品" width="min(480px, 95vw)">
+      <el-select v-model="listingProduct" filterable aria-label="待上架货品" placeholder="选择本企业的货品" style="width:100%"><el-option v-for="product in listingCandidates" :key="product.productId" :value="product.productId" :label="product.productName + ' · ' + product.productCode" /></el-select>
       <template #footer><el-button @click="listingVisible=false">返回</el-button><el-button type="primary" :disabled="!listingProduct" @click="publishListing">上架到当前店铺</el-button></template>
     </el-dialog>
     <section v-show="workbenchSection === 'activities'" class="commerce-section" aria-label="秒杀活动">
@@ -146,7 +146,7 @@
         <el-table-column label="截止时间" prop="endsAt" min-width="180" />
       </el-table>
     </section>
-    <el-dialog v-model="activityVisible" title="创建秒杀活动" width="440px" :close-on-click-modal="false">
+    <el-dialog v-model="activityVisible" title="创建秒杀活动" width="min(440px, 95vw)" :close-on-click-modal="false">
       <ProductIdentity :product="activityProduct" />
       <el-form label-position="top" style="margin-top:20px" @submit.prevent="submitActivity">
         <el-form-item label="活动标题"><el-input v-model="activityForm.title" maxlength="80" /></el-form-item>
@@ -161,7 +161,7 @@
 
     <PricingPolicyPanel v-if="workbenchSection === 'activities'" ref="pricingPanel" :shop-id="shopId" :capabilities="capabilities" :products="inventory" />
 
-    <el-dialog v-model="shipmentVisible" title="选择此次发货商品" width="680px" :close-on-click-modal="false" :before-close="closeShipment">
+    <el-dialog v-model="shipmentVisible" title="选择此次发货商品" width="min(680px, 95vw)" :close-on-click-modal="false" :before-close="closeShipment">
       <template v-if="shipmentOrder">
         <p class="commerce-dialog-order">{{ shipmentOrder.orderId }}</p>
         <el-select v-model="shipmentWarehouse" clearable aria-label="本次发货仓库" placeholder="按订单分配自动出库" :disabled="!!shippingId || shipmentLoading" @change="resetShipmentQuantities" style="width:100%">
@@ -180,28 +180,29 @@
       <template #footer><el-button :disabled="!!shippingId" @click="shipmentVisible = false">返回</el-button><el-button type="primary" :loading="!!shippingId" :disabled="shipmentLoading || !shipmentReady" @click="submitShipment">确认登记发货</el-button></template>
     </el-dialog>
 
-    <el-dialog v-model="detailVisible" title="商城订单详情" width="720px">
+    <el-dialog v-model="detailVisible" title="商城订单详情" width="min(720px, 95vw)">
       <div v-loading="detailLoading" class="commerce-details">
         <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" show-icon />
         <template v-else-if="detail">
           <el-steps v-if="orderStatus(detail) !== 4" :active="orderStatus(detail)" finish-status="success" align-center style="margin-bottom: 24px"><el-step title="沙箱支付" /><el-step title="发货出库" /><el-step title="确认收货" /></el-steps>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="订单编号" :span="2">{{ detail.orderId }}</el-descriptions-item>
-            <el-descriptions-item label="订单状态">{{ statusLabel(detail) }}</el-descriptions-item>
+            <el-descriptions-item label="订单状态"><CommerceOrderStatus :order="detail" axis="order" /></el-descriptions-item>
             <el-descriptions-item label="订单金额">{{ formatMoney(detail.totalAmount) }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.shippedAmount != null" :label="detail.amountSnapshotVersion === 1 ? '已发货原价货值' : '已发货金额'">{{ formatMoney(detail.shippedAmount) }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.returnedAmount != null" :label="detail.amountSnapshotVersion === 1 ? '已退货原价货值' : '已退货金额'">{{ formatMoney(detail.returnedAmount) }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.refundedAmount != null" label="已退款金额">{{ formatMoney(detail.refundedAmount) }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.shippingAddress" label="收货人">{{ detail.shippingAddress.addressee }} · {{ detail.shippingAddress.phone }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.shippingAddress" label="收货地址" :span="2">{{ detail.shippingAddress.address }}</el-descriptions-item>
-            <el-descriptions-item v-if="detail.afterSalesStatus" label="售后状态">{{ afterSalesLabels[detail.afterSalesStatus] || '状态待核对' }}</el-descriptions-item>
+            <el-descriptions-item v-if="detail.fulfillmentStatus" label="履约状态"><CommerceOrderStatus :order="detail" axis="fulfillment" /></el-descriptions-item>
+            <el-descriptions-item v-if="detail.afterSalesStatus || Number(detail.refundedAmount) > 0" label="售后状态"><CommerceOrderStatus :order="detail" axis="afterSales" /></el-descriptions-item>
             <el-descriptions-item label="下单时间">{{ formatTime(detail.createTime) }}</el-descriptions-item>
             <el-descriptions-item label="沙箱支付时间">{{ formatTime(detail.paidTime) }}</el-descriptions-item>
             <el-descriptions-item label="发货时间">{{ formatTime(detail.shippedTime) }}</el-descriptions-item>
             <el-descriptions-item label="收货时间">{{ formatTime(detail.receivedTime) }}</el-descriptions-item>
             <el-descriptions-item label="支付渠道" :span="2">{{ detail.paymentProvider === 'LOCAL_SANDBOX' ? '本地支付沙箱（未实际收款）' : detail.paymentProvider || '—' }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.transactionId" label="沙箱交易编号" :span="2">{{ detail.transactionId }}</el-descriptions-item>
-            <el-descriptions-item v-if="detail.receiptId" label="销售出库单">{{ detail.receiptId }}</el-descriptions-item>
+            <el-descriptions-item v-if="detail.receiptId" label="销售出库单"><SourceReceiptLink :receipt="detail.receiptId" :category="2" /></el-descriptions-item>
             <el-descriptions-item v-if="detail.carrier" label="承运商">{{ detail.carrier }}</el-descriptions-item>
             <el-descriptions-item v-if="detail.trackingNo" label="物流单号" :span="2">{{ detail.trackingNo }}</el-descriptions-item>
           </el-descriptions>
@@ -227,6 +228,9 @@ import { listProduct } from '@/api/basedate/product'
 import { setCommerceShop, listCommerceShops, createCommerceShop, listStockLedger, listWarehouseLedger, reconcileStock, getQueueMetrics, setProductListing } from '@/api/commerce/orders'
 import { listCommerceOrders, getCommerceOrder, listCommerceInventory, shipCommerceOrder, getCommerceContext, listCommerceActivities, createCommerceActivity } from '@/api/commerce/orders'
 import { getProductImage, handleProductImageError } from '@/utils/productMedia'
+import CommerceOrderStatus from '@/components/CommerceOrderStatus.vue'
+import SourceReceiptLink from '@/components/SourceReceiptLink.vue'
+import { orderStatusOptions, commerceOrderStatus, shippableQuantity, canShipCommerceOrder } from '@/utils/commerceOrderState.mjs'
 import AfterSalesPanel from './components/AfterSalesPanel.vue'
 import ReplenishmentPanel from './components/ReplenishmentPanel.vue'
 import CostReconciliationPanel from './components/CostReconciliationPanel.vue'
@@ -406,10 +410,7 @@ const shipmentQuantities = reactive({})
 let shipmentRequestKey = '', shipmentFingerprint = ''
 let syncTimer
 const shipmentRules = { carrier: [{ required: true, whitespace: true, message: '请填写承运商', trigger: 'blur' }] }
-const statusOptions = [
-  { value: 0, label: '待支付' }, { value: 1, label: '待发货' },
-  { value: 2, label: '已发货' }, { value: 3, label: '已收货' }, { value: 4, label: '已取消' }
-]
+const statusOptions = orderStatusOptions
 const moneyFormatter = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 const numberFormatter = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 3 })
 
@@ -420,12 +421,9 @@ function formatNumber(value) {
   return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? numberFormatter.format(Number(value)) : '—'
 }
 function formatTime(value) { return value ? String(value).replace('T', ' ').slice(0, 19) : '—' }
-function orderStatus(order) { return Number(order.orderStatus ?? order.status) }
-const afterSalesLabels = {REQUESTED:'售后待审核',APPROVED:'待退款',AWAITING_RETURN:'待退货验收',RETURN_RECEIVED:'退货已验收',REFUND_FAILED:'退款失败，可重试',PARTIALLY_REFUNDED:'部分退款',REFUNDED:'已退款',REJECTED:'售后申请已拒绝'}
-function statusLabel(order) { if (order.fulfillmentStatus === 'PARTIALLY_SHIPPED') return '部分发货'; if (Number(order.refundedAmount)>0 && Number(order.refundedAmount)<Number(order.totalAmount)) return '部分退款'; return (order.afterSalesStatus !== 'REJECTED' ? afterSalesLabels[order.afterSalesStatus] : '') || statusOptions.find(option => option.value === orderStatus(order))?.label || '未知状态' }
-function shippable(item, order) { return Math.max(0, Number(item.shippableQuantity ?? item.unshippedRefundAvailableQuantity ?? item.unshippedQuantity ?? (orderStatus(order) === 1 ? item.quantity : 0)) || 0) }
-function canShip(order) { return hasCapability('FULFILMENT') && (Array.isArray(order.availableActions) ? order.availableActions.includes('SHIP') : orderStatus(order) === 1 && (order.items || []).some(item => shippable(item, order) > 0)) }
-function statusTone(order) { return ({ 0: 'warning', 1: '', 2: 'success', 3: 'success', 4: 'info' })[orderStatus(order)] ?? 'info' }
+const orderStatus = commerceOrderStatus
+const shippable = shippableQuantity
+function canShip(order) { return canShipCommerceOrder(order, capabilities.value) }
 function errorText(error, fallback) { return error instanceof Error ? `${fallback}：${error.message}` : fallback }
 
 async function loadOrders() {
@@ -545,8 +543,8 @@ onUnmounted(stopSync)
 .commerce-shop-actions :deep(.el-select) { width: 200px; }
 .commerce-queue-states { flex-wrap: wrap; gap: 32px; color: var(--sc-muted); }
 .commerce-queue-states strong { margin-left: 12px; color: var(--sc-text); font-size: 24px; }
-.commerce-heading { margin-bottom: 22px; }
-.commerce-navigation { display: flex; gap: 24px; margin-bottom: 24px; border-bottom: 1px solid var(--sc-border); overflow-x: auto; }
+.commerce-heading { margin-bottom: 18px; }
+.commerce-navigation { display: flex; gap: 24px; margin-bottom: 18px; border-bottom: 1px solid var(--sc-border); overflow-x: auto; }
 .commerce-navigation button { flex: 0 0 auto; min-height: 48px; padding: 12px 4px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--sc-muted); font: inherit; cursor: pointer; transition: opacity .18s ease; }
 .commerce-navigation button:hover { color: var(--sc-primary); }
 .commerce-navigation button[aria-pressed="true"] { color: var(--sc-primary); font-weight: 600; border-bottom-color: var(--sc-primary); }
@@ -556,18 +554,18 @@ onUnmounted(stopSync)
 .commerce-supply-navigation button[aria-pressed="true"] { border-color: var(--sc-border); color: var(--sc-primary); background: var(--sc-surface); }
 .commerce-supply-navigation button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 2px; }
 .commerce-task-section :deep(.agent-tasks) { margin-top: 0; padding-top: 0; border-top: 0; }
-.commerce-heading h1 { margin: 0 0 12px; font-size: 28px; font-weight: 650; letter-spacing: -.5px; }
+.commerce-heading h1 { margin: 0 0 8px; font-size: 24px; font-weight: 650; letter-spacing: -.4px; }
 .commerce-environment { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; color: var(--sc-muted); font-size: 12px; }
 .commerce-heading p, .commerce-section-heading p { margin: 0; color: var(--sc-muted); line-height: 1.7; }
 .commerce-sync-note { display: block; margin-top: 5px; color: var(--sc-muted); font-size: 12px; }
 .commerce-sandbox { margin-bottom: 22px; }
-.commerce-section { padding: 24px; margin-bottom: 24px; background: var(--sc-surface); border: 1px solid var(--sc-border); border-radius: 8px; min-width: 0; }
-.commerce-section-heading { margin-bottom: 18px; }
-.commerce-section-heading h2 { margin: 0 0 7px; font-size: 18px; font-weight: 600; }
+.commerce-section { padding: 18px; margin-bottom: 18px; background: var(--sc-surface); border: 1px solid var(--sc-border); border-radius: 8px; min-width: 0; }
+.commerce-section-heading { margin-bottom: 14px; }
+.commerce-section-heading h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .commerce-section-heading :deep(.el-select) { width: 200px; }
 .commerce-error { margin-bottom: 14px; }
 .commerce-product { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.commerce-product img { width: 52px; height: 52px; object-fit: contain; flex: 0 0 52px; background: var(--sc-surface-soft); border: 1px solid var(--sc-border); border-radius: 6px; }
+.commerce-product img { width: 44px; height: 44px; object-fit: contain; flex: 0 0 44px; background: var(--sc-surface-soft); border: 1px solid var(--sc-border); border-radius: 6px; }
 .commerce-product strong { display: block; font-size: 14px; font-weight: 550; line-height: 1.6; }
 .commerce-product span { display: block; font-size: 12px; color: var(--sc-muted); }
 .commerce-quantity-note { display:block; margin-top:5px; color:var(--sc-muted); font-size:12px; line-height:1.6; }

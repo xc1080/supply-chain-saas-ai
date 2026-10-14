@@ -18,24 +18,24 @@
       </router-link>
     </scroll-pane>
     <ul v-show="visible" :style="{ left: left + 'px', top: top + 'px' }" class="contextmenu">
-      <li @click="refreshSelectedTag(selectedTag)">
+      <li><button type="button" @click="refreshSelectedTag(selectedTag)">
         <refresh-right style="width: 1em; height: 1em;" /> 刷新页面
-      </li>
-      <li v-if="!isAffix(selectedTag)" @click="closeSelectedTag(selectedTag)">
+      </button></li>
+      <li v-if="!isAffix(selectedTag)"><button type="button" @click="closeSelectedTag(selectedTag)">
         <close style="width: 1em; height: 1em;" /> 关闭当前
-      </li>
-      <li @click="closeOthersTags">
+      </button></li>
+      <li><button type="button" @click="closeOthersTags">
         <circle-close style="width: 1em; height: 1em;" /> 关闭其他
-      </li>
-      <li v-if="!isFirstView()" @click="closeLeftTags">
+      </button></li>
+      <li v-if="!isFirstView()"><button type="button" @click="closeLeftTags">
         <back style="width: 1em; height: 1em;" /> 关闭左侧
-      </li>
-      <li v-if="!isLastView()" @click="closeRightTags">
+      </button></li>
+      <li v-if="!isLastView()"><button type="button" @click="closeRightTags">
         <right style="width: 1em; height: 1em;" /> 关闭右侧
-      </li>
-      <li @click="closeAllTags(selectedTag)">
+      </button></li>
+      <li><button type="button" @click="closeAllTags(selectedTag)">
         <circle-close style="width: 1em; height: 1em;" /> 全部关闭
-      </li>
+      </button></li>
     </ul>
   </div>
 </template>
@@ -306,9 +306,10 @@ function handleScroll() {
     font-weight: 400;
     color: #333;
     box-shadow: 2px 2px 3px 0 rgba(0, 0, 0, 0.3);
+    button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 7px 16px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
     li {
       margin: 0;
-      padding: 7px 16px;
+      padding: 0;
       cursor: pointer;
       &:hover {
         background: #eee;

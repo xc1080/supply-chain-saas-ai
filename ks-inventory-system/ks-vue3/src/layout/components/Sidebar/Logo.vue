@@ -25,6 +25,6 @@ defineProps({ collapse: { type: Boolean, required: true } })
 .brand-mark { display: grid; place-items: center; flex: 0 0 34px; color: #91ccc4; }
 .brand-copy { display: flex; flex-direction: column; gap: 5px; white-space: nowrap; }
 .brand-title { color: var(--sc-sidebar-title, #eef8f7); font-size: 16px; font-weight: 650; letter-spacing: .1px; }
-.brand-subtitle { color: var(--sc-sidebar-text); font-size: 10px; }
+.brand-subtitle { color: var(--sc-sidebar-text); font-size: 12px; }
 .collapse { padding: 0 10px; }
 </style>

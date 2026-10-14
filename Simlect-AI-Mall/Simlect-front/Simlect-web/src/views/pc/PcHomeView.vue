@@ -42,10 +42,11 @@
             <p v-if="DEMO_MODE" class="feed-tip">可售库存 {{ item.product.stock ?? '--' }}</p>
           </article>
         </div>
-        <el-empty v-else description="暂无商品，稍后再来看看" />
+        <el-empty v-else-if="!feedLoadError" description="暂无商品，稍后再来看看" />
       </el-skeleton>
       <div ref="feedSentinel" class="sl-feed-sentinel">
         <span v-if="feedLoading" class="feed-tip">加载中…</span>
+        <p v-else-if="feedLoadError" class="feed-error" role="alert"><el-button text type="primary" @click="retryFeed">商品加载失败，重试</el-button></p>
         <span v-else-if="feedFinished && displayProducts.length >= MAX_PRODUCTS" class="feed-tip">已展示全部推荐商品</span>
         <span v-else-if="feedFinished && displayProducts.length" class="feed-tip">没有更多了</span>
       </div>
@@ -71,6 +72,7 @@ const categories = ref<any[]>([]);
 const hotProductsList = ref<any[]>([]);
 const products = ref<any[]>([]);
 const loading = ref(true);
+const feedLoadError = ref(false);
 
 const feedSentinel = ref<HTMLElement | null>(null);
 const feedPageNo = ref(0);
@@ -105,6 +107,7 @@ const loadFeed = async (reset = false) => {
   if (feedFinished.value) return;
 
   feedLoading.value = true;
+  feedLoadError.value = false;
   try {
     const next = feedPageNo.value + 1;
     const page = await productApi.loadProduct({ pageNo: next });
@@ -127,6 +130,7 @@ const loadFeed = async (reset = false) => {
     }
   } catch (error) {
     console.error('PcHomeView: loadFeed error', error);
+    feedLoadError.value = true;
   } finally {
     feedLoading.value = false;
   }
@@ -143,9 +147,11 @@ const load = async () => {
     hotProductsList.value = filterOnSaleProducts(Array.isArray(commend) ? commend : commend?.list);
     await loadFeed(true);
 
-    while (!feedFinished.value && products.value.length < MAX_PRODUCTS) {
+    while (!feedFinished.value && !feedLoadError.value && products.value.length < MAX_PRODUCTS) {
       await loadFeed();
     }
+  } catch {
+    feedLoadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -153,6 +159,11 @@ const load = async () => {
 
 const goDetail = (p: any) => {
   if (p?.productId) router.push(`/product/${p.productId}`);
+};
+
+const retryFeed = () => {
+  if (products.value.length) void loadFeed();
+  else void load();
 };
 
 const setupInfiniteScroll = async () => {
@@ -166,7 +177,7 @@ const setupInfiniteScroll = async () => {
   feedObserver = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting && !feedLoading.value && !feedFinished.value) {
+        if (entry.isIntersecting && !feedLoading.value && !feedFinished.value && !feedLoadError.value) {
           loadFeed();
         }
       }

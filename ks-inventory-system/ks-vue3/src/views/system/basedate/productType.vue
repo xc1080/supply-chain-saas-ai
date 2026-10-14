@@ -1,22 +1,22 @@
 <template>
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-form
       :model="queryParams"
       ref="queryRef"
       :inline="true"
       v-show="showSearch"
     >
-      <el-form-item label="货品名称" prop="productTypeName">
-        <el-input
+      <el-form-item label="类型名称" prop="productTypeName">
+        <el-input aria-label="类型名称"
           v-model="queryParams.productTypeName"
-          placeholder="请输入货品名称"
+          placeholder="输入类型名称"
           clearable
           style="width: 200px"
           @keyup.enter="handleQuery"
         />
       </el-form-item>
       <el-form-item label="状态" prop="status">
-        <el-select
+        <el-select aria-label="状态"
           v-model="queryParams.status"
           placeholder="货品类型状态"
           clearable
@@ -38,7 +38,7 @@
           v-hasPermi="['baseDate:productType:list']"
           >查询</el-button
         >
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
       </el-form-item>
     </el-form>
 
@@ -74,7 +74,7 @@
     >
       <el-table-column
         prop="productTypeName"
-        label="货品名称"
+        label="类型名称"
         width="260"
       ></el-table-column>
       <el-table-column
@@ -133,12 +133,12 @@
     </el-table>
 
     <!-- 添加或修改货品类型对话框 -->
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog class="erp-dialog" :title="title" v-model="open" width="min(600px, calc(100vw - 24px))" append-to-body>
       <el-form ref="typeRef" :model="form" :rules="rules" label-width="80px">
         <el-row>
           <el-col :span="24" v-if="form.parentId !== 0">
             <el-form-item label="上级类型" prop="parentId">
-              <el-tree-select
+              <el-tree-select aria-label="上级类型"
                 v-model="form.parentId"
                 :data="TypeOptions"
                 :props="{
@@ -154,7 +154,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="类型名称" prop="productTypeName">
-              <el-input
+              <el-input aria-label="类型名称"
                 v-model="form.productTypeName"
                 placeholder="请输入货品类型"
               />
@@ -162,7 +162,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="显示排序" prop="orderNum">
-              <el-input-number
+              <el-input-number aria-label="显示排序"
                 v-model="form.orderNum"
                 controls-position="right"
                 :min="0"
@@ -171,7 +171,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="类型状态">
-              <el-radio-group v-model="form.status">
+              <el-radio-group aria-label="类型状态" v-model="form.status">
                 <el-radio
                   v-for="dict in sys_normal_disable"
                   :key="dict.value"
@@ -185,8 +185,8 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
+          <el-button type="primary" @click="submitForm">保存</el-button>
+          <el-button @click="cancel">取消</el-button>
         </div>
       </template>
     </el-dialog>
@@ -340,3 +340,5 @@ function handleDelete(row) {
 
 getList();
 </script>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

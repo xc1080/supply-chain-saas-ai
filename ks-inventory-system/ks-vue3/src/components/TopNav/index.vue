@@ -170,45 +170,14 @@ onMounted(() => {
 </script>
 
 <style lang="scss">
-.topmenu-container.el-menu--horizontal > .el-menu-item {
-  float: left;
-  height: 50px !important;
-  line-height: 50px !important;
-  color: #999093 !important;
-  padding: 0 5px !important;
-  margin: 0 10px !important;
-}
-
-.topmenu-container.el-menu--horizontal > .el-menu-item.is-active, .el-menu--horizontal > .el-sub-menu.is-active .el-submenu__title {
-  border-bottom: 2px solid #{'var(--theme)'} !important;
-  color: #303133;
-}
-
-/* sub-menu item */
-.topmenu-container.el-menu--horizontal > .el-sub-menu .el-sub-menu__title {
-  float: left;
-  height: 50px !important;
-  line-height: 50px !important;
-  color: #999093 !important;
-  padding: 0 5px !important;
-  margin: 0 10px !important;
-}
-
-/* 背景色隐藏 */
-.topmenu-container.el-menu--horizontal>.el-menu-item:not(.is-disabled):focus, .topmenu-container.el-menu--horizontal>.el-menu-item:not(.is-disabled):hover, .topmenu-container.el-menu--horizontal>.el-submenu .el-submenu__title:hover {
-  background-color: #ffffff !important;
-}
-
-/* 图标右间距 */
-.topmenu-container .svg-icon {
-  margin-right: 4px;
-}
-
-/* topmenu more arrow */
-.topmenu-container .el-sub-menu .el-sub-menu__icon-arrow {
-  position: static;
-  vertical-align: middle;
-  margin-left: 8px;
-  margin-top: 0px;
-}
+.topmenu-container.el-menu--horizontal { height: var(--sc-navbar-height); border-bottom: 0; background: transparent; }
+.topmenu-container.el-menu--horizontal > .el-menu-item,
+.topmenu-container.el-menu--horizontal > .el-sub-menu .el-sub-menu__title { height: var(--sc-navbar-height); line-height: var(--sc-navbar-height); color: var(--sc-muted); padding: 0 12px; margin: 0; }
+.topmenu-container.el-menu--horizontal > .el-menu-item.is-active,
+.topmenu-container.el-menu--horizontal > .el-sub-menu.is-active .el-sub-menu__title { border-bottom: 2px solid var(--sc-primary); color: var(--sc-primary); }
+.topmenu-container.el-menu--horizontal > .el-menu-item:not(.is-disabled):focus,
+.topmenu-container.el-menu--horizontal > .el-menu-item:not(.is-disabled):hover,
+.topmenu-container.el-menu--horizontal > .el-sub-menu .el-sub-menu__title:hover { background: var(--sc-primary-soft); color: var(--sc-primary); }
+.topmenu-container .svg-icon { margin-right: 6px; }
+.topmenu-container .el-sub-menu .el-sub-menu__icon-arrow { position: static; vertical-align: middle; margin-left: 8px; margin-top: 0; }
 </style>

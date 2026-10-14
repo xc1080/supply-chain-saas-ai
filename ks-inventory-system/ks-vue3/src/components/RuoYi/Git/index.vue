@@ -1,13 +1,5 @@
 <template>
-  <div>
-    <svg-icon icon-class="github" @click="goto" />
-  </div>
+  <a href="https://gitee.com/y_project/RuoYi-Vue" target="_blank" rel="noopener" aria-label="查看若依项目源码">
+    <svg-icon icon-class="github" />
+  </a>
 </template>
-
-<script setup>
-const url = ref('https://gitee.com/y_project/RuoYi-Vue');
-
-function goto() {
-  window.open(url.value)
-}
-</script>

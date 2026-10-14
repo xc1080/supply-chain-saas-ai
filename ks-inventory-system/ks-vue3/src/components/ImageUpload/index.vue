@@ -17,16 +17,17 @@
       :on-preview="handlePictureCardPreview"
       :class="{ hide: fileList.length >= limit }"
     >
-      <el-icon class="avatar-uploader-icon"><plus /></el-icon>
+      <span class="sr-only">上传图片</span>
+      <el-icon class="avatar-uploader-icon" aria-hidden="true"><plus /></el-icon>
     </el-upload>
     <!-- 上传提示 -->
     <div class="el-upload__tip" v-if="showTip">
       请上传
       <template v-if="fileSize">
-        大小不超过 <b style="color: #f56c6c">{{ fileSize }}MB</b>
+        大小不超过 <b class="upload-limit">{{ fileSize }}MB</b>
       </template>
       <template v-if="fileType">
-        格式为 <b style="color: #f56c6c">{{ fileType.join("/") }}</b>
+        格式为 <b class="upload-limit">{{ fileType.join("/") }}</b>
       </template>
       的文件
     </div>
@@ -39,6 +40,7 @@
     >
       <img
         :src="dialogImageUrl"
+        alt="已上传图片预览"
         style="display: block; max-width: 100%; margin: 0 auto"
       />
     </el-dialog>
@@ -74,7 +76,7 @@ const props = defineProps({
 
 const { proxy } = getCurrentInstance();
 const emit = defineEmits();
-const number = ref(0);
+const number = ref(0); // 尚未完成的上传数
 const uploadList = ref([]);
 const dialogImageUrl = ref("");
 const dialogVisible = ref(false);
@@ -136,7 +138,9 @@ function handleBeforeUpload(file) {
       return false;
     }
   }
-  proxy.$modal.loading("正在上传图片，请稍候...");
+  if (number.value === 0) {
+    proxy.$modal.loading("正在上传图片，请稍候...");
+  }
   number.value++;
 }
 
@@ -149,20 +153,18 @@ function handleExceed() {
 function handleUploadSuccess(res, file) {
   if (res.code === 200) {
     uploadList.value.push({ name: res.fileName, url: res.fileName });
-    uploadedSuccessfully();
   } else {
-    number.value--;
-    proxy.$modal.closeLoading();
     proxy.$modal.msgError(res.msg);
     proxy.$refs.imageUpload.handleRemove(file);
-    uploadedSuccessfully();
   }
+  number.value--;
+  uploadedSuccessfully();
 }
 
 // 删除图片
 function handleDelete(file) {
   const findex = fileList.value.map(f => f.name).indexOf(file.name);
-  if (findex > -1 && uploadList.value.length === number.value) {
+  if (findex > -1 && number.value === 0) {
     fileList.value.splice(findex, 1);
     emit("update:modelValue", listToString(fileList.value));
     return false;
@@ -171,8 +173,8 @@ function handleDelete(file) {
 
 // 上传结束处理
 function uploadedSuccessfully() {
-  if (number.value > 0 && uploadList.value.length === number.value) {
-    fileList.value = fileList.value.filter(f => f.url !== undefined).concat(uploadList.value);
+  if (number.value === 0) {
+    fileList.value = fileList.value.filter(f => f.url !== undefined && !f.url.startsWith("blob:")).concat(uploadList.value);
     uploadList.value = [];
     number.value = 0;
     emit("update:modelValue", listToString(fileList.value));
@@ -182,8 +184,9 @@ function uploadedSuccessfully() {
 
 // 上传失败
 function handleUploadError() {
+  number.value--;
   proxy.$modal.msgError("上传图片失败");
-  proxy.$modal.closeLoading();
+  uploadedSuccessfully();
 }
 
 // 预览

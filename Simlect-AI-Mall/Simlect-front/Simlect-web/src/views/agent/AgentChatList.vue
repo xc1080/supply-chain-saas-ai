@@ -23,22 +23,14 @@
       <!-- [zh] 闭合标签 `</button>` -->
       </button>
       <!-- [zh] 开始标签 `<p>` -->
-      <p v-else-if="!messageList.length && !loadingHistory" class="welcome">
+      <div v-else-if="!messageList.length && !loadingHistory" class="welcome">
         <!-- [zh] 模板内容：`您好，我是简选智能客服，可以帮您查商品、查订单、推荐精选。` -->
-        {{ DEMO_MODE ? '您好，我是简选智能客服。告诉我使用场景、预算或已有设备，我可以帮您挑选智能家居，也能查询您的演示订单。' : '您好，我是简选智能客服，可以帮您查商品、查订单、推荐精选。' }}
+        <h2>有什么可以帮你？</h2>
+        <p>{{ DEMO_MODE ? '说说使用场景、预算和已有设备，或查询订单。' : '选商品、查订单，直接问我。' }}</p>
       <!-- [zh] 闭合标签 `</p>` -->
-      </p>
+      </div>
       <!-- [zh] 开始标签 `<p>` -->
-      <p
-        v-if="messageList.length && pageNo >= pageTotal && !loadingHistory"
-        class="history-top-tip"
-      >
-        <!-- [zh] 模板内容：`没有更多历史消息了` -->
-        没有更多历史消息了
-      <!-- [zh] 闭合标签 `</p>` -->
-      </p>
-      <!-- [zh] 开始标签 `<p>` -->
-      <p v-else-if="loadingHistory && messageList.length" class="history-top-tip">加载更早的消息…</p>
+      <p v-if="loadingHistory && messageList.length" class="history-top-tip">加载更早的消息…</p>
       <!-- [zh] 开始标签 `<div>` -->
       <div v-for="(item, index) in messageList" :key="item.messageId || `msg-${index}`" class="msg-group">
         <!-- [zh] 开始标签 `<AgentUserBubble>` -->
@@ -469,6 +461,14 @@ onUnmounted(() => {
   /* [zh] 样式规则 `line-height: 1.6;` */
   line-height: 1.6;
 /* [zh] 样式规则 `}` */
+}
+
+.welcome {
+  max-width: 28em;
+  margin: 40px auto;
+  padding: 0 12px;
+  h2 { margin: 0 0 10px; color: $color-text-title; font-size: 22px; font-weight: 600; line-height: 1.4; }
+  p { margin: 0; font-size: 14px; line-height: 1.7; }
 }
 
 /* [zh] 样式规则 `.history-error {` */

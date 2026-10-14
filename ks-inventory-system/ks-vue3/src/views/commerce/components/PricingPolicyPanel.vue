@@ -41,5 +41,5 @@ watch(() => [props.shopId, canCatalog.value], () => { generation++; promotions.v
 defineExpose({ refresh })
 </script>
 <style scoped>
-.pricing-panel{padding:22px;margin-top:22px;background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:10px}.pricing-panel header,.promotion-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.pricing-panel h2{font-size:18px;margin:0}.pricing-panel h3{font-size:15px;margin:0}.shipping-policy{margin-top:24px}.promotion-heading{margin:12px 0 16px}@media(max-width:767px){.pricing-panel{padding:14px}.shipping-policy .el-button{margin-bottom:18px}}
+.pricing-panel{padding:18px;margin-top:18px;background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:10px}.pricing-panel header,.promotion-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.pricing-panel h2{font-size:16px;margin:0}.pricing-panel h3{font-size:15px;margin:0}.shipping-policy{margin-top:24px}.promotion-heading{margin:12px 0 16px}@media(max-width:767px){.pricing-panel{padding:14px}.shipping-policy .el-button{margin-bottom:18px}}
 </style>

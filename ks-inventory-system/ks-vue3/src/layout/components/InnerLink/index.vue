@@ -4,6 +4,7 @@
       :id="iframeId"
       style="width: 100%; height: 100%"
       :src="src"
+      :title="title"
       frameborder="no"
     ></iframe>
   </div>
@@ -15,6 +16,7 @@ const props = defineProps({
     type: String,
     default: "/"
   },
+  title: { type: String, default: "嵌入页面" },
   iframeId: {
     type: String
   }

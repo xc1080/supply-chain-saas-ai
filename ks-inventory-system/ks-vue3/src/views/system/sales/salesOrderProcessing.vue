@@ -1,6 +1,6 @@
 <template>
   <!-- 销售订单制作 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="10">
       <el-col :span="24" :xs="24">
         <el-form
@@ -11,7 +11,7 @@
           :rules="rules"
         >
           <el-form-item label="系统单号" prop="systematicOrderForm">
-            <el-input
+            <el-input aria-label="系统单号"
               class="form-item"
               v-model="form.systematicOrderForm"
               placeholder="系统单号"
@@ -19,14 +19,14 @@
             ></el-input>
           </el-form-item>
           <el-form-item label="原始单号" prop="originalOrderForm">
-            <el-input
+            <el-input aria-label="原始单号"
               v-model="form.originalOrderForm"
               class="form-item"
               clearable
             />
           </el-form-item>
           <el-form-item label="订单类型" prop="orderFormType">
-            <el-radio-group class="form-item" v-model="form.orderFormType">
+            <el-radio-group aria-label="订单类型" class="form-item" v-model="form.orderFormType">
               <el-radio-button
                 label="1"
                 :value="1"
@@ -38,7 +38,7 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item label="订单状态" prop="orderFormStatus">
-            <el-radio-group class="form-item" v-model="form.orderFormStatus">
+            <el-radio-group aria-label="订单状态" class="form-item" v-model="form.orderFormStatus">
               <el-radio-button label="1" :value="1">待审核</el-radio-button>
               <el-radio-button label="2" :value="2" :disabled="takeEffect"
                 >已审核</el-radio-button
@@ -46,7 +46,7 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item label="交货日期" prop="deliveryDate">
-            <el-date-picker
+            <el-date-picker aria-label="交货日期"
               v-model="form.deliveryDate"
               type="date"
               placeholder="请选择交货日期"
@@ -55,10 +55,10 @@
             ></el-date-picker>
           </el-form-item>
           <el-form-item label="仓库" prop="retrievalIds">
-            <el-select
+            <el-select aria-label="仓库"
               class="form-item"
               v-model="form.retrievalIds"
-              placeholder="请输入仓库"
+              placeholder="搜索仓库"
               filterable
               clearable
               remote
@@ -79,10 +79,10 @@
             prop="userIds"
             v-hasPermi="['sales:salesOrderProcessing:selectUser']"
           >
-            <el-select
+            <el-select aria-label="经手人"
               class="form-item"
               v-model="form.userIds"
-              placeholder="请选择"
+              placeholder="选择经手人"
               filterable
               clearable
             >
@@ -95,10 +95,10 @@
             </el-select>
           </el-form-item>
           <el-form-item label="客户" prop="customerIds">
-            <el-select
+            <el-select aria-label="客户"
               class="form-item"
               v-model="form.customerIds"
-              placeholder="请输入客户"
+              placeholder="搜索客户"
               filterable
               clearable
               remote
@@ -115,14 +115,14 @@
             </el-select>
           </el-form-item>
           <el-form-item label="备注" prop="orderFormNotes">
-            <el-input
+            <el-input aria-label="备注"
               v-model="form.orderFormNotes"
               class="form-item"
               type="textarea"
             />
           </el-form-item>
           <el-form-item label="定金" prop="deposit">
-            <el-input
+            <el-input aria-label="定金"
               v-model="form.deposit"
               class="form-item"
               clearable
@@ -130,7 +130,7 @@
             />
           </el-form-item>
           <el-form-item label="总金额" prop="orderFormAmount">
-            <el-input
+            <el-input aria-label="总金额"
               v-model="form.orderFormAmount"
               class="form-item"
               disabled="disabled"
@@ -141,14 +141,14 @@
             />
           </el-form-item>
           <el-form-item label="总金额(大写)" prop="orderCapitalizeAmount">
-            <el-input
+            <el-input aria-label="总金额(大写)"
               v-model="form.orderCapitalizeAmount"
               class="form-item"
               disabled="disabled"
             />
           </el-form-item>
           <el-form-item label="是否售后安装" prop="afterSalesInstallation">
-            <el-radio-group
+            <el-radio-group aria-label="是否售后安装"
               class="form-item"
               v-model="form.afterSalesInstallation"
             >
@@ -163,7 +163,7 @@
               prop="isWarehousing"
               :disabled="['sales:salesOrderProcessing:takeEffect']"
             >
-              <el-radio-group class="form-item" v-model="form.isOutbound">
+              <el-radio-group aria-label="销售出库单据" class="form-item" v-model="form.isOutbound">
                 <el-radio-button label="1" :value="1"
                   >创建/更新</el-radio-button
                 >
@@ -177,7 +177,7 @@
               prop="findingOfAudit"
               :disabled="['sales:salesOrderProcessing:takeEffect']"
             >
-              <el-select
+              <el-select aria-label="审核结果"
                 v-model="form.findingOfAudit"
                 filterable
                 clearable
@@ -196,7 +196,7 @@
               prop="reviewComments"
               :disabled="['sales:salesOrderProcessing:takeEffect']"
             >
-              <el-input
+              <el-input aria-label="审核意见"
                 v-model="form.reviewComments"
                 clearable
                 style="width: 530px"
@@ -208,7 +208,7 @@
           <div>
             <el-row :gutter="10">
               <el-col :span="1.5">
-                <div>货品明细</div>
+                <h2 class="erp-section-title">货品明细</h2>
               </el-col>
             </el-row>
           </div>
@@ -232,9 +232,9 @@
                 width="180"
               >
                 <template #default="scope">
-                  <el-select
+                  <el-select aria-label="序号"
                     v-model="scope.row.productCode"
-                    placeholder="请输入货品编号"
+                    placeholder="搜索序号"
                     @change="changeProduct(scope.$index, scope.row)"
                     filterable
                     remote
@@ -259,9 +259,9 @@
               >
                 <template #default="scope">
                   <ProductIdentity :product="scope.row">
-                  <el-select
+                  <el-select aria-label="货品名称"
                     v-model="scope.row.productName"
-                    placeholder="请输入货品名称"
+                    placeholder="搜索货品名称"
                     @change="changeProduct(scope.$index, scope.row)"
                     filterable
                     remote
@@ -291,30 +291,30 @@
                 width="100"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="类型"
                     v-model="scope.row.productSpecifications"
                   ></el-input>
                 </template>
               </el-table-column>
-              <el-table-column label="单位" align="center" prop="measureUnit">
+              <el-table-column min-width="80" label="单位" align="center" prop="measureUnit">
                 <template #default="scope">
-                  <el-input v-model="scope.row.measureUnit"></el-input>
+                  <el-input aria-label="单位" v-model="scope.row.measureUnit"></el-input>
                 </template>
               </el-table-column>
-              <el-table-column label="产地" align="center" prop="producer" />
-              <el-table-column
+              <el-table-column min-width="140" label="产地" align="center" prop="producer" />
+              <el-table-column min-width="110"
                 label="库存数量"
-                align="center"
+                align="right"
                 prop="inventoryQty"
               />
               <el-table-column
                 label="数量"
-                align="center"
+                align="right"
                 prop="planQuantity"
                 width="100"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="产地"
                     v-model="scope.row.planQuantity"
                     @change="calculateDetails(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2')"
@@ -323,12 +323,12 @@
               </el-table-column>
               <el-table-column
                 label="单价"
-                align="center"
+                align="right"
                 prop="univalence"
                 width="150"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="单价"
                     v-model="scope.row.univalence"
                     @change="calculateDetails(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
@@ -337,12 +337,12 @@
               </el-table-column>
               <el-table-column
                 label="折扣"
-                align="center"
+                align="right"
                 prop="discount"
                 width="80"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="折扣"
                     v-model="scope.row.discount"
                     @change="calculateDetails(scope.row)"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
@@ -351,12 +351,12 @@
               </el-table-column>
               <el-table-column
                 label="金额"
-                align="center"
+                align="right"
                 prop="money"
                 width="150"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="金额"
                     v-model="scope.row.money"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
@@ -364,12 +364,12 @@
               </el-table-column>
               <el-table-column
                 label="成本"
-                align="center"
+                align="right"
                 prop="cost"
                 width="150"
               >
                 <template #default="scope">
-                  <el-input
+                  <el-input aria-label="成本"
                     v-model="scope.row.cost"
                     oninput="value=value.replace(/[^0-9.]/g,'').replace(/\.{2,}/g,'.').replace(/^(\-)*(\d+)\.(\d\d).*$/,'$1$2.$3')"
                   ></el-input>
@@ -377,7 +377,7 @@
               </el-table-column>
               <el-table-column label="备注" align="center" width="180">
                 <template #default="scope">
-                  <el-input v-model="scope.row.remarks"></el-input>
+                  <el-input aria-label="备注" v-model="scope.row.remarks"></el-input>
                 </template>
               </el-table-column>
               <el-table-column fixed="right" label="操作" align="center">
@@ -393,9 +393,9 @@
               </el-table-column>
             </el-table>
           </div>
-          <el-affix class="tc mt16 footer" position="bottom" :offset="20">
+          <div class="erp-document-actions" role="group" aria-label="单据操作">
             <el-button
-              color="#BB5500"
+              type="primary" plain
               icon="Plus"
               round
               @click="addOrder"
@@ -403,7 +403,7 @@
               >新增订单</el-button
             >
             <el-button
-              color="#00AAAA"
+              type="primary" plain
               icon="Plus"
               round
               @click="addItem"
@@ -411,15 +411,15 @@
               >添加明细</el-button
             >
             <el-button
-              color="#626aef"
+              plain
               icon="Upload"
               round
               @click="customerAdd"
               v-hasPermi="['baseDate:customer:add']"
               >新增客户</el-button
             >
-            <el-button
-              type="warning"
+            <el-button plain
+              type="default"
               icon="Upload"
               round
               @click="handleAdd"
@@ -445,7 +445,7 @@
             >
             <el-button
               @click="printOut"
-              color="#626aef"
+              plain
               icon="Printer"
               round
               :disabled="printBtn"
@@ -457,7 +457,7 @@
               content="删除订单，重新制作"
               placement="top"
             >
-              <el-button
+              <el-button aria-label="删除订单，重新制作"
                 @click="deleteOrder"
                 type="danger"
                 icon="delete"
@@ -473,21 +473,21 @@
               content="取消制作，返回查询"
               placement="top"
             >
-              <el-button type="info" round icon="close" @click="cancel"
+              <el-button aria-label="取消制作，返回查询" type="info" round icon="close" @click="cancel"
                 >取消制作</el-button
               >
             </el-tooltip>
-          </el-affix>
+          </div>
         </div>
       </el-col>
     </el-row>
   </div>
 
   <!-- 添加客户配置对话框 -->
-  <el-dialog
+  <el-dialog class="erp-dialog"
     :title="titleCustomer"
     v-model="openCustomer"
-    width="700px"
+    width="min(700px, calc(100vw - 24px))"
     append-to-body
   >
     <el-form
@@ -499,7 +499,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="客户编号" prop="customerCode">
-            <el-input
+            <el-input aria-label="客户编号"
               v-model="customerForm.customerCode"
               placeholder="请输入客户编号"
               maxlength="30"
@@ -508,7 +508,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="客户名称" prop="customerName">
-            <el-input
+            <el-input aria-label="客户名称"
               v-model="customerForm.customerName"
               placeholder="请输入客户名称"
               maxlength="30"
@@ -519,7 +519,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="业务员" prop="customerSalesPerson">
-            <el-input
+            <el-input aria-label="业务员"
               v-model="customerForm.customerSalesPerson"
               placeholder="请输入业务员"
               maxlength="30"
@@ -528,7 +528,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="联系人" prop="customerContacts">
-            <el-input
+            <el-input aria-label="联系人"
               v-model="customerForm.customerContacts"
               placeholder="请输入联系人"
               maxlength="30"
@@ -539,7 +539,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="联系电话" prop="customerContactNumber">
-            <el-input
+            <el-input aria-label="联系电话"
               v-model="customerForm.customerContactNumber"
               placeholder="请输入联系电话"
               maxlength="30"
@@ -548,7 +548,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="邮编" prop="customerPostalCode">
-            <el-input
+            <el-input aria-label="邮编"
               v-model="customerForm.customerPostalCode"
               placeholder="请输入邮编"
               maxlength="30"
@@ -559,7 +559,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="期初欠款" prop="customerOpeningDebt">
-            <el-input
+            <el-input aria-label="期初欠款"
               v-model="customerForm.customerOpeningDebt"
               placeholder="请输入期初欠款"
               maxlength="30"
@@ -568,7 +568,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="开户银行" prop="customerOpeningBank">
-            <el-input
+            <el-input aria-label="开户银行"
               v-model="customerForm.customerOpeningBank"
               placeholder="请输入开户银行"
               maxlength="30"
@@ -579,7 +579,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="银行账号" prop="customerAccountNumber">
-            <el-input
+            <el-input aria-label="银行账号"
               v-model="customerForm.customerAccountNumber"
               placeholder="请输入银行账号"
               maxlength="30"
@@ -588,7 +588,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="纳税号" prop="customerTaxId">
-            <el-input
+            <el-input aria-label="纳税号"
               v-model="customerForm.customerTaxId"
               placeholder="请输入纳税号"
               maxlength="30"
@@ -599,7 +599,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="公司主页" prop="customerCompanyHomepage">
-            <el-input
+            <el-input aria-label="公司主页"
               v-model="customerForm.customerCompanyHomepage"
               placeholder="请输入公司主页"
               maxlength="30"
@@ -608,7 +608,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="电子邮箱" prop="customerEmail">
-            <el-input
+            <el-input aria-label="电子邮箱"
               v-model="customerForm.customerEmail"
               placeholder="请输入电子邮箱"
               maxlength="30"
@@ -619,7 +619,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="公司法人" prop="customerLegalPerson">
-            <el-input
+            <el-input aria-label="公司法人"
               v-model="customerForm.customerLegalPerson"
               placeholder="请输入公司法人"
               maxlength="30"
@@ -628,9 +628,9 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="状态" prop="status">
-            <el-select
+            <el-select aria-label="状态"
               v-model="customerForm.status"
-              placeholder="请选择"
+              placeholder="选择状态"
               clearable
             >
               <el-option
@@ -646,7 +646,7 @@
       <el-row>
         <el-col :span="24">
           <el-form-item label="单位地址" prop="customerWorkAddress">
-            <el-input
+            <el-input aria-label="单位地址"
               v-model="customerForm.customerWorkAddress"
               placeholder="请输入单位地址"
             />
@@ -656,7 +656,7 @@
       <el-row>
         <el-col :span="24">
           <el-form-item label="备注">
-            <el-input
+            <el-input aria-label="备注"
               v-model="customerForm.remarks"
               type="textarea"
               placeholder="请输入备注"
@@ -667,14 +667,14 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="submitCustomerForm">确 定</el-button>
-        <el-button @click="cancelCustomerForm">取 消</el-button>
+        <el-button type="primary" @click="submitCustomerForm">保存</el-button>
+        <el-button @click="cancelCustomerForm">取消</el-button>
       </div>
     </template>
   </el-dialog>
 
   <!-- 添加货品配置对话框 -->
-  <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+  <el-dialog class="erp-dialog" :title="title" v-model="open" width="min(600px, calc(100vw - 24px))" append-to-body>
     <el-form
       :model="productForm"
       :rules="rules"
@@ -684,7 +684,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="货品编号" prop="productCode">
-            <el-input
+            <el-input aria-label="货品编号"
               v-model="productForm.productCode"
               placeholder="请输入货品编号"
               maxlength="30"
@@ -693,7 +693,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="货品名称" prop="productName">
-            <el-input
+            <el-input aria-label="货品名称"
               v-model="productForm.productName"
               placeholder="请输入货品名称"
               maxlength="30"
@@ -704,7 +704,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="货品类型" prop="productType">
-            <el-tree-select
+            <el-tree-select aria-label="货品类型"
               v-model="productForm.productType"
               :data="typeOptions"
               :props="{ value: 'id', label: 'label', children: 'children' }"
@@ -716,7 +716,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="货品规格" prop="productSpecifications">
-            <el-input
+            <el-input aria-label="货品规格"
               v-model="productForm.productSpecifications"
               placeholder="请输入货品规格"
               maxlength="30"
@@ -727,7 +727,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="计量单位" prop="measureUnit">
-            <el-input
+            <el-input aria-label="计量单位"
               v-model="productForm.measureUnit"
               placeholder="请输入计量单位"
               maxlength="30"
@@ -736,7 +736,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="货品条码" prop="productBarcode">
-            <el-input
+            <el-input aria-label="货品条码"
               v-model="productForm.productBarcode"
               placeholder="请输入货品条码"
               maxlength="30"
@@ -747,7 +747,7 @@
       <el-row>
         <el-col :span="24">
           <el-form-item label="产地" prop="producer">
-            <el-input
+            <el-input aria-label="产地"
               v-model="productForm.producer"
               placeholder="请输入产地"
               maxlength="30"
@@ -758,7 +758,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="成本价" prop="costPrice">
-            <el-input
+            <el-input aria-label="成本价"
               v-model="productForm.costPrice"
               placeholder="请输入成本价"
               maxlength="30"
@@ -767,7 +767,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="参考售价" prop="univalence">
-            <el-input
+            <el-input aria-label="参考售价"
               v-model="productForm.univalence"
               placeholder="请输入参考售价"
               maxlength="30"
@@ -778,7 +778,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="销售折扣" prop="discount">
-            <el-input
+            <el-input aria-label="销售折扣"
               v-model="form.discount"
               placeholder="请输入销售折扣"
               maxlength="30"
@@ -787,7 +787,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="库存数量" prop="costPrice">
-            <el-input
+            <el-input aria-label="库存数量"
               v-model="form.inventoryQty"
               placeholder="系统自动计算"
               disabled
@@ -798,7 +798,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="库存上限" prop="upperLimit">
-            <el-input
+            <el-input aria-label="库存上限"
               v-model="productForm.upperLimit"
               placeholder="请输入库存上限"
               maxlength="30"
@@ -807,7 +807,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="库存下限" prop="lowerLimit">
-            <el-input
+            <el-input aria-label="库存下限"
               v-model="productForm.lowerLimit"
               placeholder="请输入库存下限"
               maxlength="30"
@@ -818,7 +818,7 @@
       <el-row>
         <el-col :span="12">
           <el-form-item label="默认仓库" prop="defaultWarehouse">
-            <el-input
+            <el-input aria-label="默认仓库"
               v-model="productForm.defaultWarehouse"
               placeholder="请输入默认仓库"
               maxlength="30"
@@ -827,7 +827,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="状态">
-            <el-radio-group v-model="productForm.status">
+            <el-radio-group aria-label="状态" v-model="productForm.status">
               <el-radio
                 v-for="dict in sys_normal_disable"
                 :key="dict.value"
@@ -841,7 +841,7 @@
       <el-row>
         <el-col :span="24">
           <el-form-item label="备注">
-            <el-input
+            <el-input aria-label="备注"
               v-model="productForm.notes"
               type="textarea"
               placeholder="请输入内容"
@@ -852,8 +852,8 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="submitProductForm">确 定</el-button>
-        <el-button @click="cancelProductForm">取 消</el-button>
+        <el-button type="primary" @click="submitProductForm">保存</el-button>
+        <el-button @click="cancelProductForm">取消</el-button>
       </div>
     </template>
   </el-dialog>
@@ -1030,12 +1030,18 @@ const {
   rules,
 } = toRefs(data);
 
+let detailLoadVersion = 0;
 function initialization() {
+  detailLoadVersion++;
+  takeEffect.value = false;
+  takeEffectBtn.value = false;
+  printBtn.value = true;
+  finding.value = false;
+  reset();
   const { systematicOrderForm } = proxy.$route.query;
   if (systematicOrderForm) {
     loadDetail(systematicOrderForm);
   } else {
-    reset();
     takeEffect.value = true;
     takeEffectBtn.value = true;
     printBtn.value = true;
@@ -1058,7 +1064,7 @@ async function getList() {
     userOptions.value = response.rows;
   });
   getUserProfile().then((response) => {
-    form.value.userIds = response.data.userId;
+    if (!proxy.$route.query.systematicOrderForm) form.value.userIds = response.data.userId;
   });
   optionReset();
 }
@@ -1151,7 +1157,14 @@ function takeEffectForm() {
   });
 }
 function loadDetail(systematicOrderForm) {
+  const version = ++detailLoadVersion;
   getSalesOrder(systematicOrderForm).then((response) => {
+    if (version !== detailLoadVersion || proxy.$route.path !== '/sales/salesOrderProcessing'
+      || String(proxy.$route.query.systematicOrderForm || '') !== String(systematicOrderForm)) return;
+    if (!response.data || Number(response.data.orderFormType) !== 2) {
+      proxy.$modal.msgError('未找到销售订单');
+      return;
+    }
     option.value.warehouseId = response.data.warehousingIds;
     listWarehouse(option.value).then((response) => {
       warehouseOptions.value = response.rows;
@@ -1556,6 +1569,11 @@ function remoteProductName(query) {
   }
 }
 
+watch(() => [proxy.$route.path, proxy.$route.query.systematicOrderForm], () => {
+  if (proxy.$route.path !== '/sales/salesOrderProcessing') return;
+  initialization();
+  if (!proxy.$route.query.systematicOrderForm) getList();
+});
 initialization();
 getList();
 </script>
@@ -1569,3 +1587,5 @@ getList();
   text-align: center;
 }
 </style>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

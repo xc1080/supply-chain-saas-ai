@@ -18,6 +18,7 @@ public class CommerceAgentTaskController {
     private final CommerceAgentTaskService tasks;
     public CommerceAgentTaskController(CommerceAgentTaskService tasks){this.tasks=tasks;}
     @GetMapping @CommercePermission public AjaxResult list(){return AjaxResult.success(tasks.list(SecurityUtils.getUserId()));}
+    @GetMapping("/page") @CommercePermission public AjaxResult page(@RequestParam Map<String,String> query){return AjaxResult.success(tasks.page(SecurityUtils.getUserId(),query));}
     @GetMapping("/request/{key}") @CommercePermission(CommerceCapability.SUPPLY_DRAFT) public AjaxResult request(@PathVariable String key){return AjaxResult.success(tasks.byRequest(key,SecurityUtils.getUserId()));}
     @GetMapping("/{id}") @CommercePermission public AjaxResult get(@PathVariable String id){return AjaxResult.success(tasks.get(id,SecurityUtils.getUserId()));}
     @PostMapping @CommercePermission(CommerceCapability.SUPPLY_DRAFT) public AjaxResult create(@RequestBody Map<String,Object> body){return AjaxResult.success(tasks.create(body,SecurityUtils.getUserId()));}

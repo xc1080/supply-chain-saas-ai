@@ -2,7 +2,8 @@
   <div class="prod-sku-select-wrapper">
     <div>
       <el-form
-        inline="inline"
+        :inline="true"
+        :model="queryParams"
         ref="queryRef"
         label-width="90px">
         <el-form-item label="商品编号" prop="commodityCode">
@@ -11,7 +12,7 @@
                 placeholder="请输入商品编号"
                 clearable
                 class="form-item"
-                @keyup.enter="handleQuery"/>
+                @keyup.enter="clickQuery"/>
         </el-form-item>
         <el-form-item label="商品名称" prop="commodityName">
             <el-input
@@ -19,7 +20,7 @@
                 placeholder="请输入商品名称"
                 clearable
                 class="form-item"
-                @keyup.enter="handleQuery"/>
+                @keyup.enter="clickQuery"/>
         </el-form-item>
         <el-form-item label="商品类型">
           <el-tree-select
@@ -38,7 +39,7 @@
       </el-form>
     </div>
     <div class="m-table-wrap">
-      <table class="m-table" v-if="list.length !== 0">
+      <table class="m-table" v-if="list.length !== 0" aria-label="选择商品">
         <thead>
           <tr class="m-tr">
             <th class="m-th">
@@ -62,19 +63,21 @@
             <td class="m-td">
               <el-checkbox
                 v-model="p.checked"
+                :aria-label="`选择 ${p.commodityName || p.commodityCode}`"
                 :disabled="rightListKeySet.has(p.commodityId)">
+                <span class="selection-name">选择 {{ p.commodityName || p.commodityCode }}</span>
               </el-checkbox>
             </td>
             <td class="m-td"> {{ p.commodityCode }} </td>
-            <td class="m-td"> {{ p.commodityName }} </td>
-            <td class="m-td"> {{ p.type.commodityTypeName }} </td>
+            <td class="m-td"><ProductIdentity :product="p" /></td>
+            <td class="m-td"> {{ p.type?.commodityTypeName || '—' }} </td>
             <td class="m-td"> {{ p.commoditySpecifications }} </td>
             <td class="m-td"> {{ p.measureUnit }} </td>
             <td class="m-td"> {{ p.producer }} </td>
           </tr>
         </tbody>
       </table>
-      <el-empty v-else :image-size="64"></el-empty>
+      <el-empty v-else :image-size="64" description="没有匹配的商品，试试名称或编号"></el-empty>
     </div>
     <pagination
       v-show="total > 0"
@@ -87,9 +90,11 @@
 
 <script>
 import { listCommodity, commodityTypeTreeSelect } from "@/api/basedate/commodity";
+import ProductIdentity from "@/components/ProductIdentity/index.vue";
 
 export default {
   name: "CommoditySelect",
+  components: { ProductIdentity },
   props: ['data'],
   data() {
     return {
@@ -196,31 +201,38 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.selection-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .form-item{
-    width: 280px
+    width: 220px; max-width: 100%
 }
 .m-table-wrap {
-  color: rgba(0, 0, 0, .65);
+  color: var(--sc-muted);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
   font-size: 14px;
   line-height: 1.5714285714285714;
   border-radius: 8px 8px 0 0;
   .m-table {
+    .m-th:first-child { width: 48px; }
+    .m-th:nth-child(2) { width: 160px; }
+    .m-th:nth-child(3) { width: 250px; }
     display: table;
     table-layout: fixed;
     width: 100%;
+    min-width: 940px;
     text-align: left;
     border-radius: 8px 8px 0 0;
     border-collapse: separate;
     border-spacing: 0;
     margin: 0;
     .m-th {
-      padding: 16px;
-      color: rgba(0, 0, 0, .85);
+      padding: 12px;
+      color: var(--sc-text);
       font-weight: 500;
       text-align: left;
-      background: #fafafa;
+      background: var(--sc-surface-soft);
       border: none;
-      border-bottom: 1px solid #f0f0f0;;
+      border-bottom: 1px solid var(--sc-border);
       transition: background .3s ease;
       &:first-child {
         border-top-left-radius: 8px;
@@ -233,7 +245,7 @@ export default {
       position: relative;
       .m-tr-loading {
         border: none;
-        background-color: #FFF;
+        background-color: var(--sc-surface);
         .m-loading {
           position: absolute;
           width: 100%;
@@ -242,14 +254,14 @@ export default {
       }
       .m-tr-empty {
         border: none;
-        background-color: #FFF;
+        background-color: var(--sc-surface);
         &:hover {
-          background: #FFF;
+          background: var(--sc-surface);
         }
         .m-td-empty {
-          padding: 16px;
+          padding: 12px;
           border: none;
-          border-bottom: 1px solid #f0f0f0;;
+          border-bottom: 1px solid var(--sc-border);
           .empty {
             margin: 32px 0;
           }
@@ -258,22 +270,29 @@ export default {
     }
     .m-tr {
       border: none;
-      background-color: #FFF;
+      background-color: var(--sc-surface);
       transition: background-color .3s;
       .m-td {
-        padding: 16px;
+        padding: 12px;
         border: none;
-        border-bottom: 1px solid #f0f0f0;;
+        border-bottom: 1px solid var(--sc-border);
         transition: background .3s;
         overflow: hidden;
-        white-space: nowrap;
+        white-space: normal;
+        overflow-wrap: anywhere;
         text-overflow: ellipsis;
       }
       &:hover {
-        background-color: #fafafa;
+        background-color: var(--sc-surface-soft);
       }
     }
   }
 }
 
+@media (max-width: 700px) {
+  .prod-sku-select-wrapper :deep(.el-form-item) { display: flex; flex-direction: column; align-items: stretch; width: 100%; margin-right: 0; }
+  .prod-sku-select-wrapper :deep(.el-form-item__label) { justify-content: flex-start; width: auto !important; height: auto; padding: 0 0 6px; }
+  .prod-sku-select-wrapper :deep(.el-form-item__content) { min-width: 0; }
+  .prod-sku-select-wrapper :deep(.el-input), .prod-sku-select-wrapper :deep(.el-select) { width: 100%; }
+}
 </style>

@@ -1,6 +1,6 @@
 <template>
   <!-- 历史单据迁移 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <el-col :span="24" :xs="24">
         <el-form
@@ -10,23 +10,15 @@
           label-width="70px"
         >
           <el-form-item label="系统单号" prop="systematicReceipt">
-            <el-input
+            <el-input aria-label="系统单号"
               v-model="queryParams.systematicReceipt"
-              placeholder="请输入"
-              class="form-item"
-              clearable
-            />
-          </el-form-item>
-          <el-form-item label="原始单号" prop="originalReceipt">
-            <el-input
-              v-model="queryParams.originalReceipt"
-              placeholder="请输入"
+              placeholder="输入系统单号"
               class="form-item"
               clearable
             />
           </el-form-item>
           <el-form-item label="单据类型" prop="receiptType">
-            <el-select
+            <el-select aria-label="单据类型"
               v-model="queryParams.receiptType"
               placeholder="单据类型"
               filterable
@@ -42,7 +34,7 @@
             </el-select>
           </el-form-item>
           <el-form-item label="单据状态" prop="receiptStatus">
-            <el-select
+            <el-select aria-label="单据状态"
               v-model="queryParams.receiptStatus"
               placeholder="单据状态"
               filterable
@@ -57,16 +49,29 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="创建时间" style="width: 388px">
-            <el-date-picker
-              v-model="dateRange"
-              value-format="YYYY-MM-DD"
-              type="daterange"
-              range-separator="-"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-            ></el-date-picker>
-          </el-form-item>
+          <details class="erp-query-disclosure">
+            <summary>更多筛选</summary>
+            <div class="erp-extra-filters">
+              <el-form-item label="原始单号" prop="originalReceipt">
+                <el-input aria-label="原始单号"
+                  v-model="queryParams.originalReceipt"
+                  placeholder="输入原始单号"
+                  class="form-item"
+                  clearable
+                />
+              </el-form-item>
+              <el-form-item label="创建时间" style="width: 388px">
+                <el-date-picker aria-label="创建时间"
+                  v-model="dateRange"
+                  value-format="YYYY-MM-DD"
+                  type="daterange"
+                  range-separator="-"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                ></el-date-picker>
+              </el-form-item>
+            </div>
+          </details>
           <el-form-item>
             <el-button
               type="primary"
@@ -75,14 +80,14 @@
               v-hasPermi="['system:historicalDocuments:head']"
               >查询</el-button
             >
-            <el-button
-              type="success"
+            <el-button plain
+              type="default"
               icon="Search"
               @click="handleDetailQuery"
               v-hasPermi="['system:historicalDocuments:detail']"
               >明细查询</el-button
             >
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-form>
         <el-row :gutter="10" class="mb8">
@@ -100,7 +105,7 @@
           <el-col :span="1.5">
             <el-button
               :disabled="historicalDocumentsDetail"
-              type="warning"
+              type="default"
               plain
               icon="Download"
               @click="handleExport"
@@ -122,7 +127,7 @@
           <el-col :span="1.5">
             <el-button
               :disabled="historicalDocuments"
-              type="danger"
+              type="default"
               plain
               icon="Download"
               @click="handleDetailExport"
@@ -228,7 +233,7 @@
             prop="customer.customerName"
           />
           <el-table-column label="订单号" align="center" prop="planReceipt" />
-          <el-table-column
+          <el-table-column min-width="220"
             label="备注"
             align="center"
             prop="receiptNotes"
@@ -236,13 +241,13 @@
           />
           <el-table-column
             label="定金"
-            align="center"
+            align="right"
             prop="deposit"
             width="150"
           />
           <el-table-column
             label="总金额"
-            align="center"
+            align="right"
             prop="totalAmount"
             width="150"
           />
@@ -253,7 +258,7 @@
             width="150"
             :show-overflow-tooltip="true"
           />
-          <el-table-column label="创建者" align="center" prop="createBy" />
+          <el-table-column min-width="100" label="创建者" align="center" prop="createBy" />
           <el-table-column
             label="创建时间"
             align="center"
@@ -264,7 +269,7 @@
               <span>{{ parseTime(scope.row.createTime) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="更新者" align="center" prop="updateBy" />
+          <el-table-column min-width="100" label="更新者" align="center" prop="updateBy" />
           <el-table-column
             label="更新时间"
             align="center"
@@ -284,7 +289,7 @@
           >
             <template #default="scope">
               <el-tooltip content="删除" placement="top">
-                <el-button
+                <el-button aria-label="删除"
                   link
                   type="primary"
                   icon="Delete"
@@ -317,7 +322,7 @@
             type="index"
             width="60"
           />
-          <el-table-column
+          <el-table-column min-width="160"
             label="货品编号"
             align="center"
             prop="product.productCode"
@@ -328,32 +333,32 @@
             prop="product.productName" min-width="230">
             <template #default="scope"><ProductIdentity :product="scope.row" /></template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="130"
             label="货品类型"
             align="center"
             prop="type.productTypeName"
           />
-          <el-table-column
+          <el-table-column min-width="140"
             label="规格"
             align="center"
             prop="product.productSpecifications"
           />
-          <el-table-column
+          <el-table-column min-width="80"
             label="单位"
             align="center"
             prop="product.measureUnit"
           />
-          <el-table-column
+          <el-table-column min-width="140"
             label="产地"
             align="center"
             prop="product.producer"
           />
-          <el-table-column label="数量" align="center" prop="planQuantity" />
-          <el-table-column label="单价" align="center" prop="univalence" />
-          <el-table-column label="折扣" align="center" prop="discount" />
-          <el-table-column label="金额" align="center" prop="money" />
-          <el-table-column label="成本" align="center" prop="cost" />
-          <el-table-column
+          <el-table-column min-width="110" label="数量" align="right" prop="planQuantity" />
+          <el-table-column min-width="110" label="单价" align="right" prop="univalence" />
+          <el-table-column min-width="110" label="折扣" align="right" prop="discount" />
+          <el-table-column min-width="110" label="金额" align="right" prop="money" />
+          <el-table-column min-width="110" label="成本" align="right" prop="cost" />
+          <el-table-column min-width="220"
             label="备注"
             align="center"
             prop="remarks"
@@ -373,10 +378,10 @@
     </el-row>
 
     <!-- 单据头表导入对话框 -->
-    <el-dialog
+    <el-dialog class="erp-dialog"
       :title="uploadHead.title"
       v-model="uploadHead.open"
-      width="400px"
+      width="min(400px, calc(100vw - 24px))"
       append-to-body
     >
       <el-upload
@@ -398,7 +403,7 @@
             <div class="el-upload__tip">
               <el-checkbox
                 v-model="uploadHead.updateSupport"
-              />是否更新已经存在的单据头表数据
+              >更新已有单据头表数据</el-checkbox>
             </div>
             <span>仅允许导入xls、xlsx格式文件。</span>
             <el-link
@@ -414,18 +419,18 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button type="primary" @click="submitHeadFileForm"
-            >确 定</el-button
+            >开始导入</el-button
           >
-          <el-button @click="uploadHead.open = false">取 消</el-button>
+          <el-button @click="uploadHead.open = false">取消</el-button>
         </div>
       </template>
     </el-dialog>
 
     <!-- 单据明细表导入对话框 -->
-    <el-dialog
+    <el-dialog class="erp-dialog"
       :title="uploadDetail.title"
       v-model="uploadDetail.open"
-      width="400px"
+      width="min(400px, calc(100vw - 24px))"
       append-to-body
     >
       <el-upload
@@ -449,7 +454,7 @@
             <div class="el-upload__tip">
               <el-checkbox
                 v-model="uploadDetail.updateSupport"
-              />是否更新已经存在的单据明细表数据
+              >更新已有单据明细表数据</el-checkbox>
             </div>
             <span>仅允许导入xls、xlsx格式文件。</span>
             <el-link
@@ -465,9 +470,9 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button type="primary" @click="submitDetailFileForm"
-            >确 定</el-button
+            >开始导入</el-button
           >
-          <el-button @click="uploadDetail.open = false">取 消</el-button>
+          <el-button @click="uploadDetail.open = false">取消</el-button>
         </div>
       </template>
     </el-dialog>
@@ -731,3 +736,5 @@ getList();
   width: 200px;
 }
 </style>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

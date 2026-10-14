@@ -5,9 +5,9 @@
     <!-- [zh] 开始标签 `<div>` -->
     <div class="page-toolbar">
       <!-- [zh] 开始标签 `<p>` -->
-      <p class="toolbar-tip">
+      <p v-if="isSelectMode" class="toolbar-tip">
         <!-- [zh] Mustache 插值表达式 -->
-        {{ isSelectMode ? '点击地址即可选中并返回确认订单' : '管理你的收货地址，下单时可直接选用' }}
+        选择本次订单的收货地址
       <!-- [zh] 闭合标签 `</p>` -->
       </p>
       <!-- [zh] 开始标签 `<el-button>` -->
@@ -37,7 +37,11 @@
           <article
             class="address-card card-flat"
             :class="cardClass(item)"
+            :role="isSelectMode ? 'button' : undefined"
+            :tabindex="isSelectMode ? 0 : undefined"
             @click="onCardClick(item)"
+            @keydown.enter.self="onCardClick(item)"
+            @keydown.space.self.prevent="onCardClick(item)"
           >
             <!-- [zh] 开始标签 `<AddressCardBody>` -->
             <AddressCardBody :item="item" />
@@ -60,7 +64,11 @@
           v-else
           class="address-card card-flat"
           :class="cardClass(item)"
+          :role="isSelectMode ? 'button' : undefined"
+          :tabindex="isSelectMode ? 0 : undefined"
           @click="onCardClick(item)"
+          @keydown.enter.self="onCardClick(item)"
+          @keydown.space.self.prevent="onCardClick(item)"
         >
           <AddressCardBody :item="item" />
           <div v-if="!isSelectMode" class="card-actions">
@@ -74,7 +82,7 @@
             </el-button>
             <el-button link type="danger" @click.stop="remove(item.addressId)">删除</el-button>
           </div>
-          <p v-else class="select-hint">点击使用此地址</p>
+          <p v-else class="select-hint">{{ pickedAddressId === item.addressId ? '上次使用' : '使用此地址' }}</p>
         </article>
       </template>
     </div>
@@ -209,7 +217,7 @@ usePageRefresh(load);
   /* [zh] 样式规则 `align-items: center;` */
   align-items: center;
   /* [zh] 样式规则 `justify-content: space-between;` */
-  justify-content: space-between;
+  justify-content: flex-end;
   /* [zh] 样式规则 `gap: 12px;` */
   gap: 12px;
   /* [zh] 样式规则 `margin-bottom: 14px;` */
@@ -257,7 +265,7 @@ usePageRefresh(load);
     /* [zh] 样式规则 `border-color: rgba($color-primary, 0.45)` */
     border-color: rgba($color-primary, 0.45);
     /* [zh] 样式规则 `background: linear-gradient(180deg, #fff` */
-    background: linear-gradient(180deg, #fffaf7 0%, #fff 40%);
+    background: $color-primary-soft;
   /* [zh] 样式规则 `}` */
   }
 

@@ -1,7 +1,6 @@
 package com.ruoyi.system.mapper;
 
 import com.ruoyi.common.core.domain.entity.File;
-import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -21,12 +20,7 @@ public interface FileMapper {
     /**
      * 打印文件上传
      */
-    int upload(@Param("fileName") String fileName, @Param("fileUrl") String fileUrl);
-
-    /**
-     * 打印文件新增
-     */
-    int addFileName(File bo);
+    int upload(File bo);
 
     /**
      * 打印文件修改

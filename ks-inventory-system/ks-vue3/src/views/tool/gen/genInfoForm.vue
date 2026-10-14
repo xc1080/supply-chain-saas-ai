@@ -1,7 +1,7 @@
 <template>
-  <el-form ref="genInfoForm" :model="info" :rules="rules" label-width="150px">
+  <el-form ref="genInfoForm" :model="info" :rules="rules" label-position="top">
     <el-row>
-      <el-col :span="12">
+      <el-col :span="12" :xs="24">
         <el-form-item prop="tplCategory">
           <template #label>生成模板</template>
           <el-select v-model="info.tplCategory" @change="tplSelectChange">
@@ -12,7 +12,7 @@
         </el-form-item>
       </el-col>
 
-      <el-col :span="12">
+      <el-col :span="12" :xs="24">
         <el-form-item prop="tplWebType">
           <template #label>前端类型</template>
           <el-select v-model="info.tplWebType">
@@ -22,7 +22,7 @@
         </el-form-item>
       </el-col>
 
-      <el-col :span="12">
+      <el-col :span="12" :xs="24">
         <el-form-item prop="packageName">
           <template #label>
             生成包路径
@@ -34,7 +34,7 @@
         </el-form-item>
       </el-col>
 
-      <el-col :span="12">
+      <el-col :span="12" :xs="24">
         <el-form-item prop="moduleName">
           <template #label>
             生成模块名
@@ -46,7 +46,7 @@
         </el-form-item>
       </el-col>
 
-      <el-col :span="12">
+      <el-col :span="12" :xs="24">
         <el-form-item prop="businessName">
           <template #label>
             生成业务名
@@ -58,7 +58,7 @@
         </el-form-item>
       </el-col>
 
-      <el-col :span="12">
+      <el-col :span="12" :xs="24">
         <el-form-item prop="functionName">
           <template #label>
             生成功能名
@@ -70,7 +70,7 @@
         </el-form-item>
       </el-col>
 
-      <el-col :span="12">
+      <el-col :span="12" :xs="24">
         <el-form-item prop="genType">
           <template #label>
             生成代码方式
@@ -83,7 +83,7 @@
         </el-form-item>
       </el-col>
 
-      <el-col :span="12">
+      <el-col :span="12" :xs="24">
         <el-form-item>
           <template #label>
             上级菜单
@@ -126,11 +126,11 @@
         </el-form-item>
       </el-col>
     </el-row>
-    
+
     <template v-if="info.tplCategory == 'tree'">
       <h4 class="form-header">其他信息</h4>
       <el-row v-show="info.tplCategory == 'tree'">
-        <el-col :span="12">
+        <el-col :span="12" :xs="24">
           <el-form-item>
             <template #label>
               树编码字段
@@ -148,7 +148,7 @@
             </el-select>
           </el-form-item>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="12" :xs="24">
           <el-form-item>
             <template #label>
               树父编码字段
@@ -166,7 +166,7 @@
             </el-select>
           </el-form-item>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="12" :xs="24">
           <el-form-item>
             <template #label>
               树名称字段
@@ -190,7 +190,7 @@
     <template v-if="info.tplCategory == 'sub'">
       <h4 class="form-header">关联信息</h4>
       <el-row>
-        <el-col :span="12">
+        <el-col :span="12" :xs="24">
           <el-form-item>
             <template #label>
               关联子表的表名
@@ -208,7 +208,7 @@
             </el-select>
           </el-form-item>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="12" :xs="24">
           <el-form-item>
             <template #label>
               子表关联的外键名

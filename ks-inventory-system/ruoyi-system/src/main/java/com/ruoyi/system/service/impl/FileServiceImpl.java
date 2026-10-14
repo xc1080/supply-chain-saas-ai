@@ -1,6 +1,8 @@
 package com.ruoyi.system.service.impl;
 
 import com.ruoyi.common.core.domain.entity.File;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.mapper.FileMapper;
 import com.ruoyi.system.mapper.WarehouseMapper;
 import com.ruoyi.system.service.FileService;
@@ -36,8 +38,19 @@ public class FileServiceImpl implements FileService {
      * 打印文件上传
      */
     @Override
-    public boolean upload(String fileName, String fileUrl) {
-        return fileMapper.upload(fileName, fileUrl) > 0;
+    @Transactional
+    public File upload(String fileName, String fileUrl, String createBy) {
+        if (StringUtils.isEmpty(createBy)) {
+            throw new ServiceException("上传文件缺少创建者");
+        }
+        File uploaded = new File();
+        uploaded.setFileName(fileName);
+        uploaded.setFileUrl(fileUrl);
+        uploaded.setCreateBy(createBy);
+        if (fileMapper.upload(uploaded) != 1 || uploaded.getFileId() == null) {
+            throw new ServiceException("保存上传文件记录失败");
+        }
+        return uploaded;
     }
 
     /**
@@ -54,15 +67,6 @@ public class FileServiceImpl implements FileService {
     @Override
     public File selectFileById(Long fileId) {
         return fileMapper.selectFileById(fileId);
-    }
-
-    /**
-     * 打印文件新增
-     */
-    @Override
-    @Transactional
-    public int addFileName(File bo) {
-        return fileMapper.addFileName(bo);
     }
 
     /**

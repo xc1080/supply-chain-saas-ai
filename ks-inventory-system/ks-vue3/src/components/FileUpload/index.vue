@@ -20,8 +20,8 @@
     <!-- 上传提示 -->
     <div class="el-upload__tip" v-if="showTip">
       请上传
-      <template v-if="fileSize"> 大小不超过 <b style="color: #f56c6c">{{ fileSize }}MB</b> </template>
-      <template v-if="fileType"> 格式为 <b style="color: #f56c6c">{{ fileType.join("/") }}</b> </template>
+      <template v-if="fileSize"> 大小不超过 <b class="upload-limit">{{ fileSize }}MB</b> </template>
+      <template v-if="fileType"> 格式为 <b class="upload-limit">{{ fileType.join("/") }}</b> </template>
       的文件
     </div>
     <!-- 文件列表 -->
@@ -31,7 +31,7 @@
           <span class="el-icon-document"> {{ getFileName(file.name) }} </span>
         </el-link>
         <div class="ele-upload-list__item-content-action">
-          <el-link :underline="false" @click="handleDelete(index)" type="danger">删除</el-link>
+          <el-button link type="danger" :aria-label="'删除文件 ' + getFileName(file.name)" @click="handleDelete(index)">删除</el-button>
         </div>
       </li>
     </transition-group>
@@ -67,7 +67,7 @@ const props = defineProps({
 
 const { proxy } = getCurrentInstance();
 const emit = defineEmits();
-const number = ref(0);
+const number = ref(0); // 尚未完成的上传数
 const uploadList = ref([]);
 const baseUrl = import.meta.env.VITE_APP_BASE_API;
 const uploadFileUrl = ref(import.meta.env.VITE_APP_BASE_API + "/common/upload"); // 上传文件服务器地址
@@ -116,7 +116,9 @@ function handleBeforeUpload(file) {
       return false;
     }
   }
-  proxy.$modal.loading("正在上传文件，请稍候...");
+  if (number.value === 0) {
+    proxy.$modal.loading("正在上传文件，请稍候...");
+  }
   number.value++;
   return true;
 }
@@ -127,22 +129,22 @@ function handleExceed() {
 }
 
 // 上传失败
-function handleUploadError(err) {
+function handleUploadError(err, file) {
+  number.value--;
   proxy.$modal.msgError("上传文件失败");
+  uploadedSuccessfully();
 }
 
 // 上传成功回调
 function handleUploadSuccess(res, file) {
   if (res.code === 200) {
     uploadList.value.push({ name: res.fileName, url: res.fileName });
-    uploadedSuccessfully();
   } else {
-    number.value--;
-    proxy.$modal.closeLoading();
     proxy.$modal.msgError(res.msg);
     proxy.$refs.fileUpload.handleRemove(file);
-    uploadedSuccessfully();
   }
+  number.value--;
+  uploadedSuccessfully();
 }
 
 // 删除文件
@@ -153,7 +155,7 @@ function handleDelete(index) {
 
 // 上传结束处理
 function uploadedSuccessfully() {
-  if (number.value > 0 && uploadList.value.length === number.value) {
+  if (number.value === 0) {
     fileList.value = fileList.value.filter(f => f.url !== undefined).concat(uploadList.value);
     uploadList.value = [];
     number.value = 0;
@@ -190,7 +192,7 @@ function listToString(list, separator) {
   margin-bottom: 5px;
 }
 .upload-file-list .el-upload-list__item {
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--sc-border);
   line-height: 2;
   margin-bottom: 10px;
   position: relative;
@@ -201,7 +203,7 @@ function listToString(list, separator) {
   align-items: center;
   color: inherit;
 }
-.ele-upload-list__item-content-action .el-link {
+.ele-upload-list__item-content-action .el-button {
   margin-right: 10px;
 }
 </style>

@@ -1,5 +1,6 @@
 <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
 <template>
+  <div class="product-detail-route">
   <!-- [zh] 开始标签 `<div>` -->
   <div v-if="productInfo" class="detail-simlect">
 
@@ -335,6 +336,7 @@
     </el-empty>
   </div>
   <CommentReportDialog ref="reportDialogRef" />
+  </div>
 </template>
 
 <script setup lang="ts">

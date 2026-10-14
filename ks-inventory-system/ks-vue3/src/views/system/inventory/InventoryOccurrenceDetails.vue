@@ -1,6 +1,6 @@
 <template>
   <!-- 库存发生明细 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <el-col :span="24" :xs="24">
         <el-form
@@ -11,7 +11,7 @@
           label-width="100px"
         >
           <el-form-item label="货品编号" prop="productCode">
-            <el-input
+            <el-input aria-label="货品编号"
               v-model="queryParams.productCode"
               placeholder="请输入货品编号"
               clearable
@@ -20,7 +20,7 @@
             />
           </el-form-item>
           <el-form-item label="货品名称" prop="productName">
-            <el-input
+            <el-input aria-label="货品名称"
               v-model="queryParams.productName"
               placeholder="请输入货品名称"
               clearable
@@ -28,32 +28,11 @@
               @keyup.enter="handleQuery"
             />
           </el-form-item>
-          <el-form-item label="货品类型" prop="productType">
-            <el-tree-select
-              style="width: 180px"
-              v-model="form.productType"
-              :data="typeOptions"
-              :props="{ value: 'id', label: 'label', children: 'children' }"
-              value-key="id"
-              placeholder="请选择货品类型"
-              clearable
-              check-strictly
-            />
-          </el-form-item>
-          <el-form-item label="商品规格" prop="productSpecifications">
-            <el-input
-              v-model="queryParams.productSpecifications"
-              placeholder="请输入商品规格"
-              clearable
-              style="width: 180px"
-              @keyup.enter="handleQuery"
-            />
-          </el-form-item>
           <el-form-item label="仓库" prop="warehousingId">
-            <el-select
+            <el-select aria-label="仓库"
               style="width: 180px"
               v-model="queryParams.warehousingId"
-              placeholder="请选择"
+              placeholder="选择仓库"
             >
               <el-option
                 v-for="item in warehouseOptions"
@@ -71,13 +50,13 @@
               v-hasPermi="['inventory:inventoryOccurrenceDetails:list']"
               >查询</el-button
             >
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-form>
         <el-row :gutter="10" class="mb8">
           <!-- <el-col :span="1.5">
             <el-button
-              type="danger"
+              type="default"
               plain
               icon="Download"
               @click="handleDetailExport"
@@ -104,7 +83,7 @@
             type="index"
             width="60"
           />
-          <el-table-column
+          <el-table-column min-width="160"
             label="货品编号"
             align="center"
             prop="product.productCode"
@@ -115,29 +94,29 @@
             prop="product.productName" min-width="230">
             <template #default="scope"><ProductIdentity :product="scope.row" /></template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="130"
             label="货品类型"
             align="center"
             prop="type.productTypeName"
           />
-          <el-table-column
+          <el-table-column min-width="140"
             label="规格"
             align="center"
             prop="product.productSpecifications"
           />
-          <el-table-column
+          <el-table-column min-width="80"
             label="单位"
             align="center"
             prop="product.measureUnit"
           />
           <el-table-column label="期初结存" align="center">
-            <el-table-column
+            <el-table-column min-width="110"
               label="数量"
-              align="center"
+              align="right"
               prop="obplanQuantity"
             />
-            <el-table-column label="单价" align="center" prop="obunivalence" />
-            <el-table-column label="金额" align="center" prop="obmoney" />
+            <el-table-column min-width="110" label="单价" align="right" prop="obunivalence" />
+            <el-table-column min-width="110" label="金额" align="right" prop="obmoney" />
           </el-table-column>
           <el-table-column
             label="业务类型"
@@ -174,17 +153,17 @@
             label="供应商"
             align="center"
             prop="supplier.supplierName"
-            idth="100"
+            min-width="100"
           />
           <el-table-column
             label="客户"
             align="center"
             prop="customer.customerName"
-            idth="100"
+            min-width="100"
           />
-          <el-table-column label="数量" align="center" prop="planQuantity" />
-          <el-table-column label="单价" align="center" prop="univalence" />
-          <el-table-column label="金额" align="center" prop="money" />
+          <el-table-column min-width="110" label="数量" align="right" prop="planQuantity" />
+          <el-table-column min-width="110" label="单价" align="right" prop="univalence" />
+          <el-table-column min-width="110" label="金额" align="right" prop="money" />
           <el-table-column
             label="创建日期"
             align="center"
@@ -192,13 +171,13 @@
             width="180"
           />
           <el-table-column label="期末结存" align="center">
-            <el-table-column
+            <el-table-column min-width="110"
               label="数量"
-              align="center"
+              align="right"
               prop="cbplanQuantity"
             />
-            <el-table-column label="单价" align="center" prop="cbunivalence" />
-            <el-table-column label="金额" align="center" prop="cbmoney" />
+            <el-table-column min-width="110" label="单价" align="right" prop="cbunivalence" />
+            <el-table-column min-width="110" label="金额" align="right" prop="cbmoney" />
           </el-table-column>
         </el-table>
         <!-- 分页组件 -->
@@ -277,7 +256,6 @@ function handleQuery() {
 }
 /** 重置按钮操作 */
 function resetQuery() {
-  typeOptions.value = undefined;
   dateRange.value = [];
   proxy.resetForm("queryRef");
   handleQuery();
@@ -307,3 +285,5 @@ function handleDetailExport() {
 getList();
 Options();
 </script>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

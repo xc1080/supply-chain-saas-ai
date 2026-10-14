@@ -1,6 +1,6 @@
 <template>
   <!-- 供应商资料 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <el-col :span="24" :xs="24">
         <el-form
@@ -11,7 +11,7 @@
           label-width="90px"
         >
           <el-form-item label="供应商编号" prop="supplierCode">
-            <el-input
+            <el-input aria-label="供应商编号"
               v-model="queryParams.supplierCode"
               placeholder="请输入供应商编号"
               style="width: 200px"
@@ -20,45 +20,17 @@
             />
           </el-form-item>
           <el-form-item label="供应商名称" prop="supplierName">
-            <el-input
+            <el-input aria-label="供应商名称"
               v-model="queryParams.supplierName"
               placeholder="请输入供应商名称"
               clearable
               style="width: 200px"
             />
           </el-form-item>
-          <el-form-item label="业务员" prop="supplierSalesPerson">
-            <el-input
-              v-model="queryParams.supplierSalesPerson"
-              placeholder="请输入业务员"
-              style="width: 200px"
-            />
-          </el-form-item>
-          <el-form-item label="联系人" prop="supplierContacts">
-            <el-input
-              v-model="queryParams.supplierContacts"
-              placeholder="请输入联系人"
-              style="width: 200px"
-            />
-          </el-form-item>
-          <el-form-item label="联系电话" prop="supplierContactNumber">
-            <el-input
-              v-model="queryParams.supplierContactNumber"
-              placeholder="请输入联系电话"
-              style="width: 200px"
-            />
-          </el-form-item>
-          <el-form-item label="单位地址" prop="supplierWorkAddress">
-            <el-input
-              v-model="queryParams.supplierWorkAddress"
-              placeholder="请输入单位地址"
-              style="width: 200px"
-            />
-          </el-form-item>
           <el-form-item label="状态" prop="status">
-            <el-select
+            <el-select aria-label="状态"
               v-model="queryParams.status"
-              placeholder="请选择"
+              placeholder="选择状态"
               clearable
               style="width: 200px"
             >
@@ -70,6 +42,39 @@
               />
             </el-select>
           </el-form-item>
+          <details class="erp-query-disclosure">
+            <summary>更多筛选</summary>
+            <div class="erp-extra-filters">
+              <el-form-item label="业务员" prop="supplierSalesPerson">
+                <el-input aria-label="业务员"
+                  v-model="queryParams.supplierSalesPerson"
+                  placeholder="请输入业务员"
+                  style="width: 200px"
+                />
+              </el-form-item>
+              <el-form-item label="联系人" prop="supplierContacts">
+                <el-input aria-label="联系人"
+                  v-model="queryParams.supplierContacts"
+                  placeholder="请输入联系人"
+                  style="width: 200px"
+                />
+              </el-form-item>
+              <el-form-item label="联系电话" prop="supplierContactNumber">
+                <el-input aria-label="联系电话"
+                  v-model="queryParams.supplierContactNumber"
+                  placeholder="请输入联系电话"
+                  style="width: 200px"
+                />
+              </el-form-item>
+              <el-form-item label="单位地址" prop="supplierWorkAddress">
+                <el-input aria-label="单位地址"
+                  v-model="queryParams.supplierWorkAddress"
+                  placeholder="请输入单位地址"
+                  style="width: 200px"
+                />
+              </el-form-item>
+            </div>
+          </details>
           <el-form-item>
             <el-button
               type="primary"
@@ -78,7 +83,7 @@
               v-hasPermi="['baseDate:supplier:list']"
               >查询</el-button
             >
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-form>
         <el-row :gutter="10" class="mb8">
@@ -126,7 +131,7 @@
           </el-col>
           <el-col :span="1.5">
             <el-button
-              type="warning"
+              type="default"
               plain
               icon="Download"
               @click="handleExport"
@@ -149,37 +154,37 @@
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="50" align="center" />
-          <el-table-column
+          <el-table-column min-width="140"
             label="供应商编号"
             align="center"
             prop="supplierCode"
             v-if="columns[0].visible"
           />
-          <el-table-column
+          <el-table-column min-width="180"
             label="供应商名称"
             align="center"
             prop="supplierName"
             v-if="columns[1].visible"
           />
-          <el-table-column
+          <el-table-column min-width="100"
             label="业务员"
             align="center"
             prop="supplierSalesPerson"
             v-if="columns[2].visible"
           />
-          <el-table-column
+          <el-table-column min-width="100"
             label="联系人"
             align="center"
             prop="supplierContacts"
             v-if="columns[3].visible"
           />
-          <el-table-column
+          <el-table-column min-width="140"
             label="联系电话"
             align="center"
             prop="supplierContactNumber"
             v-if="columns[4].visible"
           />
-          <el-table-column
+          <el-table-column min-width="220"
             label="单位地址"
             align="center"
             prop="supplierWorkAddress"
@@ -192,49 +197,49 @@
             prop="supplierPostalCode"
             v-if="columns[6].visible"
           />
-          <el-table-column
+          <el-table-column min-width="110"
             label="期初欠款"
-            align="center"
+            align="right"
             prop="supplierOpeningDebt"
             v-if="columns[7].visible"
           />
-          <el-table-column
+          <el-table-column min-width="160"
             label="开户银行"
             align="center"
             prop="supplierOpeningBank"
             v-if="columns[8].visible"
           />
-          <el-table-column
+          <el-table-column min-width="190"
             label="银行账号"
             align="center"
             prop="supplierAccountNumber"
             v-if="columns[9].visible"
           />
-          <el-table-column
+          <el-table-column min-width="180"
             label="纳税号"
             align="center"
             prop="supplierTaxId"
             v-if="columns[10].visible"
           />
-          <el-table-column
+          <el-table-column min-width="190"
             label="公司主页"
             align="center"
             prop="supplierCompanyHomepage"
             v-if="columns[11].visible"
           />
-          <el-table-column
+          <el-table-column min-width="200"
             label="电子邮箱"
             align="center"
             prop="supplierEmail"
             v-if="columns[12].visible"
           />
-          <el-table-column
+          <el-table-column min-width="120"
             label="公司法人"
             align="center"
             prop="supplierLegalPerson"
             v-if="columns[13].visible"
           />
-          <el-table-column
+          <el-table-column min-width="90"
             label="状态"
             align="center"
             prop="status"
@@ -247,20 +252,20 @@
               />
             </template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="220"
             label="备注"
             align="center"
             prop="remarks"
             :show-overflow-tooltip="true"
             v-if="columns[15].visible"
           />
-          <el-table-column
+          <el-table-column min-width="100"
             label="创建者"
             align="center"
             prop="createBy"
             v-if="columns[16].visible"
           />
-          <el-table-column
+          <el-table-column min-width="180"
             label="创建时间"
             align="center"
             prop="createTime"
@@ -270,13 +275,13 @@
               <span>{{ parseTime(scope.row.createTime) }}</span>
             </template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="100"
             label="更新者"
             align="center"
             prop="updateBy"
             v-if="columns[18].visible"
           />
-          <el-table-column
+          <el-table-column min-width="180"
             label="更新时间"
             align="center"
             prop="updateTime"
@@ -299,7 +304,7 @@
                 placement="top"
                 v-if="scope.row.supplierId !== 0"
               >
-                <el-button
+                <el-button aria-label="修改"
                   link
                   type="primary"
                   icon="Edit"
@@ -312,7 +317,7 @@
                 placement="top"
                 v-if="scope.row.supplierId !== 0"
               >
-                <el-button
+                <el-button aria-label="删除"
                   link
                   type="primary"
                   icon="Delete"
@@ -335,7 +340,7 @@
     </el-row>
 
     <!-- 添加或修改供应商配置对话框 -->
-    <el-dialog :title="title" v-model="open" width="700px" append-to-body>
+    <el-dialog class="erp-dialog" :title="title" v-model="open" width="min(700px, calc(100vw - 24px))" append-to-body>
       <el-form
         :model="form"
         :rules="rules"
@@ -345,7 +350,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="供应商编号" prop="supplierCode">
-              <el-input
+              <el-input aria-label="供应商编号"
                 v-model="form.supplierCode"
                 placeholder="请输入供应商编号"
                 maxlength="30"
@@ -354,7 +359,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="供应商名称" prop="supplierName">
-              <el-input
+              <el-input aria-label="供应商名称"
                 v-model="form.supplierName"
                 placeholder="请输入供应商名称"
                 maxlength="30"
@@ -365,7 +370,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="业务员" prop="supplierSalesPerson">
-              <el-input
+              <el-input aria-label="业务员"
                 v-model="form.supplierSalesPerson"
                 placeholder="请输入业务员"
                 maxlength="30"
@@ -374,7 +379,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="联系人" prop="supplierContacts">
-              <el-input
+              <el-input aria-label="联系人"
                 v-model="form.supplierContacts"
                 placeholder="请输入联系人"
                 maxlength="30"
@@ -385,7 +390,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="联系电话" prop="supplierContactNumber">
-              <el-input
+              <el-input aria-label="联系电话"
                 v-model="form.supplierContactNumber"
                 placeholder="请输入联系电话"
                 maxlength="30"
@@ -394,7 +399,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="邮编" prop="supplierPostalCode">
-              <el-input
+              <el-input aria-label="邮编"
                 v-model="form.supplierPostalCode"
                 placeholder="请输入邮编"
                 maxlength="30"
@@ -405,7 +410,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="期初欠款" prop="supplierOpeningDebt">
-              <el-input
+              <el-input aria-label="期初欠款"
                 v-model="form.supplierOpeningDebt"
                 placeholder="请输入期初欠款"
                 maxlength="30"
@@ -414,7 +419,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="开户银行" prop="supplierOpeningBank">
-              <el-input
+              <el-input aria-label="开户银行"
                 v-model="form.supplierOpeningBank"
                 placeholder="请输入开户银行"
                 maxlength="30"
@@ -425,7 +430,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="银行账号" prop="supplierAccountNumber">
-              <el-input
+              <el-input aria-label="银行账号"
                 v-model="form.supplierAccountNumber"
                 placeholder="请输入银行账号"
                 maxlength="30"
@@ -434,7 +439,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="纳税号" prop="supplierTaxId">
-              <el-input
+              <el-input aria-label="纳税号"
                 v-model="form.supplierTaxId"
                 placeholder="请输入纳税号"
                 maxlength="30"
@@ -445,7 +450,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="公司主页" prop="supplierCompanyHomepage">
-              <el-input
+              <el-input aria-label="公司主页"
                 v-model="form.supplierCompanyHomepage"
                 placeholder="请输入公司主页"
                 maxlength="30"
@@ -454,7 +459,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="电子邮箱" prop="supplierEmail">
-              <el-input
+              <el-input aria-label="电子邮箱"
                 v-model="form.supplierEmail"
                 placeholder="请输入电子邮箱"
                 maxlength="30"
@@ -465,7 +470,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="公司法人" prop="supplierLegalPerson">
-              <el-input
+              <el-input aria-label="公司法人"
                 v-model="form.supplierLegalPerson"
                 placeholder="请输入公司法人"
                 maxlength="30"
@@ -474,7 +479,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="状态" prop="status">
-              <el-select v-model="form.status" placeholder="请选择" clearable>
+              <el-select aria-label="状态" v-model="form.status" placeholder="选择状态" clearable>
                 <!-- <el-option
                     v-for="dict in sys_normal_disable"
                     :key="dict.value"
@@ -489,7 +494,7 @@
         <el-row>
           <el-col :span="24">
             <el-form-item label="单位地址" prop="supplierWorkAddress">
-              <el-input
+              <el-input aria-label="单位地址"
                 v-model="form.supplierWorkAddress"
                 placeholder="请输入单位地址"
               />
@@ -499,7 +504,7 @@
         <el-row>
           <el-col :span="24">
             <el-form-item label="备注">
-              <el-input
+              <el-input aria-label="备注"
                 v-model="form.remarks"
                 type="textarea"
                 placeholder="请输入备注"
@@ -510,17 +515,17 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
+          <el-button type="primary" @click="submitForm">保存</el-button>
+          <el-button @click="cancel">取消</el-button>
         </div>
       </template>
     </el-dialog>
 
     <!-- 供应商导入对话框 -->
-    <el-dialog
+    <el-dialog class="erp-dialog"
       :title="upload.title"
       v-model="upload.open"
-      width="400px"
+      width="min(400px, calc(100vw - 24px))"
       append-to-body
     >
       <el-upload
@@ -542,7 +547,7 @@
             <div class="el-upload__tip">
               <el-checkbox
                 v-model="upload.updateSupport"
-              />是否更新已经存在的供应商数据
+              >更新已有供应商数据</el-checkbox>
             </div>
             <span>仅允许导入xls、xlsx格式文件。</span>
             <el-link
@@ -557,8 +562,8 @@
       </el-upload>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitFileForm">确 定</el-button>
-          <el-button @click="upload.open = false">取 消</el-button>
+          <el-button type="primary" @click="submitFileForm">开始导入</el-button>
+          <el-button @click="upload.open = false">取消</el-button>
         </div>
       </template>
     </el-dialog>
@@ -830,3 +835,5 @@ function handleSelectionChange(selection) {
 }
 getList();
 </script>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

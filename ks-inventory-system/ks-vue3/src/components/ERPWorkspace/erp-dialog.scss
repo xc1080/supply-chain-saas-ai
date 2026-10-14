@@ -1,0 +1,24 @@
+// Element Plus teleports dialogs outside the page's scoped root.
+// Restrict these rules to explicitly marked ERP dialogs.
+.el-dialog.erp-dialog {
+  max-width: calc(100vw - 24px);
+
+  .el-dialog__body { max-height: 70vh; overflow-y: auto; overscroll-behavior: contain; }
+  .el-form-item__content { min-width: 0; }
+  .el-form-item__content > :is(.el-input, .el-select, .el-tree-select, .el-input-number, .el-textarea) { width: 100%; max-width: 100%; }
+  .el-upload, .el-upload-dragger { width: 100%; }
+  .el-checkbox { height: auto; white-space: normal; }
+  .el-checkbox__label { white-space: normal; line-height: 1.6; }
+  .el-dialog__footer, .dialog-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+  .el-dialog__footer .el-button { margin: 0; }
+  .el-button:focus-visible { outline: 2px solid var(--sc-primary); outline-offset: 3px; }
+}
+
+@media (max-width: 700px) {
+  .el-dialog.erp-dialog {
+    .el-col-12 { flex: 0 0 100%; max-width: 100%; }
+    .el-form-item { display: flex; flex-direction: column; align-items: stretch; }
+    .el-form-item__label { justify-content: flex-start; width: auto !important; height: auto; line-height: 1.5; padding: 0 0 6px; }
+    .el-form-item__content { margin-left: 0 !important; }
+  }
+}

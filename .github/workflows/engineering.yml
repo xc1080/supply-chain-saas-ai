@@ -101,6 +101,10 @@ jobs:
         run: |
           npm ci
           npm run ${{ matrix.command }}
+      - name: Admin business navigation and upload recovery tests
+        if: matrix.name == 'admin'
+        working-directory: ${{ matrix.directory }}
+        run: npm run test:business
       - name: Customer SKU and refund policy tests
         if: matrix.name == 'customer'
         working-directory: ${{ matrix.directory }}

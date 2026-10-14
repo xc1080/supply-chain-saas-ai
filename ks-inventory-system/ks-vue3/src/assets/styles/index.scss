@@ -42,10 +42,6 @@ html {
   padding: 4px 0;
 }
 
-a:focus,
-a:active {
-  outline: none;
-}
 
 a,
 a:focus,
@@ -55,9 +51,6 @@ a:hover {
   text-decoration: none;
 }
 
-div:focus {
-  outline: none;
-}
 
 .fr {
   float: right;
@@ -112,11 +105,11 @@ aside {
   -moz-osx-font-smoothing: grayscale;
 
   a {
-    color: #337ab7;
+    color: var(--sc-primary);
     cursor: pointer;
 
     &:hover {
-      color: rgb(32, 160, 255);
+      color: var(--sc-primary-hover);
     }
   }
 }
@@ -184,3 +177,4 @@ aside {
 }
 
 @import './workspace.scss';
+@import '../../components/ERPWorkspace/erp-dialog.scss';

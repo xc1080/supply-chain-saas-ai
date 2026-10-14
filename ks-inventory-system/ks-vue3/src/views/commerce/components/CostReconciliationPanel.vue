@@ -13,9 +13,11 @@
     </template>
     <template v-if="canReview">
     <h3>核对与处理记录</h3>
+    <el-select v-model="history.status" aria-label="对账记录状态" @change="filterRecords"><el-option label="待处理" value="OPEN" /><el-option label="全部状态" value="ALL" /><el-option label="一致" value="MATCHED" /><el-option label="复核完成" value="RESOLVED" /></el-select>
+    <el-pagination v-model:current-page="history.pageNum" v-model:page-size="history.pageSize" :total="history.total" :page-sizes="[20, 50, 100]" layout="total, sizes, prev, pager, next" @current-change="refresh" @size-change="filterRecords" />
     <el-table :data="reconciliations" row-key="reconciliationId" v-loading="loading" empty-text="尚无核对记录"><el-table-column type="expand"><template #default="s"><div class="evidence"><p>原始核对：{{ s.row.snapshot?.healthy ? '一致' : `${s.row.snapshot?.issues?.length || 0} 项差异` }} · 操作人 {{ s.row.actorId }}</p><p v-if="s.row.resolution">处理依据 {{ s.row.resolution.evidenceReference }} · {{ s.row.resolution.note }} · 操作人 {{ s.row.resolution.actorId }}</p><ul v-if="s.row.snapshot?.issues?.length"><li v-for="(issue, index) in s.row.snapshot.issues" :key="index">{{ issueNames[issue.type] || issue.type }}<span v-if="issue.difference != null"> · {{ money(issue.difference) }}</span></li></ul></div></template></el-table-column><el-table-column label="订单" prop="orderId" min-width="225" /><el-table-column label="核对时间" prop="createdAt" min-width="170" /><el-table-column label="状态" width="110"><template #default="s"><el-tag :type="s.row.status === 'OPEN' ? 'warning' : 'success'">{{ { OPEN: '待处理', MATCHED: '一致', RESOLVED: '复核完成' }[s.row.status] || s.row.status }}</el-tag></template></el-table-column><el-table-column label="操作" width="230"><template #default="s"><el-button link type="primary" :disabled="acting" @click="inspectRecord(s.row)">查看凭证</el-button><el-button v-if="s.row.status === 'OPEN'" link type="primary" :disabled="acting" @click="openResolution(s.row)">复核并留证</el-button></template></el-table-column></el-table>
-    <h3>最近成本流水 <el-tooltip content="采购按单据单价记快照，未分摊折扣、税及运费；出库按发货单成本记快照，退货回转原出库成本。不计算 FIFO 或完整库存估值。"><el-icon aria-label="成本口径"><InfoFilled /></el-icon></el-tooltip></h3>
-    <el-table :data="ledger?.entries || []" row-key="entryId" empty-text="尚无成本快照"><el-table-column label="商品" min-width="235"><template #default="s"><ProductIdentity :product="s.row" /></template></el-table-column><el-table-column label="业务" width="125"><template #default="s">{{ eventNames[s.row.eventType] || s.row.eventType }}</template></el-table-column><el-table-column label="仓库" prop="warehouseId" width="80" /><el-table-column label="数量" prop="quantity" width="85" align="right" /><el-table-column label="单位成本" width="120" align="right"><template #default="s">{{ s.row.costStatus === 'KNOWN' ? money(s.row.unitCost) : '未知' }}</template></el-table-column><el-table-column label="成本变动" width="130" align="right"><template #default="s">{{ s.row.costStatus === 'KNOWN' ? money(s.row.amount) : '未知' }}</template></el-table-column><el-table-column label="凭证 / 原流水" min-width="230"><template #default="s">{{ s.row.receiptId }}<small v-if="s.row.originEntryId" class="origin">原流水 #{{ s.row.originEntryId }}</small></template></el-table-column></el-table>
+    <h3>最近成本流水 <el-tooltip content="采购按单据单价记快照，未分摊折扣、税及运费；出库按发货单成本记快照，退货回转原出库成本。不计算 FIFO 或完整库存估值。"><el-icon aria-label="成本口径" tabindex="0"><InfoFilled /></el-icon></el-tooltip></h3>
+    <el-table :data="ledger?.entries || []" row-key="entryId" empty-text="尚无成本快照"><el-table-column label="商品" min-width="235"><template #default="s"><ProductIdentity :product="s.row" /></template></el-table-column><el-table-column label="业务" width="125"><template #default="s">{{ eventNames[s.row.eventType] || s.row.eventType }}</template></el-table-column><el-table-column label="仓库" prop="warehouseId" width="80" /><el-table-column label="数量" prop="quantity" width="85" align="right" /><el-table-column label="单位成本" width="120" align="right"><template #default="s">{{ s.row.costStatus === 'KNOWN' ? money(s.row.unitCost) : '未知' }}</template></el-table-column><el-table-column label="成本变动" width="130" align="right"><template #default="s">{{ s.row.costStatus === 'KNOWN' ? money(s.row.amount) : '未知' }}</template></el-table-column><el-table-column label="凭证 / 原流水" min-width="230"><template #default="s"><SourceReceiptLink :receipt="s.row.receiptId" :verify="true" /><small v-if="s.row.originEntryId" class="origin">原流水 #{{ s.row.originEntryId }}</small></template></el-table-column></el-table>
     <p v-if="ledger?.unknownEntries" class="coverage">{{ ledger.unknownEntries }} 条成本记录缺少原始成本依据。</p>
     </template>
     <el-dialog v-model="observationVisible" title="导入沙箱对账观测" width="min(500px, 95vw)" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
@@ -29,8 +31,9 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { InfoFilled } from '@element-plus/icons-vue'
 import ProductIdentity from '@/components/ProductIdentity/index.vue'
+import SourceReceiptLink from '@/components/SourceReceiptLink.vue'
 import OrderSettlementPanel from './OrderSettlementPanel.vue'
-import { getCostLedger, listMoneyReconciliations, previewOrderMoney, importSandboxObservation, createMoneyReconciliation, resolveMoneyReconciliation } from '@/api/commerce/costs'
+import { getCostLedger, pageMoneyReconciliations, previewOrderMoney, importSandboxObservation, createMoneyReconciliation, resolveMoneyReconciliation } from '@/api/commerce/costs'
 const props = defineProps({ shopId: { type: String, required: true }, capabilities: { type: Array, default: () => [] } })
 const emit = defineEmits(['updated'])
 const canReview = computed(() => props.capabilities.includes('REFUND_REVIEW'))
@@ -38,6 +41,7 @@ const canFinance = computed(() => canReview.value || props.capabilities.includes
 const inspectedId = ref('')
 const settlementPanel = ref()
 const loading = ref(false), acting = ref(false), error = ref(''), orderId = ref(''), preview = ref(null), ledger = ref(null), reconciliations = ref([])
+const history = reactive({ pageNum: 1, pageSize: 20, total: 0, status: 'OPEN' })
 const observationVisible = ref(false), resolutionVisible = ref(false), dialogError = ref(''), observationTarget = ref(null), resolutionTarget = ref(null)
 const observationForm = reactive({ status: 'SUCCEEDED', amount: '', sourceReference: '', requestKey: '' }), resolutionForm = reactive({ evidenceReference: '', note: '', requestKey: '' })
 const eventNames = { PURCHASE: '采购入库', PURCHASE_REVERSAL: '采购冲销', SUPPLIER_RETURN: '退供出库', SUPPLIER_RETURN_REVERSAL: '退供冲销', DISPATCH: '销售出库', RETURN: '退货回转' }, kindNames = { PAYMENT: '收款', REFUND: '售后退款', COMPENSATION: '关单退款' }
@@ -47,10 +51,11 @@ const money = value => new Intl.NumberFormat('zh-CN', { style: 'currency', curre
 const requestKey = prefix => `${prefix}_${crypto.randomUUID().replaceAll('-', '')}`
 let generation = 0
 let inspectGeneration = 0
+function filterRecords() { history.pageNum = 1; void refresh() }
 async function refresh() {
   if (!canReview.value) { await settlementPanel.value?.refresh(); return }
   const shop = props.shopId, current = ++generation; loading.value = true; error.value = ''
-  try { const [costs, records] = await Promise.all([getCostLedger(shop), listMoneyReconciliations(shop), settlementPanel.value?.refresh()]); if (current !== generation || shop !== props.shopId) return; ledger.value = costs.data; reconciliations.value = records.data || [] }
+  try { const [costs, records] = await Promise.all([getCostLedger(shop), pageMoneyReconciliations(shop, { pageNum: history.pageNum, pageSize: history.pageSize, status: history.status }), settlementPanel.value?.refresh()]); if (current !== generation || shop !== props.shopId) return; ledger.value = costs.data; reconciliations.value = records.data.rows; history.total = records.data.total; if (!reconciliations.value.length && history.pageNum > 1) { history.pageNum = Math.max(1, Math.ceil(history.total / history.pageSize)); void refresh() } }
   catch (failure) { if (current === generation) error.value = failure?.message || '成本与对账暂不可用' }
   finally { if (current === generation) loading.value = false }
 }
@@ -84,12 +89,14 @@ function submitResolution() {
   void perform(shop => resolveMoneyReconciliation(shop, resolutionTarget.value.reconciliationId, { ...resolutionForm }), () => { resolutionVisible.value = false; ElMessage.success('复核完成，已保留处理证据') })
 }
 function saveReconciliation() { const id = preview.value?.orderId; if (!id) return; const key = requestKey('reconcile'); void perform(shop => createMoneyReconciliation(shop, { orderId: id, requestKey: key }), () => ElMessage.success('核对记录已保存')) }
-watch(() => props.shopId, () => { generation++; inspectGeneration++; ledger.value = null; reconciliations.value = []; preview.value = null; orderId.value = ''; inspectedId.value = ''; error.value = ''; observationVisible.value = false; resolutionVisible.value = false; void refresh() })
+watch(() => props.shopId, () => { generation++; inspectGeneration++; Object.assign(history, { pageNum: 1, pageSize: 20, total: 0, status: 'OPEN' }); ledger.value = null; reconciliations.value = []; preview.value = null; orderId.value = ''; inspectedId.value = ''; error.value = ''; observationVisible.value = false; resolutionVisible.value = false; void refresh() })
 onMounted(refresh)
 defineExpose({ refresh })
 </script>
 <style scoped>
 .cost-panel { min-width: 0; }
+.cost-panel h3, .evidence { overflow-wrap: anywhere; }
+.cost-panel h3 { flex-wrap: wrap; }
 @media (max-width: 767px) { .cost-panel header { gap: 12px; flex-wrap: wrap; } .cost-toolbar .el-input { width: 100%; } .cost-toolbar .el-button { width: 100%; } }
-.cost-panel{background:var(--sc-surface);padding:22px;border:1px solid var(--sc-border);border-radius:8px}.cost-panel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}.cost-panel h2{font-size:18px;margin:0 0 6px}.cost-panel h3{display:flex;align-items:center;gap:8px;font-size:15px;margin:28px 0 14px}.cost-panel small,.coverage{color:var(--sc-muted);font-size:12px}.cost-toolbar{display:flex;gap:10px;margin:18px 0}.cost-toolbar .el-input{max-width:350px}.money-summary{display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin:18px 0}.money-summary span{display:flex;gap:8px;font-size:13px}.issues{color:var(--sc-warning);font-size:13px;padding-left:20px;line-height:1.8}.cost-actions{display:flex;justify-content:flex-end;margin:14px 0}.origin{display:block}.evidence{padding:0 24px;color:var(--sc-muted);font-size:13px}.evidence ul{line-height:1.8}@media(max-width:767px){.cost-panel{padding:14px}.cost-toolbar{flex-wrap:wrap}.cost-toolbar .el-input{max-width:none}.money-summary{gap:12px}}
+.cost-panel{background:var(--sc-surface);padding:18px;border:1px solid var(--sc-border);border-radius:8px}.cost-panel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}.cost-panel h2{font-size:16px;margin:0 0 6px}.cost-panel h3{display:flex;align-items:center;gap:8px;font-size:15px;margin:22px 0 12px}.cost-panel small,.coverage{color:var(--sc-muted);font-size:12px}.cost-toolbar{display:flex;gap:10px;margin:18px 0}.cost-toolbar .el-input{max-width:350px}.money-summary{display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin:18px 0}.money-summary span{display:flex;gap:8px;font-size:13px}.issues{color:var(--sc-warning);font-size:13px;padding-left:20px;line-height:1.8}.cost-actions{display:flex;justify-content:flex-end;margin:14px 0}.origin{display:block}.evidence{padding:0 24px;color:var(--sc-muted);font-size:13px}.evidence ul{line-height:1.8}@media(max-width:767px){.cost-panel{padding:14px}.cost-toolbar{flex-wrap:wrap}.cost-toolbar .el-input{max-width:none}.money-summary{gap:12px}}
 </style>

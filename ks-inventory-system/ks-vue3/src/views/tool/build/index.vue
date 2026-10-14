@@ -1,3 +1,3 @@
 <template>
-   <div> 表单构建 <svg-icon icon-class="build" /> </div>
+   <div class="app-container"><el-empty description="表单构建尚未启用" /></div>
 </template>

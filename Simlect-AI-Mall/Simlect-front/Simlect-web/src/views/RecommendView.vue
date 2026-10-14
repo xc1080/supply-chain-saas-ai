@@ -7,7 +7,7 @@
       <!-- [zh] 开始标签 `<h1>` -->
       <h1 class="page-title">{{ DEMO_MODE ? '智能家居精选' : '编辑精选' }}</h1>
       <!-- [zh] 开始标签 `<p>` -->
-      <p class="page-subtitle">{{ DEMO_MODE ? '来自供应链货品库 · 图片为商品示意' : '买手团队严选，品质之选' }}</p>
+      <p v-if="!DEMO_MODE" class="page-subtitle">买手团队严选，品质之选</p>
     <!-- [zh] 闭合标签 `</header>` -->
     </header>
 

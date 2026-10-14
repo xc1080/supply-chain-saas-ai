@@ -1,6 +1,6 @@
 <template>
   <!-- 仓库资料 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <el-col :span="24" :xs="24">
         <el-form
@@ -11,7 +11,7 @@
           label-width="90px"
         >
           <el-form-item label="仓库编号" prop="warehouseId">
-            <el-input
+            <el-input aria-label="仓库编号"
               v-model="queryParams.warehouseId"
               placeholder="请输入仓库编号"
               style="width: 250px"
@@ -20,38 +20,17 @@
             />
           </el-form-item>
           <el-form-item label="仓库名称" prop="warehouseName">
-            <el-input
+            <el-input aria-label="仓库名称"
               v-model="queryParams.warehouseName"
               placeholder="请输入仓库名称"
               clearable
               style="width: 250px"
             />
           </el-form-item>
-          <el-form-item label="负责人" prop="warehouseDirector">
-            <el-input
-              v-model="queryParams.warehouseDirector"
-              placeholder="请输入负责人"
-              style="width: 250px"
-            />
-          </el-form-item>
-          <el-form-item label="联系电话" prop="warehouseTelephone">
-            <el-input
-              v-model="queryParams.warehouseTelephone"
-              placeholder="请输入联系电话"
-              style="width: 250px"
-            />
-          </el-form-item>
-          <el-form-item label="仓库地址" prop="warehouseAddress">
-            <el-input
-              v-model="queryParams.warehouseAddress"
-              placeholder="请输入仓库地址"
-              style="width: 250px"
-            />
-          </el-form-item>
           <el-form-item label="仓库状态" prop="warehouseValid">
-            <el-select
+            <el-select aria-label="仓库状态"
               v-model="queryParams.warehouseValid"
-              placeholder="请选择"
+              placeholder="选择仓库状态"
               clearable
               style="width: 250px"
             >
@@ -63,13 +42,39 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="备注" prop="warehouseNotes">
-            <el-input
-              v-model="queryParams.warehouseNotes"
-              placeholder="请输入备注"
-              style="width: 250px"
-            />
-          </el-form-item>
+          <details class="erp-query-disclosure">
+            <summary>更多筛选</summary>
+            <div class="erp-extra-filters">
+              <el-form-item label="负责人" prop="warehouseDirector">
+                <el-input aria-label="负责人"
+                  v-model="queryParams.warehouseDirector"
+                  placeholder="请输入负责人"
+                  style="width: 250px"
+                />
+              </el-form-item>
+              <el-form-item label="联系电话" prop="warehouseTelephone">
+                <el-input aria-label="联系电话"
+                  v-model="queryParams.warehouseTelephone"
+                  placeholder="请输入联系电话"
+                  style="width: 250px"
+                />
+              </el-form-item>
+              <el-form-item label="仓库地址" prop="warehouseAddress">
+                <el-input aria-label="仓库地址"
+                  v-model="queryParams.warehouseAddress"
+                  placeholder="请输入仓库地址"
+                  style="width: 250px"
+                />
+              </el-form-item>
+              <el-form-item label="备注" prop="warehouseNotes">
+                <el-input aria-label="备注"
+                  v-model="queryParams.warehouseNotes"
+                  placeholder="请输入备注"
+                  style="width: 250px"
+                />
+              </el-form-item>
+            </div>
+          </details>
           <el-form-item>
             <el-button
               type="primary"
@@ -78,7 +83,7 @@
               v-hasPermi="['baseDate:warehouse:list']"
               >查询</el-button
             >
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-form>
         <el-row :gutter="10" class="mb8">
@@ -126,7 +131,7 @@
           </el-col>
           <el-col :span="1.5">
             <el-button
-              type="warning"
+              type="default"
               plain
               icon="Download"
               @click="handleExport"
@@ -150,38 +155,38 @@
           :row-key="(row) => row.warehouseId"
         >
           <el-table-column type="selection" width="50" align="center" />
-          <el-table-column
+          <el-table-column min-width="120"
             label="仓库编号"
             align="center"
             prop="warehouseId"
             v-if="columns[0].visible"
           />
-          <el-table-column
+          <el-table-column min-width="160"
             label="仓库名称"
             align="center"
             prop="warehouseName"
             v-if="columns[1].visible"
             :show-overflow-tooltip="true"
           />
-          <el-table-column
+          <el-table-column min-width="100"
             label="负责人"
             align="center"
             prop="warehouseDirector"
             v-if="columns[2].visible"
           />
-          <el-table-column
+          <el-table-column min-width="140"
             label="联系电话"
             align="center"
             prop="warehouseTelephone"
             v-if="columns[3].visible"
           />
-          <el-table-column
+          <el-table-column min-width="220"
             label="仓库地址"
             align="center"
             prop="warehouseAddress"
             :show-overflow-tooltip="true"
           />
-          <el-table-column
+          <el-table-column min-width="100"
             label="仓库状态"
             align="center"
             prop="warehouseValid"
@@ -194,20 +199,20 @@
               />
             </template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="220"
             label="备注"
             align="center"
             prop="warehouseNotes"
             v-if="columns[5].visible"
             :show-overflow-tooltip="true"
           />
-          <el-table-column
+          <el-table-column min-width="100"
             label="创建者"
             align="center"
             prop="createBy"
             v-if="columns[6].visible"
           />
-          <el-table-column
+          <el-table-column min-width="180"
             label="创建时间"
             align="center"
             prop="createTime"
@@ -218,13 +223,13 @@
               <span>{{ parseTime(scope.row.createTime) }}</span>
             </template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="100"
             label="更新者"
             align="center"
             prop="updateBy"
             v-if="columns[8].visible"
           />
-          <el-table-column
+          <el-table-column min-width="180"
             label="更新时间"
             align="center"
             prop="updateTime"
@@ -248,7 +253,7 @@
                 placement="top"
                 v-if="scope.row.warehouseId !== 0"
               >
-                <el-button
+                <el-button aria-label="修改"
                   link
                   type="primary"
                   icon="Edit"
@@ -261,7 +266,7 @@
                 placement="top"
                 v-if="scope.row.warehouseId !== 0"
               >
-                <el-button
+                <el-button aria-label="删除"
                   link
                   type="primary"
                   icon="Delete"
@@ -284,7 +289,7 @@
     </el-row>
 
     <!-- 添加或修改仓库配置对话框 -->
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog class="erp-dialog" :title="title" v-model="open" width="min(600px, calc(100vw - 24px))" append-to-body>
       <el-form
         :model="form"
         :rules="rules"
@@ -294,7 +299,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="仓库名称" prop="warehouseName">
-              <el-input
+              <el-input aria-label="仓库名称"
                 v-model="form.warehouseName"
                 placeholder="请输入仓库名称"
                 maxlength="30"
@@ -303,7 +308,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="负责人" prop="warehouseDirector">
-              <el-input
+              <el-input aria-label="负责人"
                 v-model="form.warehouseDirector"
                 placeholder="请输入负责人"
                 maxlength="11"
@@ -314,7 +319,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="联系电话" prop="warehouseTelephone">
-              <el-input
+              <el-input aria-label="联系电话"
                 v-model="form.warehouseTelephone"
                 placeholder="请输入联系电话"
                 maxlength="12"
@@ -323,9 +328,9 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="状态" prop="warehouseValid">
-              <el-select
+              <el-select aria-label="状态"
                 v-model="form.warehouseValid"
-                placeholder="请选择"
+                placeholder="选择状态"
                 clearable
               >
                 <!-- <el-option
@@ -342,7 +347,7 @@
         <el-row>
           <el-col :span="24">
             <el-form-item label="地址" prop="warehouseAddress">
-              <el-input
+              <el-input aria-label="地址"
                 v-model="form.warehouseAddress"
                 placeholder="请输入地址"
               />
@@ -352,7 +357,7 @@
         <el-row>
           <el-col :span="24">
             <el-form-item label="备注">
-              <el-input
+              <el-input aria-label="备注"
                 v-model="form.warehouseNotes"
                 type="textarea"
                 placeholder="请输入备注"
@@ -363,17 +368,17 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
+          <el-button type="primary" @click="submitForm">保存</el-button>
+          <el-button @click="cancel">取消</el-button>
         </div>
       </template>
     </el-dialog>
 
     <!-- 用户导入对话框 -->
-    <el-dialog
+    <el-dialog class="erp-dialog"
       :title="upload.title"
       v-model="upload.open"
-      width="400px"
+      width="min(400px, calc(100vw - 24px))"
       append-to-body
     >
       <el-upload
@@ -395,7 +400,7 @@
             <div class="el-upload__tip">
               <el-checkbox
                 v-model="upload.updateSupport"
-              />是否更新已经存在的仓库数据
+              >更新已有仓库数据</el-checkbox>
             </div>
             <span>仅允许导入xls、xlsx格式文件。</span>
             <el-link
@@ -410,8 +415,8 @@
       </el-upload>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitFileForm">确 定</el-button>
-          <el-button @click="upload.open = false">取 消</el-button>
+          <el-button type="primary" @click="submitFileForm">开始导入</el-button>
+          <el-button @click="upload.open = false">取消</el-button>
         </div>
       </template>
     </el-dialog>
@@ -661,3 +666,4 @@ function handleSelectionChange(selection) {
 }
 getList();
 </script>
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

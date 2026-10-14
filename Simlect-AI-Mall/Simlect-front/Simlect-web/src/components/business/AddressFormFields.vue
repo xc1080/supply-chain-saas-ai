@@ -16,7 +16,7 @@
     <!-- [zh] 开始标签 `<el-form-item>` -->
     <el-form-item :label="DEMO_MODE ? '联系电话' : '手机号码'" required>
       <!-- [zh] 开始标签 `<el-input>` -->
-      <el-input v-model="form.phone" :placeholder="DEMO_MODE ? '联系电话，可使用练习号码' : '请输入 11 位手机号'" :maxlength="DEMO_MODE ? 24 : 11" clearable />
+      <el-input v-model="form.phone" :placeholder="DEMO_MODE ? '联系电话，可使用练习号码' : '请输入 11 位手机号'" :maxlength="DEMO_MODE ? 24 : 11" inputmode="tel" autocomplete="tel" clearable />
     <!-- [zh] 闭合标签 `</el-form-item>` -->
     </el-form-item>
     <!-- [zh] 开始标签 `<el-form-item>` -->
@@ -88,7 +88,7 @@
       <!-- [zh] 开始标签 `<el-button>` -->
       <el-button type="primary" class="btn-save" round native-type="submit" :loading="saving">
         <!-- [zh] 模板内容：`保存` -->
-        保存
+        保存地址
       <!-- [zh] 闭合标签 `</el-button>` -->
       </el-button>
     <!-- [zh] 闭合标签 `</div>` -->
@@ -402,17 +402,19 @@ watch(isDesktop, () => patchMobileRegionTrigger());
       /* [zh] 样式规则 `right: 0;` */
       right: 0;
       /* [zh] 样式规则 `bottom: $mobile-tab-height;` */
-      bottom: $mobile-tab-height;
+      bottom: 0;
       /* [zh] 样式规则 `z-index: 1000;` */
       z-index: 1000;
       /* [zh] 样式规则 `margin-top: auto;` */
       margin-top: auto;
       /* [zh] 样式规则 `margin: 0 12px;` */
-      margin: 0 12px;
+      margin: 0;
       /* [zh] 样式规则 `padding: 8px 16px;` */
       padding: 8px 16px;
       /* [zh] 样式规则 `padding-bottom: calc(8px + env(safe-area` */
       padding-bottom: calc(8px + env(safe-area-inset-bottom, 0));
+      background: $color-card;
+      border-top: 1px solid $color-border;
     /* [zh] 样式规则 `}` */
     }
 

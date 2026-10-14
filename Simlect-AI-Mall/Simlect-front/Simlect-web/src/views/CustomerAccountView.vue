@@ -34,7 +34,6 @@
       </template>
       <RouterLink class="account-home" to="/">返回商城</RouterLink>
     </section>
-    <AppFooter />
   </main>
 </template>
 
@@ -42,7 +41,6 @@
 import { computed, reactive, ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import BrandMark from '@/components/common/BrandMark.vue';
-import AppFooter from '@/components/layout/AppFooter.vue';
 import { useAuthStore } from '@/stores/auth';
 import { resolveSafeRedirect } from '@/utils/navigation';
 
@@ -88,17 +86,23 @@ async function logout() {
 
 <style scoped lang="scss">
 @use '@/styles/variables' as *;
-.customer-account { min-height: 100vh; padding: 64px 20px 0; background: $color-bg; }
+.customer-account { padding: 24px 16px; background: $color-bg; }
 .account-card { max-width: 430px; margin: 0 auto 48px; padding: 32px; background: $color-card; border: 1px solid $color-border-light; border-radius: $radius-card; }
 .account-brand { display: flex; align-items: center; gap: 12px; color: $color-primary; font-weight: 600; text-decoration: none; }
 .account-brand :deep(svg) { width: 36px; height: 36px; }
 h1 { margin: 28px 0 12px; font-size: 24px; }
 .account-note { margin: 0 0 24px; font-size: 13px; line-height: 1.7; color: $color-text-muted; }
 .account-submit { width: 100%; }
-.account-options { display: flex; justify-content: space-between; margin-top: 22px; font-size: 13px; }
+.account-options { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 22px; font-size: 13px; }
 .account-options a, .account-link { color: $color-primary; }
 .account-options button { border: 0; background: transparent; color: $color-text-muted; cursor: pointer; }
 .account-error { color: $color-price; font-size: 13px; }
 .account-home { display: block; margin-top: 24px; text-align: center; color: $color-text-muted; font-size: 13px; }
 .account-link { display: block; margin: 28px 0; }
+@media (max-width: 480px) {
+  .customer-account { padding: 8px 0 16px; }
+  .account-card { margin-bottom: 0; padding: 24px 20px; }
+  .account-brand { font-size: 15px; }
+  h1 { margin-top: 22px; font-size: 22px; }
+}
 </style>

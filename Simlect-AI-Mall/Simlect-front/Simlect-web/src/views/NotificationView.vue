@@ -41,8 +41,12 @@
           <!-- [zh] 开始标签 `<article>` -->
           <article
             class="notify-item"
+            role="button"
+            tabindex="0"
             :class="{ unread: item.readStatus === 0 }"
             @click="openItem(item)"
+            @keydown.enter.self="openItem(item)"
+            @keydown.space.self.prevent="openItem(item)"
           >
             <!-- [zh] 开始标签 `<div>` -->
             <div class="notify-head">
@@ -66,7 +70,7 @@
           :class="{ unread: item.readStatus === 0 }"
         >
           <!-- [zh] 开始标签 `<div>` -->
-          <div class="notify-main" @click="openItem(item)">
+          <div class="notify-main" role="button" tabindex="0" @click="openItem(item)" @keydown.enter.self="openItem(item)" @keydown.space.self.prevent="openItem(item)">
             <!-- [zh] 开始标签 `<div>` -->
             <div class="notify-head">
               <!-- [zh] 开始标签 `<span>` -->

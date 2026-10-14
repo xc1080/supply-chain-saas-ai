@@ -1,6 +1,6 @@
 <template>
   <!-- 库存货品查询 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <el-col :span="24" :xs="24">
         <el-form
@@ -11,7 +11,7 @@
           label-width="100px"
         >
           <el-form-item label="货品编号" prop="productCode">
-            <el-input
+            <el-input aria-label="货品编号"
               v-model="queryParams.productCode"
               placeholder="请输入货品编号"
               clearable
@@ -20,7 +20,7 @@
             />
           </el-form-item>
           <el-form-item label="货品名称" prop="productName">
-            <el-input
+            <el-input aria-label="货品名称"
               v-model="queryParams.productName"
               placeholder="请输入货品名称"
               clearable
@@ -28,32 +28,13 @@
               @keyup.enter="handleQuery"
             />
           </el-form-item>
-          <el-form-item label="货品类型" prop="productType">
-            <el-tree-select
+          <el-form-item label="仓库" prop="warehouseId">
+            <el-select aria-label="仓库"
               class="form-item"
-              v-model="form.productType"
-              :data="typeOptions"
-              :props="{ value: 'id', label: 'label', children: 'children' }"
-              value-key="id"
-              placeholder="请选择货品类型"
+              v-model="queryParams.warehouseId"
+              placeholder="选择仓库"
+              filterable
               clearable
-              check-strictly
-            />
-          </el-form-item>
-          <el-form-item label="商品规格" prop="productSpecifications">
-            <el-input
-              v-model="queryParams.productSpecifications"
-              placeholder="请输入商品规格"
-              clearable
-              class="form-item"
-              @keyup.enter="handleQuery"
-            />
-          </el-form-item>
-          <el-form-item label="仓库" prop="warehousingId">
-            <el-select
-              class="form-item"
-              v-model="queryParams.warehousingId"
-              placeholder="请选择"
             >
               <el-option
                 v-for="item in warehouseOptions"
@@ -63,6 +44,32 @@
               ></el-option>
             </el-select>
           </el-form-item>
+          <details class="erp-query-disclosure">
+            <summary>更多筛选</summary>
+            <div class="erp-extra-filters">
+              <el-form-item label="货品类型" prop="productType">
+                <el-tree-select aria-label="货品类型"
+                  class="form-item"
+                  v-model="queryParams.productType"
+                  :data="typeOptions"
+                  :props="{ value: 'id', label: 'label', children: 'children' }"
+                  value-key="id"
+                  placeholder="请选择货品类型"
+                  clearable
+                  check-strictly
+                />
+              </el-form-item>
+              <el-form-item label="商品规格" prop="productSpecifications">
+                <el-input aria-label="商品规格"
+                  v-model="queryParams.productSpecifications"
+                  placeholder="请输入商品规格"
+                  clearable
+                  class="form-item"
+                  @keyup.enter="handleQuery"
+                />
+              </el-form-item>
+            </div>
+          </details>
           <el-form-item>
             <el-button
               type="primary"
@@ -71,13 +78,13 @@
               v-hasPermi="['inventory:inventoryItemInquiry:list']"
               >查询</el-button
             >
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-form>
         <el-row :gutter="10" class="mb8">
           <el-col :span="1.5">
             <el-button
-              type="danger"
+              type="default"
               plain
               icon="Download"
               @click="handleDetailExport"
@@ -99,7 +106,7 @@
             type="index"
             width="60"
           />
-          <el-table-column
+          <el-table-column min-width="160"
             label="货品编号"
             align="center"
             prop="product.productCode"
@@ -114,25 +121,25 @@
           >
             <template #default="scope"><ProductIdentity :product="scope.row" /></template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="130"
             label="货品类型"
             align="center"
             prop="type.productTypeName"
             v-if="columns[2].visible"
           />
-          <el-table-column
+          <el-table-column min-width="140"
             label="规格"
             align="center"
             prop="product.productSpecifications"
             v-if="columns[3].visible"
           />
-          <el-table-column
+          <el-table-column min-width="80"
             label="单位"
             align="center"
             prop="product.measureUnit"
             v-if="columns[4].visible"
           />
-          <el-table-column
+          <el-table-column min-width="140"
             label="产地"
             align="center"
             prop="product.producer"
@@ -144,21 +151,21 @@
             prop="warehouse.warehouseName"
             v-if="columns[6].visible"
           />
-          <el-table-column
+          <el-table-column min-width="110"
             label="账面库存"
-            align="center"
+            align="right"
             prop="planQuantity"
             v-if="columns[7].visible"
           />
-          <el-table-column
+          <el-table-column min-width="110"
             label="单价"
-            align="center"
+            align="right"
             prop="univalence"
             v-if="columns[8].visible"
           />
-          <el-table-column
+          <el-table-column min-width="110"
             label="金额"
-            align="center"
+            align="right"
             prop="money"
             v-if="columns[9].visible"
           />
@@ -252,7 +259,6 @@ function handleQuery() {
 }
 /** 重置按钮操作 */
 function resetQuery() {
-  typeOptions.value = undefined;
   dateRange.value = [];
   proxy.resetForm("queryRef");
   handleQuery();
@@ -290,3 +296,5 @@ Options();
 .inventory-product { display: flex; align-items: center; gap: 10px; }
 .inventory-product img { width: 44px; height: 44px; flex: 0 0 44px; object-fit: contain; background: var(--sc-surface-soft); border: 1px solid var(--sc-border); border-radius: 6px; }
 </style>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

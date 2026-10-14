@@ -60,30 +60,30 @@ public class FileController extends BaseController {
      * 文件上传
      */
     @PreAuthorize("@ss.hasPermi('baseDate:fileSharing:upload')")
+    @Log(title = "上传打印文件", businessType = BusinessType.INSERT)
     @PostMapping("/upload")
     public AjaxResult upload(@RequestParam("file") MultipartFile file) throws Exception {
         if (!file.isEmpty()) {
             // 获取文件原始名
             String originalFilename = file.getOriginalFilename();
             String fileUrl = FileUploadUtils.upload(RuoYiConfig.getAvatarPath(), file, MimeTypeUtils.DEFAULT_ALLOWED_EXTENSION);
-            if (fileService.upload(originalFilename, fileUrl)) {
-                AjaxResult ajax = AjaxResult.success();
-                ajax.put("fileUrl", fileUrl);
-                return ajax;
-            }
+            File uploaded = fileService.upload(originalFilename, fileUrl, getUsername());
+            AjaxResult ajax = AjaxResult.success();
+            ajax.put("fileId", uploaded.getFileId());
+            ajax.put("fileName", uploaded.getFileName());
+            ajax.put("fileUrl", uploaded.getFileUrl());
+            return ajax;
         }
         return error("上传文件异常，请联系管理员");
     }
 
     /**
-     * 文件新增
+     * 旧版补写作者接口已停用，作者随上传记录一并保存。
      */
     @PreAuthorize("@ss.hasPermi('baseDate:fileSharing:update')")
-    @Log(title = "新增打印文件", businessType = BusinessType.INSERT)
     @PutMapping("/add")
     public AjaxResult add(@Validated @RequestBody File bo) {
-        bo.setCreateBy(getUsername());
-        return toAjax(fileService.addFileName(bo));
+        return error("文件作者已随上传保存，请刷新页面后重新上传");
     }
 
     /**

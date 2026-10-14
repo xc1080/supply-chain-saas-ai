@@ -44,26 +44,19 @@
     </select>
 
     <!--    上传文件    -->
-    <insert id="upload" parameterType="File">
+    <insert id="upload" parameterType="File" useGeneratedKeys="true" keyProperty="fileId" keyColumn="file_id">
         insert into template_file(
         file_name,
         file_url,
+        create_by,
         create_time
         )values(
         #{fileName},
         #{fileUrl},
+        #{createBy},
         sysdate()
         )
     </insert>
-
-    <!--    文件修改      -->
-    <update id="addFileName" parameterType="File">
-        update template_file
-        <set>
-            <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
-        </set>
-        order by file_id desc limit 1
-    </update>
 
     <!--    文件修改      -->
     <update id="updateFileName" parameterType="File">

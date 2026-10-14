@@ -1,6 +1,6 @@
 <template>
   <!-- 打印文件查询 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <el-col :span="24" :xs="24">
         <el-form
@@ -11,7 +11,7 @@
           label-width="90px"
         >
           <el-form-item label="主键" prop="id">
-            <el-input
+            <el-input aria-label="主键"
               v-model="queryParams.id"
               style="width: 250px"
               clearable
@@ -19,14 +19,14 @@
             />
           </el-form-item>
           <el-form-item label="编码" prop="code">
-            <el-input
+            <el-input aria-label="编码"
               v-model="queryParams.code"
               clearable
               style="width: 250px"
             />
           </el-form-item>
           <el-form-item label="名称" prop="name">
-            <el-input v-model="queryParams.name" style="width: 250px" />
+            <el-input aria-label="名称" v-model="queryParams.name" style="width: 250px" />
           </el-form-item>
           <el-form-item>
             <el-button
@@ -36,7 +36,7 @@
               v-hasPermi="['baseDate:customer:list']"
               >查询</el-button
             >
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-form>
         <el-row :gutter="10" class="mb8">
@@ -70,13 +70,13 @@
             width="200"
             v-if="columns[2].visible"
           />
-          <el-table-column
+          <el-table-column min-width="220"
             label="说明"
             align="center"
             prop="note"
             v-if="columns[3].visible"
           />
-          <el-table-column
+          <el-table-column min-width="90"
             label="状态"
             align="center"
             prop="status"
@@ -88,7 +88,7 @@
             prop="type"
             v-if="columns[5].visible"
           />
-          <el-table-column
+          <el-table-column min-width="220"
             label="请求地址"
             align="center"
             prop="apiUrl"
@@ -106,13 +106,13 @@
             prop="template"
             v-if="columns[8].visible"
           />
-          <el-table-column
+          <el-table-column min-width="110"
             label="浏览次数"
-            align="center"
+            align="right"
             prop="viewCount"
             v-if="columns[9].visible"
           />
-          <el-table-column
+          <el-table-column min-width="100"
             label="创建者"
             align="center"
             prop="createBy"
@@ -129,7 +129,7 @@
               <span>{{ parseTime(scope.row.createTime) }}</span>
             </template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="100"
             label="更新者"
             align="center"
             prop="updateBy"
@@ -231,3 +231,5 @@ function resetQuery() {
 }
 getList();
 </script>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

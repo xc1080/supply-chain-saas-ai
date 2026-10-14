@@ -554,6 +554,11 @@ class Verification:
             data = json.loads(result.read_text(encoding="utf-8"))
             self.check(scenario + ".realHttpClosingPassed", data.get("passed") is True)
             self.report["phases"][scenario]["orderId"] = data["orderId"]
+            contracts = self.output / (scenario + "-closing-contracts.json")
+            self.command([sys.executable, ROOT / "scripts/closing_contract_probe.py", "--output", contracts],
+                         scenario + "-closing-contracts", cwd=ROOT, env=environment, timeout=120)
+            contract_result = json.loads(contracts.read_text(encoding="utf-8"))
+            self.check(scenario + ".uploadAndHistoryContractsPassed", contract_result.get("passed") is True)
         finally:
             self.stop(process)
 

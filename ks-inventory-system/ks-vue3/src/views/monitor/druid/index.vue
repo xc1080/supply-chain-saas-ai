@@ -1,6 +1,6 @@
 <template>
    <div>
-      <i-frame v-model:src="url"></i-frame>
+      <i-frame v-model:src="url" title="数据库监控"></i-frame>
    </div>
 </template>
 

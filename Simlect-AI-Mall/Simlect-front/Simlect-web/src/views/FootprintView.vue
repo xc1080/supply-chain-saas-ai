@@ -25,7 +25,7 @@
           @delete="remove(row.historyId)"
         >
           <!-- [zh] 开始标签 `<article>` -->
-          <article class="footprint-item" @click="goDetail(row.productId)">
+          <article class="footprint-item" role="link" tabindex="0" @click="goDetail(row.productId)" @keydown.enter.self="goDetail(row.productId)" @keydown.space.self.prevent="goDetail(row.productId)">
             <!-- [zh] 开始标签 `<div>` -->
             <div class="cover-col">
               <!-- [zh] 开始标签 `<ProductImage>` -->

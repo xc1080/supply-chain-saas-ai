@@ -178,6 +178,14 @@ function handleUploadError() {
   white-space: pre-wrap !important;
   line-height: normal !important;
 }
+.editor .ql-toolbar.ql-snow, .editor .ql-container.ql-snow { border-color: var(--sc-border); background: var(--sc-surface); color: var(--sc-text); }
+.editor .ql-toolbar.ql-snow { border-radius: 6px 6px 0 0; }
+.editor .ql-container.ql-snow { border-radius: 0 0 6px 6px; }
+.editor .ql-snow .ql-picker { color: var(--sc-text); }
+.editor .ql-snow .ql-stroke { stroke: var(--sc-muted); }
+.editor .ql-snow .ql-fill { fill: var(--sc-muted); }
+.editor .ql-snow .ql-picker-options, .editor .ql-snow .ql-tooltip { border-color: var(--sc-border); background: var(--sc-surface); color: var(--sc-text); }
+.editor .ql-editor.ql-blank::before { color: var(--sc-muted); }
 .quill-img {
   display: none;
 }

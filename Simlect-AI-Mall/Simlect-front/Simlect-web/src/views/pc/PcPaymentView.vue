@@ -146,33 +146,11 @@
 
       <!-- [zh] 开始标签 `<aside>` -->
       <aside class="pc-payment-aside">
-        <!-- [zh] 开始标签 `<div>` -->
-        <div class="aside-card">
-          <!-- [zh] 开始标签 `<h2>` -->
-          <h2>支付说明</h2>
-          <!-- [zh] 开始标签 `<ul>` -->
-          <ul class="tips-list">
-            <!-- [zh] 开始标签 `<li>` -->
-            <li>推荐使用支付宝扫码或登录账户完成付款。</li>
-            <!-- [zh] 开始标签 `<li>` -->
-            <li>支付完成后系统会自动同步状态，通常几秒内生效。</li>
-            <!-- [zh] 开始标签 `<li>` -->
-            <li>若长时间未更新，请点击「我已支付」手动查询。</li>
-            <!-- [zh] 开始标签 `<li>` -->
-            <li>遇到问题可联系智能客服或查看订单详情。</li>
-          <!-- [zh] 闭合标签 `</ul>` -->
-          </ul>
-          <!-- [zh] 开始标签 `<div>` -->
-          <div class="secure-note">
-            <!-- [zh] 开始标签 `<span>` -->
-            <span class="secure-badge">安全支付</span>
-            <!-- [zh] 开始标签 `<span>` -->
-            <span>由支付宝提供担保交易</span>
-          <!-- [zh] 闭合标签 `</div>` -->
-          </div>
-        <!-- [zh] 闭合标签 `</div>` -->
-        </div>
-      <!-- [zh] 闭合标签 `</aside>` -->
+        <details class="aside-card">
+          <summary>付款遇到问题？</summary>
+          <p>未打开支付页时，请允许浏览器弹窗后重试。付款后状态未更新，可查询支付结果。</p>
+          <RouterLink to="/orders">查看我的订单</RouterLink>
+        </details>
       </aside>
     <!-- [zh] 闭合标签 `</div>` -->
     </div>
@@ -213,7 +191,7 @@ const {
 /* [zh] 样式规则 `.pc-payment {` */
 .pc-payment {
   /* [zh] 样式规则 `max-width: 1080px;` */
-  max-width: 1080px;
+  max-width: 760px;
   /* [zh] 样式规则 `margin: 0 auto;` */
   margin: 0 auto;
   /* [zh] 样式规则 `padding: 8px 0 48px;` */
@@ -277,7 +255,7 @@ const {
   /* [zh] 样式规则 `display: grid;` */
   display: grid;
   /* [zh] 样式规则 `grid-template-columns: minmax(0, 1fr) 30` */
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr);
   /* [zh] 样式规则 `gap: 20px;` */
   gap: 20px;
   /* [zh] 样式规则 `align-items: start;` */

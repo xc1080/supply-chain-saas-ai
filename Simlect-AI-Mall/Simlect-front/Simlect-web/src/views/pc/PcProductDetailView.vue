@@ -1,5 +1,6 @@
 <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
 <template>
+  <div class="product-detail-route">
   <!-- [zh] 开始标签 `<div>` -->
   <div v-if="productInfo" class="pc-product-detail ignore">
     <!-- [zh] 开始标签 `<section>` -->
@@ -14,6 +15,8 @@
             :key="i"
             type="button"
             class="thumb-btn"
+            role="tab"
+            :aria-label="`商品图片 ${i + 1}`"
             :class="{ active: activeImageIndex === i }"
             :aria-selected="activeImageIndex === i"
             @mouseenter="selectGalleryIndex(i)"
@@ -26,7 +29,7 @@
         <!-- [zh] 闭合标签 `</div>` -->
         </div>
         <!-- [zh] 开始标签 `<div>` -->
-        <div class="main-image-wrap" @click="openGalleryPreview(activeImageIndex)">
+        <div class="main-image-wrap" role="button" tabindex="0" aria-label="查看商品大图" @click="openGalleryPreview(activeImageIndex)" @keydown.enter.self="openGalleryPreview(activeImageIndex)" @keydown.space.self.prevent="openGalleryPreview(activeImageIndex)">
           <!-- [zh] 开始标签 `<ProductImage>` -->
           <ProductImage
             v-if="galleryImages.length"
@@ -296,6 +299,7 @@
     </el-empty>
   </div>
   <CommentReportDialog ref="reportDialogRef" />
+  </div>
 </template>
 
 <script setup lang="ts">

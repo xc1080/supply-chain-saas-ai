@@ -4,6 +4,7 @@ import { getToken } from '@/utils/auth'
 
 const taskRequest = (shopId, config) => request({ ...config, headers: { 'X-Shop-ID': shopId } })
 export const listAgentTasks = shopId => taskRequest(shopId, { url: '/commerce/agent-tasks', method: 'get' })
+export const pageAgentTasks = (shopId, params) => taskRequest(shopId, { url: '/commerce/agent-tasks/page', method: 'get', params })
 export const getAgentTask = (shopId, taskId) => taskRequest(shopId, { url: `/commerce/agent-tasks/${encodeURIComponent(taskId)}`, method: 'get' })
 export const refreshAgentTask = (shopId, taskId, data) => taskRequest(shopId, { url: `/commerce/agent-tasks/${encodeURIComponent(taskId)}/refresh`, method: 'post', data })
 export const reviewAgentTask = (shopId, taskId, data) => taskRequest(shopId, { url: `/commerce/agent-tasks/${encodeURIComponent(taskId)}/review`, method: 'post', data })

@@ -217,6 +217,25 @@ public class CommercePlanningService {
         merchant(actor,CommerceCapability.READ);List<Map<String,Object>> result=new ArrayList<>();
         for(Map<String,Object> row:jdbc.queryForList("SELECT i.*,COALESCE(r.cancelled_quantity,0) AS cancelled_quantity FROM commerce_incoming i LEFT JOIN commerce_incoming_resolution r ON r.incoming_id=i.incoming_id WHERE i.shop_id=? ORDER BY i.created_at DESC,i.incoming_id DESC LIMIT 100",shop()))result.add(incomingView(row));return result;
     }
+    @Transactional(readOnly=true)
+    public Map<String,Object> incomingPage(long actor,Map<String,String> query) {
+        merchant(actor,CommerceCapability.READ);
+        CommerceHistoryPage page=CommerceHistoryPage.of(query,"UNFINISHED","OVERDUE","CONFIRMED","RECEIVED","CANCELLED","PARTIAL_CLOSED");
+        String from=" FROM commerce_incoming i LEFT JOIN commerce_incoming_resolution r ON r.incoming_id=i.incoming_id AND r.shop_id=i.shop_id";
+        String where=" WHERE i.shop_id=?";List<Object> args=new ArrayList<>(Collections.singletonList(shop()));
+        if(Arrays.asList("UNFINISHED","OVERDUE").contains(page.status)){
+            where+=" AND i.status='CONFIRMED' AND i.quantity-i.received_quantity-COALESCE(r.cancelled_quantity,0)>0";
+            if("OVERDUE".equals(page.status))where+=" AND i.expected_at<CURRENT_TIMESTAMP";
+        }else if(!"ALL".equals(page.status)){where+=" AND i.status=?";args.add(page.status);}
+        long total=jdbc.queryForObject("SELECT COUNT(*)"+from+where,Long.class,args.toArray());
+        args.add(page.pageSize);args.add(page.offset());List<Map<String,Object>> rows=new ArrayList<>();
+        for(Map<String,Object> row:jdbc.queryForList("SELECT i.*,COALESCE(r.cancelled_quantity,0) AS cancelled_quantity"+from+where+" ORDER BY i.created_at DESC,i.incoming_id DESC LIMIT ? OFFSET ?",args.toArray())){
+            Map<String,Object> view=incomingView(row);
+            view.put("pendingChange",jdbc.queryForObject("SELECT COUNT(*) FROM commerce_incoming_change WHERE incoming_id=? AND shop_id=? AND status='PENDING_APPROVAL'",Long.class,row.get("incoming_id"),shop())>0);
+            rows.add(view);
+        }
+        return page.result(total,rows);
+    }
 
     /** Supplier exceptions are proposals, not automatic replacement purchases. */
     @Transactional(isolation=Isolation.READ_COMMITTED)
@@ -288,6 +307,17 @@ public class CommercePlanningService {
         merchant(actor,CommerceCapability.READ);List<Map<String,Object>> result=new ArrayList<>();
         for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_incoming_change WHERE shop_id=? ORDER BY created_at DESC,change_id DESC LIMIT 100",shop()))result.add(changeView(row));return result;
     }
+    @Transactional(readOnly=true)
+    public Map<String,Object> incomingChangesPage(long actor,Map<String,String> query){
+        merchant(actor,CommerceCapability.READ);
+        CommerceHistoryPage page=CommerceHistoryPage.of(query,"PENDING_APPROVAL","APPLIED","REJECTED");
+        String where=" WHERE shop_id=?";List<Object> args=new ArrayList<>(Collections.singletonList(shop()));
+        if(!"ALL".equals(page.status)){where+=" AND status=?";args.add(page.status);}
+        long total=jdbc.queryForObject("SELECT COUNT(*) FROM commerce_incoming_change"+where,Long.class,args.toArray());
+        args.add(page.pageSize);args.add(page.offset());List<Map<String,Object>> rows=new ArrayList<>();
+        for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_incoming_change"+where+" ORDER BY created_at DESC,change_id DESC LIMIT ? OFFSET ?",args.toArray()))rows.add(changeView(row));
+        return page.result(total,rows);
+    }
 
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public Map<String,Object> createDraft(Map<String,Object> body,long actor) {
@@ -308,6 +338,18 @@ public class CommercePlanningService {
     }
     public List<Map<String,Object>> drafts(long actor) {
         merchant(actor,CommerceCapability.READ);List<Map<String,Object>> result=new ArrayList<>();for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_replenishment_draft WHERE shop_id=? ORDER BY created_at DESC,draft_id DESC LIMIT 50",shop()))result.add(draftView(row));return result;
+    }
+    @Transactional(readOnly=true)
+    public Map<String,Object> draftsPage(long actor,Map<String,String> query) {
+        merchant(actor,CommerceCapability.READ);
+        CommerceHistoryPage page=CommerceHistoryPage.of(query,"UNFINISHED","PENDING_APPROVAL","APPROVED","EXECUTED","RECEIVED","CLOSED_PARTIAL","REJECTED","CANCELLED");
+        String where=" WHERE shop_id=?";List<Object> args=new ArrayList<>(Collections.singletonList(shop()));
+        if("UNFINISHED".equals(page.status))where+=" AND status IN ('PENDING_APPROVAL','APPROVED','EXECUTED')";
+        else if(!"ALL".equals(page.status)){where+=" AND status=?";args.add(page.status);}
+        long total=jdbc.queryForObject("SELECT COUNT(*) FROM commerce_replenishment_draft"+where,Long.class,args.toArray());
+        args.add(page.pageSize);args.add(page.offset());List<Map<String,Object>> rows=new ArrayList<>();
+        for(Map<String,Object> row:jdbc.queryForList("SELECT * FROM commerce_replenishment_draft"+where+" ORDER BY created_at DESC,draft_id DESC LIMIT ? OFFSET ?",args.toArray()))rows.add(draftView(row));
+        return page.result(total,rows);
     }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public Map<String,Object> reviewDraft(String draft,Map<String,Object> body,long actor) {

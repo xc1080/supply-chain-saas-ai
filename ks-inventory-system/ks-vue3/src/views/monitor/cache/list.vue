@@ -1,8 +1,8 @@
 <template>
-  <div class="app-container">
+  <div class="app-container cache-browser">
     <el-row :gutter="10">
-      <el-col :span="8">
-        <el-card style="height: calc(100vh - 125px)">
+      <el-col :span="8" :xs="24" :sm="12" :lg="8">
+        <el-card class="cache-browser-card">
           <template #header>
             <Collection style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">缓存列表</span>
             <el-button
@@ -10,6 +10,7 @@
               link
               type="primary"
               icon="Refresh"
+              aria-label="刷新缓存列表"
               @click="refreshCacheNames()"
             ></el-button>
           </template>
@@ -52,6 +53,7 @@
                   link
                   type="primary"
                   icon="Delete"
+                  :aria-label="'清理缓存 ' + scope.row.cacheName"
                   @click="handleClearCacheName(scope.row)"
                 ></el-button>
               </template>
@@ -60,8 +62,8 @@
         </el-card>
       </el-col>
 
-      <el-col :span="8">
-        <el-card style="height: calc(100vh - 125px)">
+      <el-col :span="8" :xs="24" :sm="12" :lg="8">
+        <el-card class="cache-browser-card">
           <template #header>
             <Key style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">键名列表</span>
             <el-button
@@ -69,6 +71,7 @@
               link
               type="primary"
               icon="Refresh"
+              aria-label="刷新缓存键名"
               @click="refreshCacheKeys()"
             ></el-button>
           </template>
@@ -103,6 +106,7 @@
                   link
                   type="primary"
                   icon="Delete"
+                  :aria-label="'清理键名 ' + scope.row"
                   @click="handleClearCacheKey(scope.row)"
                 ></el-button>
               </template>
@@ -111,8 +115,8 @@
         </el-card>
       </el-col>
 
-      <el-col :span="8">
-        <el-card :bordered="false" style="height: calc(100vh - 125px)">
+      <el-col :span="8" :xs="24" :sm="12" :lg="8">
+        <el-card :bordered="false" class="cache-browser-card">
           <template #header>
             <Document style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">缓存内容</span>
             <el-button
@@ -156,6 +160,7 @@
 
 <script setup name="CacheList">
 import { listCacheName, listCacheKey, getCacheValue, clearCacheName, clearCacheKey, clearCacheAll } from "@/api/monitor/cache";
+import { useWindowSize } from "@vueuse/core";
 
 const { proxy } = getCurrentInstance();
 
@@ -165,7 +170,8 @@ const cacheForm = ref({});
 const loading = ref(true);
 const subLoading = ref(false);
 const nowCacheName = ref("");
-const tableHeight = ref(window.innerHeight - 200);
+const { width, height } = useWindowSize();
+const tableHeight = computed(() => width.value < 1200 ? 320 : Math.max(260, height.value - 300));
 
 /** 查询缓存名称列表 */
 function getCacheNames() {
@@ -244,3 +250,8 @@ function handleClearCacheAll() {
 
 getCacheNames();
 </script>
+
+<style lang="scss" scoped>
+.cache-browser-card { min-height: 360px; margin-bottom: 16px; }
+.cache-browser-card :deep(.el-card__header) { min-height: 52px; }
+</style>

@@ -1,5 +1,8 @@
 <template>
   <div class="app-container">
+    <el-alert v-if="loadError" title="缓存监控数据暂时不可用" type="error" :closable="false" show-icon class="mb20">
+      <el-button link type="primary" @click="getList">重新加载</el-button>
+    </el-alert>
     <el-row>
       <el-col :span="24" class="card-box">
         <el-card>
@@ -43,7 +46,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="12" class="card-box">
+      <el-col :span="12" :xs="24" class="card-box">
         <el-card>
           <template #header><PieChart style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">命令统计</span></template>
           <div class="el-table el-table--enable-row-hover el-table--medium">
@@ -52,7 +55,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="12" class="card-box">
+      <el-col :span="12" :xs="24" class="card-box">
         <el-card>
           <template #header><Odometer style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">内存信息</span></template>
           <div class="el-table el-table--enable-row-hover el-table--medium">
@@ -71,15 +74,16 @@ import * as echarts from 'echarts';
 const cache = ref([]);
 const commandstats = ref(null);
 const usedmemory = ref(null);
+const loadError = ref(false);
 const { proxy } = getCurrentInstance();
 
 function getList() {
+  loadError.value = false;
   proxy.$modal.loading("正在加载缓存监控数据，请稍候！");
-  getCache().then(response => {
-    proxy.$modal.closeLoading();
+  return getCache().then(response => {
     cache.value = response.data;
 
-    const commandstatsIntance = echarts.init(commandstats.value, "macarons");
+    const commandstatsIntance = echarts.getInstanceByDom(commandstats.value) || echarts.init(commandstats.value, "macarons");
     commandstatsIntance.setOption({
       tooltip: {
         trigger: "item",
@@ -98,7 +102,7 @@ function getList() {
         }
       ]
     });
-    const usedmemoryInstance = echarts.init(usedmemory.value, "macarons");
+    const usedmemoryInstance = echarts.getInstanceByDom(usedmemory.value) || echarts.init(usedmemory.value, "macarons");
     usedmemoryInstance.setOption({
       tooltip: {
         formatter: "{b} <br/>{a} : " + cache.value.info.used_memory_human
@@ -125,8 +129,19 @@ function getList() {
       commandstatsIntance.resize();
       usedmemoryInstance.resize();
     });
+  }).catch(() => {
+    loadError.value = true;
+  }).finally(() => {
+    proxy.$modal.closeLoading();
   })
 }
 
 getList();
 </script>
+
+<style lang="scss" scoped>
+.app-container > .el-row { row-gap: 6px; }
+.el-table:has(> table) { overflow-x: auto; }
+.el-table > table .cell { overflow-wrap: anywhere; }
+@media (max-width: 767px) { .el-table > table:has(td:nth-child(4)), .el-table > table:has(th:nth-child(4)) { min-width: 620px; } }
+</style>

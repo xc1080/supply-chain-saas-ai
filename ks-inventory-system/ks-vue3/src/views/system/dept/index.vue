@@ -92,32 +92,32 @@
                      />
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="部门名称" prop="deptName">
                      <el-input v-model="form.deptName" placeholder="请输入部门名称" />
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="显示排序" prop="orderNum">
                      <el-input-number v-model="form.orderNum" controls-position="right" :min="0" />
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="负责人" prop="leader">
                      <el-input v-model="form.leader" placeholder="请输入负责人" maxlength="20" />
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="联系电话" prop="phone">
                      <el-input v-model="form.phone" placeholder="请输入联系电话" maxlength="11" />
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="邮箱" prop="email">
                      <el-input v-model="form.email" placeholder="请输入邮箱" maxlength="50" />
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="部门状态">
                      <el-radio-group v-model="form.status">
                         <el-radio

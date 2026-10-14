@@ -86,9 +86,9 @@
             >导出</el-button>
          </el-col>
          <el-col :span="1.5">
-            <el-button 
-               type="warning" 
-               plain 
+            <el-button
+               type="warning"
+               plain
                icon="Close"
                @click="handleClose"
             >关闭</el-button>
@@ -136,11 +136,11 @@
       <el-dialog title="调度日志详细" v-model="open" width="700px" append-to-body>
          <el-form :model="form" label-width="100px">
             <el-row>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="日志序号：">{{ form.jobLogId }}</el-form-item>
                   <el-form-item label="任务名称：">{{ form.jobName }}</el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="任务分组：">{{ form.jobGroup }}</el-form-item>
                   <el-form-item label="执行时间：">{{ form.createTime }}</el-form-item>
                </el-col>

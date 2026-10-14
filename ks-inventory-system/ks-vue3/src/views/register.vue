@@ -1,67 +1,65 @@
 <template>
   <div class="register">
-    <el-form ref="registerRef" :model="registerForm" :rules="registerRules" class="register-form">
+    <el-form ref="registerRef" :model="registerForm" :rules="registerRules" class="register-form" label-position="top" @submit.prevent="handleRegister">
       <h3 class="title">注册铠思工作空间账号</h3>
-      <el-form-item prop="username">
-        <el-input 
-          v-model="registerForm.username" 
-          type="text" 
-          size="large" 
-          auto-complete="off" 
+      <el-form-item prop="username" label="账号">
+        <el-input
+          v-model="registerForm.username"
+          name="username" autocomplete="username" :disabled="loading"
+          type="text"
+          size="large"
           placeholder="账号"
         >
           <template #prefix><svg-icon icon-class="user" class="el-input__icon input-icon" /></template>
         </el-input>
       </el-form-item>
-      <el-form-item prop="password">
+      <el-form-item prop="password" label="密码">
         <el-input
           v-model="registerForm.password"
+          name="password" autocomplete="new-password" :disabled="loading"
           type="password"
-          size="large" 
-          auto-complete="off"
+          size="large"
           placeholder="密码"
-          @keyup.enter="handleRegister"
         >
           <template #prefix><svg-icon icon-class="password" class="el-input__icon input-icon" /></template>
         </el-input>
       </el-form-item>
-      <el-form-item prop="confirmPassword">
+      <el-form-item prop="confirmPassword" label="确认密码">
         <el-input
           v-model="registerForm.confirmPassword"
+          name="confirmPassword" autocomplete="new-password" :disabled="loading"
           type="password"
-          size="large" 
-          auto-complete="off"
+          size="large"
           placeholder="确认密码"
-          @keyup.enter="handleRegister"
         >
           <template #prefix><svg-icon icon-class="password" class="el-input__icon input-icon" /></template>
         </el-input>
       </el-form-item>
-      <el-form-item prop="code" v-if="captchaEnabled">
+      <el-form-item prop="code" v-if="captchaEnabled" label="验证码">
         <el-input
-          size="large" 
+          size="large"
           v-model="registerForm.code"
-          auto-complete="off"
+          name="code" :disabled="loading"
+          autocomplete="off"
           placeholder="验证码"
-          style="width: 63%"
-          @keyup.enter="handleRegister"
+          class="register-code-input"
         >
           <template #prefix><svg-icon icon-class="validCode" class="el-input__icon input-icon" /></template>
         </el-input>
-        <div class="register-code">
-          <img :src="codeUrl" @click="getCode" class="register-code-img"/>
-        </div>
+        <button type="button" class="register-code" aria-label="刷新验证码" :disabled="loading" @click="getCode">
+          <img :src="codeUrl" alt="验证码" width="100" height="40" class="register-code-img" />
+        </button>
       </el-form-item>
       <el-form-item style="width:100%;">
         <el-button
           :loading="loading"
-          size="large" 
+          size="large"
           type="primary"
           style="width:100%;"
-          @click.prevent="handleRegister"
+          native-type="submit"
         >
-          <span v-if="!loading">注 册</span>
-          <span v-else>注 册 中...</span>
+          <span v-if="!loading">注册</span>
+          <span v-else>正在注册…</span>
         </el-button>
         <div style="float: right;">
           <router-link class="link-type" :to="'/login'">使用已有账户登录</router-link>
@@ -125,8 +123,7 @@ function handleRegister() {
       loading.value = true;
       register(registerForm.value).then(res => {
         const username = registerForm.value.username;
-        ElMessageBox.alert("<font color='red'>恭喜你，您的账号 " + username + " 注册成功！</font>", "系统提示", {
-          dangerouslyUseHTMLString: true,
+        ElMessageBox.alert("账号 " + username + " 已注册，请登录。", "注册成功", {
           type: "success",
         }).then(() => {
           router.push("/login");
@@ -156,6 +153,7 @@ getCode();
 
 <style lang='scss' scoped>
 .register {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -196,9 +194,9 @@ getCode();
   color: var(--sc-muted);
 }
 .register-code {
-  width: 33%;
-  height: 40px;
-  float: right;
+  display: flex; align-items: center; justify-content: center;
+  flex: 0 0 100px; width: 100px; height: 40px; margin-left: 12px; padding: 0;
+  border: 1px solid var(--sc-border); border-radius: 6px; background: var(--sc-surface-soft); cursor: pointer;
   img {
     cursor: pointer;
     vertical-align: middle;
@@ -207,7 +205,7 @@ getCode();
 .el-register-footer {
   height: 40px;
   line-height: 40px;
-  position: fixed;
+  position: absolute;
   bottom: 0;
   width: 100%;
   text-align: center;
@@ -218,6 +216,8 @@ getCode();
 }
 .register-code-img {
   height: 40px;
-  padding-left: 12px;
+  width: 100%; object-fit: contain;
 }
+.register-code-input { width: calc(100% - 112px); }
+.register-form :deep(.el-form-item__label) { font-weight: 500; color: var(--sc-text); }
 </style>

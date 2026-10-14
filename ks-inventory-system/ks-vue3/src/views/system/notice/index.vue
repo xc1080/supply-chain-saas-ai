@@ -113,12 +113,12 @@
       <el-dialog :title="title" v-model="open" width="780px" append-to-body>
          <el-form ref="noticeRef" :model="form" :rules="rules" label-width="80px">
             <el-row>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="公告标题" prop="noticeTitle">
                      <el-input v-model="form.noticeTitle" placeholder="请输入公告标题" />
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="公告类型" prop="noticeType">
                      <el-select v-model="form.noticeType" placeholder="请选择">
                         <el-option

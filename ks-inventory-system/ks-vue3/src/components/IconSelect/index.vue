@@ -5,6 +5,7 @@
       class="icon-search"
       clearable
       placeholder="请输入图标名称"
+      aria-label="搜索图标"
       @clear="filterIcons"
       @input="filterIcons"
     >
@@ -12,12 +13,12 @@
     </el-input>
     <div class="icon-list">
       <div class="list-container">
-        <div v-for="(item, index) in iconList" class="icon-item-wrapper" :key="index" @click="selectedIcon(item)">
-          <div :class="['icon-item', { active: activeIcon === item }]">
+        <button v-for="(item, index) in iconList" type="button" class="icon-item-wrapper" :key="index" :aria-label="'选择图标 ' + item" :aria-pressed="activeIcon === item" @click="selectedIcon(item)">
+          <span :class="['icon-item', { active: activeIcon === item }]">
             <svg-icon :icon-class="item" class-name="icon" style="height: 25px;width: 16px;"/>
             <span>{{ item }}</span>
-          </div>
-        </div>
+          </span>
+        </button>
       </div>
     </div>
   </div>
@@ -74,8 +75,14 @@ defineExpose({
         flex-wrap: wrap;
         .icon-item-wrapper {
           width: calc(100% / 3);
-          height: 25px;
-          line-height: 25px;
+          min-height: 32px;
+          line-height: 32px;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: var(--sc-text);
+          text-align: left;
+          font: inherit;
           cursor: pointer;
           display: flex;
           .icon-item {
@@ -84,7 +91,7 @@ defineExpose({
             height: 100%;
             padding: 0 5px;
             &:hover {
-              background: #ececec;
+              background: var(--sc-surface-soft);
               border-radius: 5px;
             }
             .icon {
@@ -101,7 +108,8 @@ defineExpose({
             }
           }
           .icon-item.active {
-            background: #ececec;
+            background: var(--sc-primary-soft);
+            color: var(--sc-primary);
             border-radius: 5px;
           }
         }

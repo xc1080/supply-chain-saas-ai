@@ -11,9 +11,10 @@
           ref="inputRef"
           v-model="keyword"
           placeholder="搜索商品名称"
+          aria-label="搜索商品名称"
           clearable
           class="keyword-input"
-          @keyup.enter="submitSearch"
+          @keyup.enter="submitSearch()"
         >
           <!-- [zh] SFC 区块开始（单文件组件 template/script/style 三段） -->
           <template #prefix>

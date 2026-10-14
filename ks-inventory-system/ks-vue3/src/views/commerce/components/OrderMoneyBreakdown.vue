@@ -20,5 +20,7 @@ const money = value => value == null ? '—' : new Intl.NumberFormat('zh-CN', { 
 </script>
 <style scoped>
 .order-money { padding: 18px 0; border-top: 1px solid var(--sc-border); border-bottom: 1px solid var(--sc-border); font-variant-numeric: tabular-nums; }
+.order-money div { min-width: 0; max-width: 100%; }
+.order-money dd { overflow-wrap: anywhere; }
 .order-money{display:flex;flex-wrap:wrap;gap:18px 26px;margin:20px 0}.order-money div{min-width:90px}.order-money dt{font-size:12px;color:var(--sc-muted);margin-bottom:6px}.order-money dd{margin:0;font-weight:600;font-size:15px}
 </style>

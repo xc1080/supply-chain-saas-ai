@@ -5,7 +5,6 @@
       <div>
         <div class="workspace-date">{{ today }}</div>
         <h1 id="workspace-title">供应链工作台</h1>
-        <p>查看库存关注，处理待审单据，衔接今天的采购与交付。</p>
       </div>
       <div class="workspace-actions">
         <router-link v-if="canManageCommerce" class="workspace-button workspace-button-quiet" to="/commerce/orders">商城订单与库存</router-link>
@@ -23,7 +22,6 @@
       <div v-for="metric in metrics" :key="metric.label" class="workspace-metric">
         <span class="workspace-metric-label">{{ metric.label }}</span>
         <strong :class="{ 'workspace-number-alert': metric.alert }">{{ metric.value }}</strong>
-        <span class="workspace-metric-note">{{ metric.note }}</span>
       </div>
     </section>
 
@@ -32,6 +30,10 @@
       <span v-else-if="lastUpdated">最近读取 {{ formatTime(lastUpdated) }}</span>
       <span v-else>数据尚未读取</span>
       <span v-if="products.error || taskError || finance.error" class="workspace-status-error">部分数据未能读取，可点击刷新重试</span>
+      <details class="workspace-context">
+        <summary>统计口径</summary>
+        <dl><div v-for="metric in metrics" :key="metric.label"><dt>{{ metric.label }}</dt><dd>{{ metric.note }}</dd></div></dl>
+      </details>
     </div>
 
     <div class="workspace-grid">
@@ -39,7 +41,7 @@
         <div class="workspace-panel-heading">
           <div>
             <h2 id="workspace-stock" tabindex="-1">库存关注</h2>
-            <p>{{ stockDescription }}</p>
+            <span v-if="stockFilter === 'all'" class="workspace-panel-note">缺货与低库存优先</span>
           </div>
           <div class="workspace-select-wrap">
             <label class="workspace-sr-only" for="workspace-stock-filter">库存关注范围</label>
@@ -53,12 +55,11 @@
         <div v-else-if="stockLoading" class="workspace-empty" role="status">正在读取库存…</div>
         <div v-else-if="stockError" class="workspace-empty workspace-error" role="status">
           <strong>库存数据未能读取</strong>
-          <p>检查服务连接后重试，避免依据不完整的库存做决定。</p>
           <button class="workspace-button workspace-button-quiet" type="button" @click="retryStock">重新读取库存</button>
         </div>
         <div v-else-if="!stockRows.length" class="workspace-empty">
           <strong>{{ stockFilter === 'all' ? '还没有货品资料' : '当前范围没有库存预警' }}</strong>
-          <p>{{ stockFilter === 'all' ? '先建立货品资料，再通过业务单据管理入库和出库。' : '可以切换到全部货品，查看当前账面库存。' }}</p>
+          <p v-if="stockFilter !== 'all'">可切换至全部货品</p>
           <router-link v-if="stockFilter === 'all'" class="workspace-text-link" to="/basedate/product">管理货品资料</router-link>
         </div>
         <div v-else class="workspace-table-wrap">
@@ -90,17 +91,17 @@
 
       <aside class="workspace-panel workspace-tasks" aria-labelledby="workspace-tasks-title">
         <div class="workspace-panel-heading">
-          <div><h2 id="workspace-tasks-title">单据待办</h2><p>先审核，再进入下一步业务</p></div>
+          <div><h2 id="workspace-tasks-title">单据待办</h2></div>
           <span class="workspace-task-total">{{ pendingLabel }}</span>
         </div>
         <div v-if="!visibleTasks.length" class="workspace-empty">当前账户没有查看单据的权限。</div>
         <template v-else>
           <div class="workspace-task-columns" aria-hidden="true"><span>业务单据</span><span>待审核</span><span>已审核</span></div>
-          <router-link v-for="task in visibleTasks" :key="task.id" :to="task.to" class="workspace-task-row" :aria-label="task.label + '，待审核 ' + taskCount(task, 'pending') + '，已审核 ' + taskCount(task, 'approved')">
-            <span class="workspace-task-name"><component :is="task.icon" aria-hidden="true" />{{ task.label }}</span>
-            <strong :class="{ 'workspace-number-alert': task.pending > 0 }">{{ taskCount(task, 'pending') }}</strong>
-            <span class="workspace-approved-count">{{ taskCount(task, 'approved') }}</span>
-          </router-link>
+          <div v-for="task in visibleTasks" :key="task.id" class="workspace-task-row">
+            <router-link :to="taskQueryRoute(task, 1)" class="workspace-task-name" :aria-label="'查看' + task.label + '待审核单据'"><component :is="task.icon" aria-hidden="true" />{{ task.label }}</router-link>
+            <router-link :to="taskQueryRoute(task, 1)" class="workspace-pending-count" :aria-label="task.label + '，待审核 ' + taskCount(task, 'pending')"><strong :class="{ 'workspace-number-alert': task.pending > 0 }">{{ taskCount(task, 'pending') }}</strong></router-link>
+            <router-link :to="taskQueryRoute(task, 2)" class="workspace-approved-count" :aria-label="task.label + '，已审核 ' + taskCount(task, 'approved')">{{ taskCount(task, 'approved') }}</router-link>
+          </div>
           <div v-if="taskError" class="workspace-task-error" role="status">部分单据未能读取。<button type="button" @click="loadTasks" :disabled="tasksLoading">重新读取</button></div>
         </template>
         <div class="workspace-shortcuts">
@@ -117,7 +118,7 @@
         <h2 id="workspace-finance-title">销售与毛利</h2>
         <label class="workspace-sr-only" for="workspace-finance-period">销售统计周期</label>
         <select id="workspace-finance-period" :value="financePeriod" @change="setQuery('period', $event.target.value, 'month')"><option v-for="period in financePeriods" :key="period.value" :value="period.value">{{ period.label }}</option></select>
-        <p>按业务系统已审核单据口径统计</p>
+        <span class="workspace-panel-note">已审核单据</span>
       </div>
       <div v-if="finance.error" class="workspace-finance-error" role="status">销售数据未能读取。<button type="button" @click="loadFinance" :disabled="finance.loading">重新读取</button></div>
       <dl v-else class="workspace-finance-values"><div><dt>销售金额</dt><dd>{{ finance.loading ? '读取中…' : formatCurrency(finance.data?.[selectedPeriod.sales]) }}</dd></div><div><dt>毛利润</dt><dd>{{ finance.loading ? '读取中…' : formatCurrency(finance.data?.[selectedPeriod.profit]) }}</dd></div></dl>
@@ -132,6 +133,7 @@ import { ArrowRight, Box, ChatDotRound, Document, Refresh, ShoppingCart, Sort, T
 import auth from '@/plugins/auth'
 import useUserStore from '@/store/modules/user'
 import { getProductImage, handleProductImageError } from '@/utils/productMedia'
+import { taskQueryRoute } from '@/utils/documentNavigation.mjs'
 import { listProduct, listDangerProduct, listOverstockProduct, listThreeOverstock, listSixOverstock, listTwelveOverstock } from '@/api/basedate/product'
 import { purchaseOrderHeadQuery } from '@/api/purchase/purchaseOrderQuery'
 import { headQuery as salesOrderHeadQuery } from '@/api/sales/SalesOrderQuery'
@@ -329,11 +331,11 @@ onMounted(refreshDashboard)
 </script>
 
 <style scoped>
-.workspace { max-width: 1680px; margin: 0 auto; padding: 32px 32px 36px; color: var(--sc-text); }
-.workspace-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.workspace { max-width: 1680px; margin: 0 auto; padding: 24px; color: var(--sc-text); }
+.workspace-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
 .workspace-heading > div, .workspace-grid > *, .workspace-panel-heading > div { min-width: 0; }
-.workspace-date { margin-bottom: 8px; color: var(--sc-muted, #69778a); font-size: 12px; }
-.workspace h1 { margin: 0; font-size: 30px; line-height: 1.3; font-weight: 650; letter-spacing: -.6px; text-wrap: balance; }
+.workspace-date { margin-bottom: 5px; color: var(--sc-muted, #69778a); font-size: 12px; }
+.workspace h1 { margin: 0; font-size: 24px; line-height: 1.3; font-weight: 650; letter-spacing: -.4px; text-wrap: balance; }
 .workspace-heading p { margin: 8px 0 0; color: var(--sc-muted, #69778a); font-size: 13px; line-height: 1.6; }
 .workspace-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .workspace-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 10px 14px; border: 1px solid var(--sc-border); border-radius: 6px; font: inherit; font-size: 13px; line-height: 1.4; cursor: pointer; touch-action: manipulation; transition: transform .18s ease, opacity .18s ease; }
@@ -344,41 +346,47 @@ onMounted(refreshDashboard)
 .workspace-button-quiet { color: var(--sc-text, #18283b); background: var(--sc-surface, #fff); }
 .workspace-button-quiet:hover { background: var(--sc-surface-soft, #f0f4fa); border-color: var(--sc-primary, #2563eb); }
 .workspace-button:disabled { cursor: wait; opacity: .6; }
-.workspace-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--sc-border); border-bottom: 1px solid var(--sc-border); padding: 26px 0; }
-.workspace-metric { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 0 26px; border-right: 1px solid var(--sc-border, #e2e8f0); }
+.workspace-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--sc-border); border-bottom: 1px solid var(--sc-border); padding: 18px 0; }
+.workspace-metric { min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 0 22px; border-right: 1px solid var(--sc-border, #e2e8f0); }
 .workspace-metric:last-child { border-right: 0; }
 .workspace-metric:first-child { padding-left: 0; }
 .workspace-metric-label { color: var(--sc-muted, #69778a); font-size: 13px; }
-.workspace-metric strong { font-size: 34px; line-height: 1.1; font-weight: 600; letter-spacing: -1px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.workspace-metric-note { color: var(--sc-muted, #69778a); font-size: 11px; line-height: 1.5; }
+.workspace-metric strong { font-size: 28px; line-height: 1.1; font-weight: 600; letter-spacing: -.6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .workspace-number-alert { color: var(--sc-warning, #b45309); }
-.workspace-data-status { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 20px; margin: 12px 1px 18px; color: var(--sc-muted, #69778a); font-size: 11px; line-height: 1.6; }
+.workspace-data-status { position: relative; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 20px; margin: 10px 1px 16px; color: var(--sc-muted, #69778a); font-size: 12px; line-height: 1.6; }
+.workspace-context { margin-left: auto; }
+.workspace-context summary { cursor: pointer; color: var(--sc-muted); }
+.workspace-context[open] { flex-basis: 100%; }
+.workspace-context dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; margin: 10px 0 0; padding: 14px 16px; background: var(--sc-surface); border: 1px solid var(--sc-border); border-radius: 6px; }
+.workspace-context dt { color: var(--sc-text); font-weight: 500; }
+.workspace-context dd { margin: 3px 0 0; }
+.workspace-panel-note { display: inline-block; color: var(--sc-muted); font-size: 12px; }
 .workspace-status-error { color: var(--sc-warning, #b45309); }
 .workspace-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(310px, 1fr); align-items: start; gap: 20px; }
 .workspace-panel { background: var(--sc-surface); border: 1px solid var(--sc-border); border-radius: 8px; overflow: hidden; }
 .workspace-tasks { padding: 0; margin: 0; color: inherit; font: inherit; line-height: normal; }
-.workspace-panel-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 20px 22px 18px; }
+.workspace-panel-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 18px; }
 .workspace h2 { margin: 0; font-size: 16px; line-height: 1.5; font-weight: 600; scroll-margin-top: 110px; }
 .workspace-panel-heading p, .workspace-finance-heading p { margin: 5px 0 0; font-size: 12px; line-height: 1.6; color: var(--sc-muted, #69778a); }
 .workspace select { max-width: 100%; min-height: 36px; border: 1px solid var(--sc-border, #e2e8f0); border-radius: 6px; padding: 7px 28px 7px 10px; color: var(--sc-text, #18283b); background-color: var(--sc-surface, #fff); font: inherit; font-size: 12px; cursor: pointer; }
 .workspace-table-wrap { min-width: 0; overflow-x: auto; }
-.workspace-stock-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
-.workspace-stock-table th { background: var(--sc-surface-soft, #f5f7fb); color: var(--sc-muted, #69778a); text-align: left; font-size: 11px; font-weight: 500; padding: 11px 22px; }
+.workspace-stock-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+.workspace-stock-table th { background: var(--sc-surface-soft, #f5f7fb); color: var(--sc-muted, #69778a); text-align: left; font-size: 12px; font-weight: 500; padding: 10px 18px; }
 .workspace-stock-table th:first-child { width: 57%; }
 .workspace-stock-table th:nth-child(2) { width: 23%; }
 .workspace-stock-table th:last-child { width: 20%; }
-.workspace-stock-table td { border-bottom: 1px solid var(--sc-border, #e2e8f0); padding: 12px 22px; vertical-align: middle; }
+.workspace-stock-table td { border-bottom: 1px solid var(--sc-border, #e2e8f0); padding: 10px 18px; vertical-align: middle; }
 .workspace-stock-table tr:last-child td { border-bottom: 0; }
 .workspace-stock-table tbody tr:hover { background: var(--sc-surface-soft, #f5f7fb); }
 .workspace-product-name, .workspace-product-meta { display: block; overflow-wrap: anywhere; }
 .workspace-product-name { font-weight: 500; line-height: 1.55; }
 .workspace-product-identity { display: flex; align-items: center; gap: 10px; }
 .workspace-product-identity img { width: 40px; height: 40px; flex: 0 0 40px; object-fit: contain; background: var(--sc-surface-soft); border: 1px solid var(--sc-border); border-radius: 5px; }
-.workspace-product-meta { color: var(--sc-muted, #69778a); font-size: 11px; line-height: 1.5; margin-top: 4px; }
+.workspace-product-meta { color: var(--sc-muted, #69778a); font-size: 12px; line-height: 1.5; margin-top: 3px; }
 .workspace-stock-quantity { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .workspace-stock-quantity strong { font-size: 14px; font-weight: 600; }
-.workspace-stock-quantity > span { color: var(--sc-muted, #69778a); margin-left: 5px; font-size: 11px; }
-.workspace-stock-state { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; line-height: 1.5; }
+.workspace-stock-quantity > span { color: var(--sc-muted, #69778a); margin-left: 5px; font-size: 12px; }
+.workspace-stock-state { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; line-height: 1.5; }
 .workspace-state-dot { height: 5px; width: 5px; flex: 0 0 5px; border-radius: 50%; background: currentColor; }
 .workspace-stock-state-success { color: var(--sc-success, #157347); }
 .workspace-stock-state-warning { color: var(--sc-warning, #b45309); }
@@ -386,20 +394,22 @@ onMounted(refreshDashboard)
 .workspace-panel-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--sc-border, #e2e8f0); padding: 14px 22px; color: var(--sc-muted, #69778a); font-size: 11px; }
 .workspace-text-link { display: inline-flex; align-items: center; gap: 5px; color: var(--sc-primary, #2563eb); font-size: 12px; min-height: 28px; }
 .workspace-text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
-.workspace-empty { display: flex; align-items: flex-start; justify-content: center; flex-direction: column; min-height: 260px; gap: 9px; padding: 30px 22px; color: var(--sc-muted, #69778a); font-size: 13px; line-height: 1.7; }
+.workspace-empty { display: flex; align-items: flex-start; justify-content: center; flex-direction: column; min-height: 180px; gap: 9px; padding: 24px 18px; color: var(--sc-muted, #69778a); font-size: 13px; line-height: 1.7; }
 .workspace-empty strong { color: var(--sc-text, #18283b); font-size: 14px; font-weight: 500; }
 .workspace-empty p { margin: 0; max-width: 38em; }
-.workspace-error { min-height: 260px; }
-.workspace-task-total { color: var(--sc-primary, #2563eb); background: var(--sc-primary-soft, #eef4ff); border-radius: 5px; font-size: 11px; line-height: 1.5; padding: 5px 8px; font-variant-numeric: tabular-nums; }
+.workspace-error { min-height: 180px; }
+.workspace-task-total { color: var(--sc-primary, #2563eb); background: var(--sc-primary-soft, #eef4ff); border-radius: 5px; font-size: 12px; line-height: 1.5; padding: 4px 8px; font-variant-numeric: tabular-nums; }
 .workspace-task-columns, .workspace-task-row { display: grid; grid-template-columns: minmax(0, 1fr) 64px 64px; align-items: center; gap: 12px; padding: 11px 22px; }
-.workspace-task-columns { background: var(--sc-surface-soft, #f5f7fb); color: var(--sc-muted, #69778a); font-size: 11px; }
-.workspace-task-columns span:nth-child(n+2), .workspace-task-row > strong, .workspace-approved-count { text-align: right; font-variant-numeric: tabular-nums; }
+.workspace-task-columns { background: var(--sc-surface-soft, #f5f7fb); color: var(--sc-muted, #69778a); font-size: 12px; }
+.workspace-task-columns span:nth-child(n+2), .workspace-pending-count, .workspace-approved-count { text-align: right; font-variant-numeric: tabular-nums; }
 .workspace-task-row { min-height: 52px; color: var(--sc-text); font-size: 13px; border-bottom: 1px solid var(--sc-border); }
 .workspace-task-row:hover { background: var(--sc-surface-soft, #f5f7fb); }
 .workspace-task-name { display: flex; align-items: center; min-width: 0; gap: 9px; }
 .workspace-task-name svg { color: var(--sc-muted, #69778a); width: 16px; height: 16px; flex: 0 0 16px; }
-.workspace-task-row > strong { font-size: 14px; font-weight: 600; }
-.workspace-approved-count { color: var(--sc-muted, #69778a); }
+.workspace-task-row a { min-height: 30px; align-content: center; color: inherit; }
+.workspace-task-row a:hover { color: var(--sc-primary, #2563eb); text-decoration: underline; text-underline-offset: 3px; }
+.workspace-pending-count strong { font-size: 14px; font-weight: 600; }
+.workspace-task-row .workspace-approved-count { color: var(--sc-muted, #69778a); }
 .workspace-shortcuts { padding: 18px 22px 16px; }
 .workspace h3 { margin: 0 0 10px; font-size: 12px; font-weight: 600; }
 .workspace-shortcuts nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; }
@@ -411,7 +421,7 @@ onMounted(refreshDashboard)
 .workspace-task-error button, .workspace-finance-error button { border: 0; padding: 4px 6px; background: transparent; color: var(--sc-primary, #2563eb); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .workspace-finance { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 24px; padding: 20px 24px; margin-top: 20px; }
 .workspace-finance-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; }
-.workspace-finance-heading p { width: 100%; margin: 0; }
+.workspace-finance-heading .workspace-panel-note { white-space: nowrap; }
 .workspace-finance-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin: 0; }
 .workspace-finance-values > div { min-width: 0; }
 .workspace-finance-values dt { font-size: 12px; color: var(--sc-muted, #69778a); margin-bottom: 9px; }
@@ -422,7 +432,7 @@ onMounted(refreshDashboard)
 .workspace-skip:focus { display: block; position: fixed; z-index: 2002; top: 10px; left: 12px; padding: 12px 16px; color: var(--sc-primary, #2563eb); background: var(--sc-surface, #fff); border-radius: 6px; }
 @media (max-width: 1250px) { .workspace { padding: 24px; } .workspace-grid { grid-template-columns: minmax(0, 1fr) minmax(295px, .85fr); } .workspace-metric { padding: 0 20px; } .workspace-stock-table :is(td, th) { padding-left: 16px; padding-right: 16px; } }
 @media (max-width: 1050px) { .workspace-grid { grid-template-columns: minmax(0, 1fr); } .workspace-heading { align-items: flex-start; flex-direction: column; gap: 16px; } .workspace-tasks { width: 100%; } .workspace-summary { padding: 20px 0; } .workspace-metric strong { font-size: 27px; } }
-@media (max-width: 600px) { .workspace { padding: 20px 14px; } .workspace h1 { font-size: 24px; } .workspace-heading p { max-width: 25em; } .workspace-actions { width: 100%; } .workspace-actions .workspace-button { flex: 1; padding-left: 8px; padding-right: 8px; } .workspace-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0; } .workspace-metric { padding: 18px; gap: 8px; } .workspace-metric:nth-child(2) { border-right: 0; } .workspace-metric:nth-child(-n+2) { border-bottom: 1px solid var(--sc-border, #e2e8f0); } .workspace-metric strong { font-size: 27px; } .workspace-panel-heading { padding: 18px 16px 14px; } .workspace-stock-table :is(td, th) { padding: 11px 12px; } .workspace-stock-table th:first-child { width: 49%; } .workspace-stock-table th:nth-child(2) { width: 26%; } .workspace-stock-table th:last-child { width: 25%; } .workspace-product-name { font-size: 12px; } .workspace-product-meta { font-size: 10px; } .workspace-stock-quantity strong { font-size: 13px; } .workspace-stock-quantity > span { display: block; margin: 3px 0 0; } .workspace-stock-state { gap: 4px; font-size: 10px; } .workspace-panel-footer { padding: 12px 16px; } .workspace-finance { grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px 16px; } .workspace-finance-values { gap: 20px; } .workspace-finance-values dd { font-size: 22px; } .workspace-task-columns, .workspace-task-row { padding-left: 16px; padding-right: 16px; grid-template-columns: minmax(0, 1fr) 58px 58px; gap: 8px; } .workspace-shortcuts { padding-left: 16px; padding-right: 16px; } }
+@media (max-width: 600px) { .workspace { padding: 18px 14px; } .workspace h1 { font-size: 22px; } .workspace-actions { width: 100%; } .workspace-actions .workspace-button { flex: 1; padding-left: 8px; padding-right: 8px; } .workspace-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0; } .workspace-metric { padding: 16px 18px; gap: 8px; } .workspace-metric:nth-child(2) { border-right: 0; } .workspace-metric:nth-child(-n+2) { border-bottom: 1px solid var(--sc-border, #e2e8f0); } .workspace-metric strong { font-size: 26px; } .workspace-panel-heading { padding: 14px 16px; } .workspace-stock-table :is(td, th) { padding: 10px 12px; } .workspace-stock-table th:first-child { width: 49%; } .workspace-stock-table th:nth-child(2) { width: 26%; } .workspace-stock-table th:last-child { width: 25%; } .workspace-product-name { font-size: 13px; } .workspace-product-meta { font-size: 12px; } .workspace-stock-quantity strong { font-size: 14px; } .workspace-stock-quantity > span { display: block; margin: 3px 0 0; } .workspace-stock-state { gap: 4px; font-size: 12px; } .workspace-panel-footer { padding: 12px 16px; } .workspace-context dl { grid-template-columns: minmax(0, 1fr); } .workspace-finance { grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px 16px; } .workspace-finance-values { gap: 20px; } .workspace-finance-values dd { font-size: 22px; } .workspace-task-columns, .workspace-task-row { padding-left: 16px; padding-right: 16px; grid-template-columns: minmax(0, 1fr) 58px 58px; gap: 8px; } .workspace-shortcuts { padding-left: 16px; padding-right: 16px; } }
 @media (prefers-reduced-motion: reduce) { .workspace *, .workspace *::before, .workspace *::after { transition: none !important; scroll-behavior: auto !important; } }
 @media (max-width: 600px) { .workspace-metric:first-child { padding-left: 18px; } .workspace-stock-table { min-width: 430px; } }
 </style>

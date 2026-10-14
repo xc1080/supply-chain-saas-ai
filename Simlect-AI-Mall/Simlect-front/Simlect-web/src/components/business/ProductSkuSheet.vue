@@ -205,7 +205,7 @@ const confirmAdd = async () => {
   /* [zh] 样式规则 `max-width: $content-width;` */
   max-width: $content-width;
   /* [zh] 样式规则 `max-height: min(78vh, 640px);` */
-  max-height: min(78vh, 640px);
+  max-height: min(82dvh, 640px);
   /* [zh] 样式规则 `display: flex;` */
   display: flex;
   /* [zh] 样式规则 `flex-direction: column;` */
@@ -219,28 +219,7 @@ const confirmAdd = async () => {
   /* [zh] 样式规则 `padding-bottom: env(safe-area-inset-bott` */
   padding-bottom: env(safe-area-inset-bottom, 0);
   /* [zh] 样式规则 `margin-bottom: 50px;` */
-  margin-bottom: 50px;
-
-  /* [zh] 样式规则 `&::after {` */
-  &::after {
-    /* [zh] 样式规则 `content: '';` */
-    content: '';
-    /* [zh] 样式规则 `position: absolute;` */
-    position: absolute;
-    /* [zh] 样式规则 `left: 0;` */
-    left: 0;
-    /* [zh] 样式规则 `right: 0;` */
-    right: 0;
-    /* [zh] 样式规则 `bottom: -50px;` */
-    bottom: -50px;
-    /* [zh] 样式规则 `height: 50px;` */
-    height: 50px;
-    /* [zh] 样式规则 `background: $color-card;` */
-    background: $color-card;
-    /* [zh] 样式规则 `z-index: -1;` */
-    z-index: -1;
-  /* [zh] 样式规则 `}` */
-  }
+  margin-bottom: 0;
 
   /* [zh] 样式规则 `.is-desktop & {` */
   .is-desktop & {
@@ -275,9 +254,9 @@ const confirmAdd = async () => {
   /* [zh] 样式规则 `z-index: 2;` */
   z-index: 2;
   /* [zh] 样式规则 `width: 32px;` */
-  width: 32px;
+  width: 40px;
   /* [zh] 样式规则 `height: 32px;` */
-  height: 32px;
+  height: 40px;
   /* [zh] 样式规则 `border: none;` */
   border: none;
   /* [zh] 样式规则 `border-radius: 50%;` */
@@ -411,7 +390,7 @@ const confirmAdd = async () => {
   /* [zh] 样式规则 `margin: 0;` */
   margin: 0;
   /* [zh] 样式规则 `font-size: 11px;` */
-  font-size: 11px;
+  font-size: 12px;
   /* [zh] 样式规则 `color: $color-text-muted;` */
   color: $color-text-muted;
 

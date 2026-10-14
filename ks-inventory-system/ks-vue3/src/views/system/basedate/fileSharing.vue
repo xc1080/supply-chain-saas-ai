@@ -1,6 +1,6 @@
 <template>
   <!-- 文件共享 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <el-col :span="24" :xs="24">
         <el-form
@@ -10,7 +10,7 @@
           label-width="120px"
         >
           <el-form-item label="文件名称" prop="fileName">
-            <el-input
+            <el-input aria-label="文件名称"
               v-model="queryParams.fileName"
               placeholder="请输入文件名称"
               style="width: 250px"
@@ -26,7 +26,7 @@
               v-hasPermi="['baseDate:warehouse:list']"
               >查询</el-button
             >
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-form>
         <el-row :gutter="10" class="mb8">
@@ -35,14 +35,12 @@
               class="upload-demo"
               ref="upload"
               action="#"
-              :data="paramsObj"
               :http-request="
                 (file) => {
                   return uploadFile(file);
                 }
               "
               :show-file-list="false"
-              :before-upload="beforeUpload"
             >
               <el-button plain type="success" icon="Upload">上传文件</el-button>
             </el-upload>
@@ -60,14 +58,7 @@
           <el-table-column label="文件名称" align="center" prop="fileName" />
           <el-table-column label="文件下载" align="center" prop="fileName">
             <template #default="scope">
-              <el-link type="primary">
-                <a
-                  target="_blank"
-                  :href="FileUrl + scope.row.fileUrl"
-                  download
-                  >{{ scope.row.fileName }}</a
-                >
-              </el-link>
+              <el-link type="primary" target="_blank" rel="noopener noreferrer" :href="FileUrl + scope.row.fileUrl" download>{{ scope.row.fileName }}</el-link>
             </template>
           </el-table-column>
           <el-table-column
@@ -111,7 +102,7 @@
           >
             <template #default="scope">
               <el-tooltip content="修改文件名称" placement="top">
-                <el-button
+                <el-button aria-label="修改文件名称"
                   link
                   type="primary"
                   icon="Edit"
@@ -120,7 +111,7 @@
                 ></el-button>
               </el-tooltip>
               <el-tooltip content="删除" placement="top">
-                <el-button
+                <el-button aria-label="删除"
                   link
                   type="primary"
                   icon="Delete"
@@ -143,7 +134,7 @@
     </el-row>
 
     <!-- 添加或修改文件配置对话框 -->
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog class="erp-dialog" :title="title" v-model="open" width="min(600px, calc(100vw - 24px))" append-to-body>
       <el-form
         :model="form"
         :rules="rules"
@@ -153,7 +144,7 @@
         <el-row>
           <el-col :span="24">
             <el-form-item label="文件名称" prop="fileName">
-              <el-input
+              <el-input aria-label="文件名称"
                 v-model="form.fileName"
                 placeholder="请输入文件名称"
                 maxlength="30"
@@ -164,8 +155,8 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
+          <el-button type="primary" @click="submitForm">保存</el-button>
+          <el-button @click="cancel">取消</el-button>
         </div>
       </template>
     </el-dialog>
@@ -176,7 +167,6 @@
 import {
   listFile,
   getFile,
-  addFileName,
   updateFileName,
   fileUpload,
   delFile,
@@ -219,9 +209,12 @@ const { queryParams, form, rules } = toRefs(data);
 /** 查询文件列表 */
 function getList() {
   loading.value = true;
-  listFile(proxy.addDateRange(queryParams.value)).then((response) => {
+  return listFile(proxy.addDateRange(queryParams.value)).then((response) => {
     fileSharingList.value = response.rows;
     total.value = response.total;
+  }).catch(() => {
+    // 请求拦截器已提示错误，保留现有列表并恢复 loading。
+  }).finally(() => {
     loading.value = false;
   });
 }
@@ -276,10 +269,10 @@ function submitForm() {
 async function uploadFile(file) {
   const formData = new FormData();
   formData.append("file", file.file);
-  await fileUpload(formData);
-  await addFileName(form.value);
+  const response = await fileUpload(formData);
   proxy.$modal.msgSuccess("上传成功");
-  getList();
+  await getList();
+  return response;
 }
 /** 删除按钮操作 */
 function handleDelete(row) {
@@ -298,3 +291,5 @@ function handleDelete(row) {
 }
 getList();
 </script>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

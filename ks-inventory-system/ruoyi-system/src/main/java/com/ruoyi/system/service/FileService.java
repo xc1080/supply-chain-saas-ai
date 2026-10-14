@@ -23,12 +23,7 @@ public interface FileService {
     /**
      * 打印文件上传
      */
-    boolean upload(String fileName, String fileUrl);
-
-    /**
-     * 打印文件新增
-     */
-    int addFileName(File bo);
+    File upload(String fileName, String fileUrl, String createBy);
 
     /**
      * 打印文件修改

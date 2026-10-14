@@ -79,6 +79,7 @@
       <span class="comp-style">
         <el-color-picker
           v-model="theme"
+          aria-label="主题颜色"
           :predefine="predefineColors"
           @change="themeChange"
         />
@@ -91,7 +92,7 @@
     <div class="drawer-item">
       <span>顶部导航</span>
       <span class="comp-style">
-        <el-switch
+        <el-switch aria-label="顶部导航"
           v-model="settingsStore.topNav"
           @change="topNavChange"
           class="drawer-switch"
@@ -102,28 +103,28 @@
     <div class="drawer-item">
       <span>页面标签</span>
       <span class="comp-style">
-        <el-switch v-model="settingsStore.tagsView" class="drawer-switch" />
+        <el-switch aria-label="页面标签" v-model="settingsStore.tagsView" class="drawer-switch" />
       </span>
     </div>
 
     <div class="drawer-item">
       <span>固定页头</span>
       <span class="comp-style">
-        <el-switch v-model="settingsStore.fixedHeader" class="drawer-switch" />
+        <el-switch aria-label="固定页头" v-model="settingsStore.fixedHeader" class="drawer-switch" />
       </span>
     </div>
 
     <div class="drawer-item">
       <span>显示品牌标识</span>
       <span class="comp-style">
-        <el-switch v-model="settingsStore.sidebarLogo" class="drawer-switch" />
+        <el-switch aria-label="显示品牌标识" v-model="settingsStore.sidebarLogo" class="drawer-switch" />
       </span>
     </div>
 
     <div class="drawer-item">
       <span>动态标题</span>
       <span class="comp-style">
-        <el-switch v-model="settingsStore.dynamicTitle" class="drawer-switch" />
+        <el-switch aria-label="动态标题" v-model="settingsStore.dynamicTitle" class="drawer-switch" />
       </span>
     </div>
 
@@ -272,7 +273,7 @@ defineExpose({
       height: 100%;
       padding-top: 15px;
       padding-left: 24px;
-      color: #1890ff;
+      color: var(--sc-primary);
       font-weight: 700;
       font-size: 14px;
     }

@@ -25,6 +25,8 @@ public class CommerceCostController {
     public AjaxResult observe(@RequestBody Map<String,Object> body){return AjaxResult.success(costs.importObservation(body,SecurityUtils.getUserId()));}
     @GetMapping("/reconciliations") @CommercePermission(CommerceCapability.REFUND_REVIEW)
     public AjaxResult list(){return AjaxResult.success(costs.reconciliations(SecurityUtils.getUserId()));}
+    @GetMapping("/reconciliations/page") @CommercePermission(CommerceCapability.REFUND_REVIEW)
+    public AjaxResult page(@RequestParam Map<String,String> query){return AjaxResult.success(costs.reconciliationsPage(SecurityUtils.getUserId(),query));}
     @PostMapping("/reconciliations") @CommercePermission(CommerceCapability.REFUND_REVIEW)
     public AjaxResult reconcile(@RequestBody Map<String,Object> body){return AjaxResult.success(costs.reconcile(body,SecurityUtils.getUserId()));}
     @PostMapping("/reconciliations/{id}/resolve") @CommercePermission(CommerceCapability.REFUND_REVIEW)

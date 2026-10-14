@@ -6,6 +6,7 @@ import org.junit.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.logging.LoggingSystemProperties;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.StandardEnvironment;
@@ -15,6 +16,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import static org.junit.Assert.*;
 
@@ -42,9 +45,17 @@ public class LoggingStartupTest {
         Path expected = environmentOverride || commandOverride ? temporary.resolve("custom logs")
                 : home.resolve(".supply-chain-saas/logs");
         String previousHome = System.getProperty("user.home");
+        Map<String, String> previousLoggingProperties = new LinkedHashMap<>();
+        for (String key : new String[]{LoggingSystemProperties.LOG_PATH, LoggingSystemProperties.LOG_FILE,
+                LoggingSystemProperties.PID_KEY, LoggingSystemProperties.CONSOLE_LOG_CHARSET,
+                LoggingSystemProperties.FILE_LOG_CHARSET}) {
+            previousLoggingProperties.put(key, System.getProperty(key));
+        }
         LoggerContext logging = (LoggerContext) LoggerFactory.getILoggerFactory();
         ConfigurableApplicationContext context = null;
         try {
+            // Boot writes these JVM properties; each startup must see an isolated environment.
+            previousLoggingProperties.keySet().forEach(System::clearProperty);
             System.setProperty("user.home", home.toString());
             logging.reset();
             StandardEnvironment environment = new StandardEnvironment();
@@ -74,14 +85,19 @@ public class LoggingStartupTest {
         } finally {
             if (context != null) context.close();
             logging.stop();
-            if (previousHome == null) System.clearProperty("user.home");
-            else System.setProperty("user.home", previousHome);
+            restoreProperty("user.home", previousHome);
+            previousLoggingProperties.forEach(LoggingStartupTest::restoreProperty);
             try (java.util.stream.Stream<Path> paths = Files.walk(temporary)) {
                 for (Path path : (Iterable<Path>) paths.sorted(java.util.Comparator.reverseOrder())::iterator) {
                     Files.deleteIfExists(path);
                 }
             }
         }
+    }
+
+    private static void restoreProperty(String key, String value) {
+        if (value == null) System.clearProperty(key);
+        else System.setProperty(key, value);
     }
 
     private void assertContains(Path file, String message) throws Exception {

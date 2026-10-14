@@ -92,7 +92,7 @@
           <!-- [zh] 开始标签 `<span>` -->
           <span class="feed-title">为你推荐</span>
           <!-- [zh] 开始标签 `<span>` -->
-          <span class="feed-sub">{{ DEMO_MODE ? '商品售价 · 可售库存' : '每日上新 · 品质精选' }}</span>
+          <span v-if="!DEMO_MODE" class="feed-sub">每日上新 · 品质精选</span>
         <!-- [zh] 闭合标签 `</header>` -->
         </header>
         <!-- [zh] 开始标签 `<el-skeleton>` -->
@@ -116,7 +116,7 @@
               @click="goDetail"
             />
           </div>
-          <el-empty v-else description="暂无商品，稍后再来看看" />
+          <el-empty v-else-if="!feedLoadError" description="暂无商品，稍后再来看看" />
         </el-skeleton>
         <div ref="feedSentinel" class="feed-sentinel">
           <span v-if="feedLoading" class="feed-tip">加载中…</span>
@@ -280,7 +280,7 @@ const load = async (opts?: { prefetch?: boolean; fromPullRefresh?: boolean }) =>
     await loadFeed(true);
 
     if (opts?.prefetch) {
-      while (!feedFinished.value && products.value.length < MAX_PRODUCTS) {
+      while (!feedFinished.value && !feedLoadError.value && products.value.length < MAX_PRODUCTS) {
         await loadFeed();
       }
     }
@@ -338,7 +338,7 @@ onMounted(async () => {
 
   feedObserver = new IntersectionObserver(
     (entries) => {
-      if (entries.some((e) => e.isIntersecting)) loadFeed();
+      if (!feedLoadError.value && entries.some((e) => e.isIntersecting)) loadFeed();
     },
     { rootMargin: '400px 0px' }
   );

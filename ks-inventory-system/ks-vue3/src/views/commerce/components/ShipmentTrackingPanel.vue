@@ -1,7 +1,7 @@
 <template>
   <section class="shipment-tracking">
     <header><strong>{{ shipment.carrier || shipment.carrierCode || '物流' }} · {{ shipment.trackingNo }}</strong><el-button text size="small" :loading="loading" @click="refresh">刷新轨迹</el-button></header>
-    <p>发货 {{ shipment.createdAt }} · 出库单 {{ shipment.receiptId }} <el-tag size="small" type="info">模拟物流</el-tag></p>
+    <p>发货 {{ shipment.createdAt }} · 出库单 <SourceReceiptLink :receipt="shipment.receiptId" :category="2" /> <el-tag size="small" type="info">模拟物流</el-tag></p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-timeline v-if="tracking?.events?.length"><el-timeline-item v-for="event in tracking.events" :key="event.eventId" :timestamp="event.occurredAt"><strong>{{ event.statusLabel || statusNames[event.status] || event.status }}</strong><span v-if="event.location"> · {{ event.location }}</span><p>{{ event.description }}</p></el-timeline-item></el-timeline>
     <p v-else-if="!loading">尚未登记物流节点</p>
@@ -18,6 +18,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getCommerceShipmentTracking, addCommerceShipmentEvent } from '@/api/commerce/orders'
+import SourceReceiptLink from '@/components/SourceReceiptLink.vue'
 const props = defineProps({ shipment: { type: Object, required: true }, shopId: { type: String, required: true }, capabilities: { type: Array, default: () => [] } })
 const canFulfil = computed(() => props.capabilities.includes('FULFILMENT'))
 const tracking = ref(null), loading = ref(false), saving = ref(false), error = ref('')
@@ -43,5 +44,8 @@ async function submit() {
 watch(() => [props.shopId, props.shipment.shipmentId], () => { generation++; tracking.value = null; Object.assign(form, { status: 'ACCEPTED', occurredAt: '', location: '', description: '' }); void refresh() }, { immediate: true })
 </script>
 <style scoped>
+.shipment-tracking header { flex-wrap: wrap; }
+.shipment-tracking strong { min-width: 0; }
+.shipment-tracking p, .shipment-tracking strong { overflow-wrap: anywhere; }
 .shipment-tracking{padding:16px 0;border-top:1px solid var(--sc-border)}.shipment-tracking header{display:flex;justify-content:space-between;align-items:center;gap:10px}.shipment-tracking p{font-size:12px;color:var(--sc-muted);margin:8px 0}.shipment-tracking .el-timeline{margin:20px 0;padding-left:16px}.shipment-tracking summary{cursor:pointer;font-size:13px}.shipment-tracking .el-form{margin-top:18px;max-width:420px}
 </style>

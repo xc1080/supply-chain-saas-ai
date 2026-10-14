@@ -1,0 +1,52 @@
+// Scoped to ERP page content. Teleported dialogs use erp-dialog.scss.
+.erp-page {
+  min-width: 0;
+
+  :deep(.el-col) { min-width: 0; }
+  :deep(.el-form--inline .el-form-item) { max-width: 100%; margin-right: 16px; margin-bottom: 16px; }
+  :deep(.el-form-item__content) { min-width: 0; }
+  :deep(.el-form-item__label) { font-size: 13px; }
+  :deep(.el-form-item__content > .el-input),
+  :deep(.el-form-item__content > .el-select),
+  :deep(.el-form-item__content > .el-textarea),
+  :deep(.el-form-item__content > .el-date-editor) { max-width: 100%; }
+  :deep(.mb8) { row-gap: 8px; margin-bottom: 16px; }
+  :deep(.mb8 > .el-col) { flex: 0 0 auto; width: auto; }
+  :deep(.el-table) { max-width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+  :deep(.el-table .cell) { overflow-wrap: anywhere; }
+  :deep(.el-table__empty-text) { line-height: 1.6; padding: 20px 12px; }
+  :deep(.el-button:focus-visible),
+  :deep(a:focus-visible) { outline: 2px solid var(--sc-primary); outline-offset: 3px; }
+
+  .erp-section-title { margin: 10px 0 14px; font-size: 15px; font-weight: 600; color: var(--sc-text); }
+  .erp-query-disclosure { margin: 0 0 16px; }
+  .erp-query-disclosure > summary { width: fit-content; padding: 4px 0; cursor: pointer; color: var(--sc-muted); font-size: 13px; line-height: 24px; }
+  .erp-query-disclosure > summary:hover { color: var(--sc-primary); }
+  .erp-query-disclosure > summary:focus-visible { outline: 2px solid var(--sc-primary); outline-offset: 3px; }
+  .erp-extra-filters { padding-top: 12px; }
+  .erp-document-link { color: var(--sc-primary); text-decoration: none; overflow-wrap: anywhere; }
+  .erp-document-link:hover { text-decoration: underline; }
+  .erp-document-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px; position: sticky; bottom: 0; z-index: 3; margin-top: 20px; padding: 12px 0; border-top: 1px solid var(--sc-border); background: var(--sc-surface); }
+  .erp-document-actions :deep(.el-button) { margin: 0; border-radius: 6px; }
+  .purchase-progress-header { flex-wrap: wrap; gap: 12px; }
+  .purchase-progress-header > div { display: flex; flex-wrap: wrap; gap: 8px; }
+  .purchase-progress-header :deep(.el-button) { margin: 0; }
+}
+
+@media (max-width: 700px) {
+  .erp-page {
+    :deep(.el-form--inline .el-form-item) { display: flex; flex-direction: column; align-items: stretch; width: 100% !important; margin-right: 0; }
+    :deep(.el-form--inline .el-form-item__label) { justify-content: flex-start; width: auto !important; height: auto; line-height: 1.5; padding: 0 0 6px; }
+    :deep(.el-form--inline .el-form-item__content) { display: flex; flex-wrap: wrap; gap: 8px; margin-left: 0 !important; }
+    :deep(.el-form-item__content > .el-input),
+    :deep(.el-form-item__content > .el-select),
+    :deep(.el-form-item__content > .el-textarea),
+    :deep(.el-form-item__content > .el-date-editor),
+    :deep(.el-form-item__content > .el-radio-group) { width: 100% !important; min-width: 0; }
+    :deep(.el-form-item__content .el-button) { margin-left: 0; }
+    :deep(.head-container .el-tree) { max-height: 190px; overflow-y: auto; margin-bottom: 16px; }
+    .erp-document-actions { position: static; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    .erp-document-actions :deep(.el-button) { min-height: 36px; }
+  }
+
+}

@@ -42,7 +42,7 @@
           <!-- [zh] 闭合标签 `</p>` -->
           </p>
           <!-- [zh] 开始标签 `<p>` -->
-          <p class="rush-tip">订单已生成，超时将自动关闭。也可在「我的订单 → 待付款」中继续支付。</p>
+          <p class="rush-tip">超时自动关闭 · <RouterLink to="/orders">查看待付款订单</RouterLink></p>
         </template>
         <p v-else class="rush-expired">支付已超时，订单已关闭，请返回重新抢购。</p>
       </div>
@@ -174,8 +174,8 @@
           </section>
 
           <section class="pc-panel">
-            <h2 class="panel-title">{{ DEMO_MODE ? '本地支付沙箱' : '支付方式' }}</h2>
-            <p v-if="DEMO_MODE">提交订单后预留库存，取消未付款订单会释放预留。可在订单详情模拟付款，不扣真钱；发货由供应链工作台处理。</p>
+            <h2 class="panel-title">支付方式</h2>
+            <div v-if="DEMO_MODE" class="sandbox-payment"><el-tag size="small" effect="plain">支付沙箱</el-tag><span>下单后模拟付款，不收取真实款项。</span></div>
             <el-radio-group v-else v-model="payMethod" class="pc-pay-methods">
               <label class="pc-pay-option" :class="{ active: payMethod === PAY_METHOD_ALIPAY_PC }">
                 <el-radio :label="PAY_METHOD_ALIPAY_PC">支付宝</el-radio>

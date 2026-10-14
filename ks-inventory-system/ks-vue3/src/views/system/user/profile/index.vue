@@ -1,7 +1,7 @@
 <template>
-   <div class="app-container">
+   <div class="app-container user-profile">
       <el-row :gutter="20">
-         <el-col :span="6" :xs="24">
+         <el-col :span="6" :xs="24" :sm="9" :lg="6">
             <el-card class="box-card">
                <template v-slot:header>
                  <div class="clearfix">
@@ -41,7 +41,7 @@
                </div>
             </el-card>
          </el-col>
-         <el-col :span="18" :xs="24">
+         <el-col :span="18" :xs="24" :sm="15" :lg="18">
             <el-card>
                <template v-slot:header>
                  <div class="clearfix">
@@ -85,3 +85,11 @@ function getUser() {
 
 getUser();
 </script>
+
+<style lang="scss" scoped>
+.user-profile > .el-row { row-gap: 18px; }
+.user-profile .list-group-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.user-profile .list-group-item > .pull-right { flex: 1 1 100%; min-width: 0; text-align: right; overflow-wrap: anywhere; }
+.user-profile .list-group-item .svg-icon { flex: 0 0 auto; }
+.user-profile :deep(.el-tab-pane .el-form) { max-width: 640px; }
+</style>

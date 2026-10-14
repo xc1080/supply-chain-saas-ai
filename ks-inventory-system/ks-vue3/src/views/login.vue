@@ -235,7 +235,7 @@ getCookie();
 .login-flow > div { display: grid; grid-template-columns: 28px auto; column-gap: 10px; align-items: center; }
 .login-flow-symbol { grid-row: span 2; color: var(--sc-primary); font-size: 24px; }
 .login-flow strong { font-size: 13px; font-weight: 600; }
-.login-flow small { color: var(--sc-muted); font-size: 11px; margin-top: 4px; }
+.login-flow small { color: var(--sc-muted); font-size: 12px; margin-top: 4px; }
 .login-flow-line { flex: 1; min-width: 12px; height: 1px; background: var(--sc-border); margin: 0 18px; }
 .login-access { width: min(100%, 420px); }
 .title {

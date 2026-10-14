@@ -34,11 +34,10 @@
             <el-table-column label="商品" min-width="230"><template #default="scope"><div class="return-product"><img :src="getProductImage(scope.row)" :alt="scope.row.productName" @error="handleProductImageError($event, scope.row)" /><div>{{ scope.row.productName }}<small>{{ scope.row.spec }}</small></div></div></template></el-table-column><el-table-column label="申请数量" prop="quantity" width="95" />
           </el-table>
           <div v-if="can('REVIEW')" class="actions">
-            <el-input v-model="note" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="审核说明（拒绝时请说明原因）" :disabled="acting" />
+            <el-input v-model="note" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="审核说明（拒绝时请说明原因）" aria-label="售后审核说明" :disabled="acting" />
             <el-button :disabled="acting" @click="review('REJECT')">拒绝申请</el-button><el-button type="primary" :loading="acting" @click="review('APPROVE')">审核通过</el-button>
           </div>
           <div v-else-if="can('ACCEPT_RETURN')" class="actions">
-            <p>核验本申请商品和数量，选择实际状态后返原仓。</p>
             <el-button type="primary" :loading="acting" @click="acceptReturn">登记退货验收</el-button>
           </div>
           <div v-else-if="can('SANDBOX_REFUND')" class="actions">
@@ -51,8 +50,8 @@
     </el-drawer>
     <el-dialog v-model="acceptVisible" title="登记退货验收" width="min(480px, 95vw)" :close-on-click-modal="!acting" :close-on-press-escape="!acting" :show-close="!acting">
       <el-alert v-if="detailError" :title="detailError" type="error" :closable="false" />
-      <p>请按实际商品状态选择验收结果。</p>
-      <el-select v-model="returnCondition" placeholder="选择验收结果" aria-label="退货验收结果" :disabled="acting" style="width:100%"><el-option v-for="(label, value) in conditionLabels" :key="value" :value="value" :label="label" /></el-select>
+      <ul class="return-accept-items"><li v-for="item in detail?.items || []" :key="item.productId">{{ item.productName }} × {{ item.quantity }} 件</li></ul>
+      <el-form label-position="top"><el-form-item label="实收商品状态（返原仓）"><el-select v-model="returnCondition" placeholder="选择验收结果" aria-label="退货验收结果" :disabled="acting" style="width:100%"><el-option v-for="(label, value) in conditionLabels" :key="value" :value="value" :label="label" /></el-select></el-form-item></el-form>
       <el-form v-if="requiresReceiptEvidence" label-position="top" style="margin-top:18px"><el-form-item label="人工实收依据" required><el-input v-model="receiptEvidence" type="textarea" :rows="2" maxlength="200" placeholder="填写实收凭证编号或验收依据" :disabled="acting" /></el-form-item></el-form>
       <p class="records">待质检与损坏商品入库后保持不可售，退款另行处理。</p>
       <template #footer><el-button :disabled="acting" @click="acceptVisible = false">返回</el-button><el-button type="primary" :disabled="!returnCondition || (requiresReceiptEvidence && !receiptEvidence.trim())" :loading="acting" @click="submitReturn">确认验收并入库</el-button></template>
@@ -147,8 +146,9 @@ onMounted(refresh)
 defineExpose({refresh})
 </script>
 <style scoped>
+.return-accept-items { margin: 0 0 18px; padding-left: 20px; font-size: 14px; line-height: 1.8; }
 .after-sales-panel { min-width: 0; }
 @media (max-width: 767px) { .after-sales-panel.after-sales-panel { padding: 14px; } .after-sales-panel > header { gap: 12px; flex-wrap: wrap; } }
 .return-product{display:flex;align-items:center;gap:12px}.return-product img{width:44px;height:44px;object-fit:contain;border-radius:6px;background:var(--sc-surface-soft)}.return-product small{display:block;color:var(--sc-muted)}
-.after-sales-panel{padding:22px;margin-bottom:22px;background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:8px}.after-sales-panel>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.after-sales-panel h2{font-size:18px;margin:0}.status{font-size:19px;font-weight:600}.after-sales-detail{line-height:1.8}.after-sales-detail .el-table{margin-top:20px}.actions{margin-top:22px}.actions>.el-button{margin-top:16px}.actions p,.records{font-size:13px;color:var(--sc-muted)}.records{margin-top:24px}.records summary{cursor:pointer}
+.after-sales-panel{padding:18px;margin-bottom:18px;background:var(--sc-surface);border:1px solid var(--sc-border);border-radius:8px}.after-sales-panel>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.after-sales-panel h2{font-size:16px;margin:0}.status{font-size:19px;font-weight:600}.after-sales-detail{line-height:1.8}.after-sales-detail .el-table{margin-top:20px}.actions{margin-top:22px}.actions>.el-button{margin-top:16px}.actions p,.records{font-size:13px;color:var(--sc-muted)}.records{margin-top:24px}.records summary{cursor:pointer}
 </style>

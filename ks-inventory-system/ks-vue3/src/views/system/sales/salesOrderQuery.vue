@@ -1,6 +1,6 @@
 <template>
   <!-- 销售订单查询 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <el-col :span="24" :xs="24">
         <el-form
@@ -11,23 +11,15 @@
           label-width="100px"
         >
           <el-form-item label="系统单号" prop="systematicOrderForm">
-            <el-input
+            <el-input aria-label="系统单号"
               v-model="queryParams.systematicOrderForm"
-              placeholder="请输入"
-              class="form-item"
-              clearable
-            />
-          </el-form-item>
-          <el-form-item label="原始单号" prop="originalOrderForm">
-            <el-input
-              v-model="queryParams.originalOrderForm"
-              placeholder="请输入"
+              placeholder="输入系统单号"
               class="form-item"
               clearable
             />
           </el-form-item>
           <el-form-item label="订单状态" prop="orderFormStatus">
-            <el-select
+            <el-select aria-label="订单状态"
               v-model="queryParams.orderFormStatus"
               placeholder="订单状态"
               filterable
@@ -42,63 +34,11 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="调入仓库" prop="warehousingIds">
-            <el-select
-              class="form-item"
-              v-model="queryParams.warehousingIds"
-              placeholder="请选择"
-              filterable
-              clearable
-            >
-              <el-option
-                v-for="item in warehouseOptions"
-                :key="item.warehouseId"
-                :label="item.warehouseName"
-                :value="item.warehouseId"
-              ></el-option>
-            </el-select>
-          </el-form-item>
-          <el-form-item label="调出仓库" prop="retrievalIds">
-            <el-select
-              class="form-item"
-              v-model="queryParams.retrievalIds"
-              placeholder="请选择"
-              filterable
-              clearable
-            >
-              <el-option
-                v-for="item in warehouseOptions"
-                :key="item.warehouseId"
-                :label="item.warehouseName"
-                :value="item.warehouseId"
-              ></el-option>
-            </el-select>
-          </el-form-item>
-          <el-form-item
-            label="经手人"
-            prop="userIds"
-            v-hasPermi="['sales:salesOrderQuery:selectUser']"
-          >
-            <el-select
-              class="form-item"
-              v-model="queryParams.userIds"
-              placeholder="请选择"
-              filterable
-              clearable
-            >
-              <el-option
-                v-for="item in userOptions"
-                :key="item.userId"
-                :label="item.userName"
-                :value="item.userId"
-              ></el-option>
-            </el-select>
-          </el-form-item>
           <el-form-item label="客户" prop="customerIds">
-            <el-select
+            <el-select aria-label="客户"
               class="form-item"
               v-model="queryParams.customerIds"
-              placeholder="请选择"
+              placeholder="选择客户"
               filterable
               clearable
               remote
@@ -113,32 +53,97 @@
               ></el-option>
             </el-select>
           </el-form-item>
-          <el-form-item label="商品编号" prop="productCode">
-            <el-input
-              v-model="queryParams.productCode"
-              placeholder="请输入商品编号"
-              class="form-item"
-              clearable
-            />
-          </el-form-item>
-          <el-form-item label="商品名称" prop="productName">
-            <el-input
-              v-model="queryParams.productName"
-              placeholder="请输入商品名称"
-              class="form-item"
-              clearable
-            />
-          </el-form-item>
-          <el-form-item label="创建时间" style="width: 388px">
-            <el-date-picker
-              v-model="dateRange"
-              value-format="YYYY-MM-DD"
-              type="daterange"
-              range-separator="-"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-            ></el-date-picker>
-          </el-form-item>
+          <details class="erp-query-disclosure">
+            <summary>更多筛选</summary>
+            <div class="erp-extra-filters">
+              <el-form-item label="原始单号" prop="originalOrderForm">
+                <el-input aria-label="原始单号"
+                  v-model="queryParams.originalOrderForm"
+                  placeholder="输入原始单号"
+                  class="form-item"
+                  clearable
+                />
+              </el-form-item>
+              <el-form-item label="调入仓库" prop="warehousingIds">
+                <el-select aria-label="调入仓库"
+                  class="form-item"
+                  v-model="queryParams.warehousingIds"
+                  placeholder="选择调入仓库"
+                  filterable
+                  clearable
+                >
+                  <el-option
+                    v-for="item in warehouseOptions"
+                    :key="item.warehouseId"
+                    :label="item.warehouseName"
+                    :value="item.warehouseId"
+                  ></el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="调出仓库" prop="retrievalIds">
+                <el-select aria-label="调出仓库"
+                  class="form-item"
+                  v-model="queryParams.retrievalIds"
+                  placeholder="选择调出仓库"
+                  filterable
+                  clearable
+                >
+                  <el-option
+                    v-for="item in warehouseOptions"
+                    :key="item.warehouseId"
+                    :label="item.warehouseName"
+                    :value="item.warehouseId"
+                  ></el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item
+                label="经手人"
+                prop="userIds"
+                v-hasPermi="['sales:salesOrderQuery:selectUser']"
+              >
+                <el-select aria-label="经手人"
+                  class="form-item"
+                  v-model="queryParams.userIds"
+                  placeholder="选择经手人"
+                  filterable
+                  clearable
+                >
+                  <el-option
+                    v-for="item in userOptions"
+                    :key="item.userId"
+                    :label="item.userName"
+                    :value="item.userId"
+                  ></el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="商品编号" prop="productCode">
+                <el-input aria-label="商品编号"
+                  v-model="queryParams.productCode"
+                  placeholder="请输入商品编号"
+                  class="form-item"
+                  clearable
+                />
+              </el-form-item>
+              <el-form-item label="商品名称" prop="productName">
+                <el-input aria-label="商品名称"
+                  v-model="queryParams.productName"
+                  placeholder="请输入商品名称"
+                  class="form-item"
+                  clearable
+                />
+              </el-form-item>
+              <el-form-item label="创建时间" style="width: 388px">
+                <el-date-picker aria-label="创建时间"
+                  v-model="dateRange"
+                  value-format="YYYY-MM-DD"
+                  type="daterange"
+                  range-separator="-"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                ></el-date-picker>
+              </el-form-item>
+            </div>
+          </details>
           <el-form-item>
             <el-button
               type="primary"
@@ -148,15 +153,15 @@
               v-hasPermi="['sales:salesOrderQuery:headQuery']"
               >查询</el-button
             >
-            <el-button
-              type="success"
+            <el-button plain
+              type="default"
               icon="Search"
               round
               @click="handleDetailQuery"
               v-hasPermi="['sales:salesOrderQuery:detailQuery']"
               >明细查询</el-button
             >
-            <el-button type="info" icon="Refresh" round @click="resetQuery"
+            <el-button plain type="default" icon="Refresh" round @click="resetQuery"
               >重置</el-button
             >
           </el-form-item>
@@ -164,7 +169,7 @@
         <el-row :gutter="10" class="mb8">
           <el-col :span="1.5">
             <el-tooltip class="box-item" content="新建销售订单" placement="top">
-              <el-button
+              <el-button aria-label="新建销售订单"
                 type="success"
                 icon="plus"
                 plain
@@ -178,7 +183,7 @@
           <el-col :span="1.5">
             <el-button
               :disabled="salesDetail"
-              type="warning"
+              type="default"
               plain
               round
               icon="Download"
@@ -190,7 +195,7 @@
           <el-col :span="1.5">
             <el-button
               :disabled="salesHead"
-              type="danger"
+              type="default"
               plain
               round
               icon="Download"
@@ -225,11 +230,9 @@
             width="180"
           >
             <template #default="scope">
-              <el-link type="primary">
-                <a target="_blank" @click="handleUpdate(scope.row)">{{
+              <router-link class="erp-document-link" :to="{ path: '/sales/salesOrderProcessing', query: { systematicOrderForm: scope.row.systematicOrderForm } }">{{
                   scope.row.systematicOrderForm
-                }}</a>
-              </el-link>
+                }}</router-link>
             </template>
           </el-table-column>
           <el-table-column
@@ -293,7 +296,7 @@
             prop="planReceipt"
             width="150"
           />
-          <el-table-column
+          <el-table-column min-width="220"
             label="备注"
             align="center"
             prop="orderFormNotes"
@@ -301,13 +304,13 @@
           />
           <el-table-column
             label="定金"
-            align="center"
+            align="right"
             prop="deposit"
             width="150"
           />
           <el-table-column
             label="总金额"
-            align="center"
+            align="right"
             prop="orderFormAmount"
             width="150"
           />
@@ -390,7 +393,7 @@
           >
             <template #default="scope">
               <el-tooltip content="修改" placement="top">
-                <el-button
+                <el-button aria-label="修改"
                   link
                   type="primary"
                   icon="Edit"
@@ -399,7 +402,7 @@
                 ></el-button>
               </el-tooltip>
               <el-tooltip content="打印" placement="top">
-                <el-button
+                <el-button aria-label="打印"
                   link
                   type="primary"
                   icon="Printer"
@@ -408,7 +411,7 @@
                 ></el-button>
               </el-tooltip>
               <el-tooltip content="删除" placement="top">
-                <el-button
+                <el-button aria-label="删除"
                   link
                   type="primary"
                   icon="Delete"
@@ -447,7 +450,7 @@
             prop="systematicOrderForm"
             width="180"
           />
-          <el-table-column
+          <el-table-column min-width="160"
             label="商品编号"
             align="center"
             prop="product.productCode"
@@ -458,28 +461,28 @@
             prop="product.productName" min-width="230">
             <template #default="scope"><ProductIdentity :product="scope.row" /></template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="130"
             label="商品类型"
             align="center"
             prop="type.productTypeName"
           />
-          <el-table-column
+          <el-table-column min-width="140"
             label="规格"
             align="center"
             prop="productSpecifications"
           />
-          <el-table-column label="单位" align="center" prop="measureUnit" />
-          <el-table-column
+          <el-table-column min-width="80" label="单位" align="center" prop="measureUnit" />
+          <el-table-column min-width="140"
             label="产地"
             align="center"
             prop="product.producer"
           />
-          <el-table-column label="数量" align="center" prop="planQuantity" />
-          <el-table-column label="单价" align="center" prop="univalence" />
-          <el-table-column label="折扣" align="center" prop="discount" />
-          <el-table-column label="金额" align="center" prop="money" />
-          <el-table-column label="成本" align="center" prop="cost" />
-          <el-table-column
+          <el-table-column min-width="110" label="数量" align="right" prop="planQuantity" />
+          <el-table-column min-width="110" label="单价" align="right" prop="univalence" />
+          <el-table-column min-width="110" label="折扣" align="right" prop="discount" />
+          <el-table-column min-width="110" label="金额" align="right" prop="money" />
+          <el-table-column min-width="110" label="成本" align="right" prop="cost" />
+          <el-table-column min-width="220"
             label="备注"
             align="center"
             prop="remarks"
@@ -502,7 +505,8 @@
 
 <script setup name="SalesOrderQuery">
 import { getToken } from "@/utils/auth";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import { documentQueryFromRoute } from "@/utils/documentNavigation.mjs";
 import { listWarehouse } from "@/api/basedate/warehouse";
 import { listUser, getUserProfile } from "@/api/system/user";
 import { listCustomer } from "@/api/basedate/customer";
@@ -545,6 +549,7 @@ const open = ref(false);
 // 数据范围
 const dateRange = ref([]);
 const router = useRouter();
+const route = useRoute();
 
 const data = reactive({
   option: {
@@ -583,6 +588,14 @@ const data = reactive({
 
 const { queryParams, form, option, rules } = toRefs(data);
 
+const routeQueryDefaults = { ...queryParams.value };
+let defaultUserId;
+let queryInitialized = false;
+let queryRequestVersion = 0;
+function applyRouteQuery() {
+  queryParams.value = documentQueryFromRoute(route.query, routeQueryDefaults, defaultUserId);
+}
+
 async function Options() {
   loading.value = true;
   listWarehouse(option.value).then((response) => {
@@ -593,18 +606,22 @@ async function Options() {
   });
   await listUser(option.value).then((response) => {
     userOptions.value = response.rows;
-  });
+  }).catch(() => { userOptions.value = []; });
   await getUserProfile().then((response) => {
-    queryParams.value.userIds = response.data.userId;
+    defaultUserId = response.data.userId;
   });
+  applyRouteQuery();
+  queryInitialized = true;
   getList();
   loading.value = false;
 }
 /** 查询销售头单列表 */
 function getList() {
+  const version = ++queryRequestVersion;
   loading.value = true;
   headQuery(proxy.addDateRange(queryParams.value, dateRange.value)).then(
     (response) => {
+      if (version !== queryRequestVersion || route.path !== '/sales/salesOrderQuery') return;
       salesOrderList.value = response.rows;
       total.value = response.total;
       loading.value = false;
@@ -613,9 +630,11 @@ function getList() {
 }
 /** 查询销售明细单列表 */
 function getDetailList() {
+  const version = ++queryRequestVersion;
   loading.value = true;
   detailQuery(proxy.addDateRange(queryParams.value, dateRange.value)).then(
     (response) => {
+      if (version !== queryRequestVersion || route.path !== '/sales/salesOrderQuery') return;
       salesDetailOrderList.value = response.rows;
       total.value = response.total;
       loading.value = false;
@@ -758,6 +777,12 @@ function remoteCustomer(query) {
   }
 }
 
+watch(() => [route.path, route.query], () => {
+  if (!queryInitialized || route.path !== '/sales/salesOrderQuery') return;
+  dateRange.value = [];
+  applyRouteQuery();
+  handleQuery();
+});
 Options();
 </script>
 
@@ -766,3 +791,5 @@ Options();
   width: 200px;
 }
 </style>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

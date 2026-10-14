@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div class="cron-builder">
         <el-tabs type="border-card">
             <el-tab-pane label="秒" v-if="shouldHide('second')">
                 <CrontabSecond
@@ -68,12 +68,12 @@
         <div class="popup-main">
             <div class="popup-result">
                 <p class="title">时间表达式</p>
-                <table>
-                    <thead>
+                <div class="cron-result-table"><table>
+                    <thead><tr>
                         <th v-for="item of tabTitles" :key="item">{{item}}</th>
                         <th>Cron 表达式</th>
-                    </thead>
-                    <tbody>
+                    </tr></thead>
+                    <tbody><tr>
                         <td>
                             <span v-if="crontabValueObj.second.length < 10">{{crontabValueObj.second}}</span>
                             <el-tooltip v-else :content="crontabValueObj.second" placement="top"><span>{{crontabValueObj.second}}</span></el-tooltip>
@@ -106,8 +106,8 @@
                             <span v-if="crontabValueString.length < 90">{{crontabValueString}}</span>
                             <el-tooltip v-else :content="crontabValueString" placement="top"><span>{{crontabValueString}}</span></el-tooltip>
                         </td>
-                    </tbody>
-                </table>
+                    </tr></tbody>
+                </table></div>
             </div>
             <CrontabResult :ex="crontabValueString"></CrontabResult>
 
@@ -251,7 +251,7 @@ onMounted(() => {
 .popup-main {
     position: relative;
     margin: 10px auto;
-    background: #fff;
+    background: var(--sc-surface);
     border-radius: 5px;
     font-size: 12px;
     overflow: hidden;
@@ -260,14 +260,14 @@ onMounted(() => {
     overflow: hidden;
     line-height: 34px;
     padding-top: 6px;
-    background: #f2f2f2;
+    background: var(--sc-surface-soft);
 }
 .popup-result {
     box-sizing: border-box;
     line-height: 24px;
     margin: 25px auto;
     padding: 15px 10px 10px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--sc-border);
     position: relative;
 }
 .popup-result .title {
@@ -299,7 +299,7 @@ onMounted(() => {
     height: 30px;
     white-space: nowrap;
     overflow: hidden;
-    border: 1px solid #e8e8e8;
+    border: 1px solid var(--sc-border);
 }
 .popup-result-scroll {
     font-size: 12px;
@@ -307,4 +307,12 @@ onMounted(() => {
     height: 10em;
     overflow-y: auto;
 }
+.cron-result-table { overflow-x: auto; }
+.cron-result-table table { min-width: 520px; }
+.cron-builder :deep(.el-radio) { height: auto; min-height: 32px; white-space: normal; align-items: flex-start; }
+.cron-builder :deep(.el-radio__input) { margin-top: 9px; }
+.cron-builder :deep(.el-radio__label) { line-height: 32px; min-width: 0; overflow-wrap: anywhere; }
+.cron-builder :deep(.el-input-number) { width: 110px; max-width: 100%; }
+.cron-builder :deep(.el-select) { max-width: 100%; }
+@media (max-width: 767px) { .cron-builder :deep(.el-radio__label .el-select) { width: min(100%, 220px); } }
 </style>

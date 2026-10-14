@@ -49,11 +49,13 @@
           @click="goDetail"
         />
       </div>
+      <el-empty v-else-if="loadError && !loading" :description="loadError"><el-button type="primary" @click="retryLoad">重试</el-button></el-empty>
       <el-empty v-else-if="!loading" description="暂无搜索结果">
         <el-button type="primary" @click="router.push('/')">去首页</el-button>
       </el-empty>
       <div ref="sentinelRef" class="load-sentinel" />
       <p v-if="loadingMore" class="load-tip">加载中…</p>
+      <p v-else-if="loadError && list.length" class="load-tip" role="alert">{{ loadError }} <el-button text type="primary" @click="retryLoad">重试</el-button></p>
       <p v-else-if="finished && list.length" class="load-tip">没有更多了</p>
     </section>
   </div>
@@ -88,6 +90,7 @@ const total = ref(0);
 const list = ref<any[]>([]);
 const loading = ref(false);
 const loadingMore = ref(false);
+const loadError = ref('');
 const finished = ref(false);
 const sentinelRef = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
@@ -177,6 +180,7 @@ const pageCache = usePageListCache({
     activeKeywords.value = String(state.activeKeywords ?? '');
     loading.value = false;
     loadingMore.value = false;
+    loadError.value = '';
   },
   afterRestore: setupObserver
 });
@@ -184,7 +188,7 @@ const pageCache = usePageListCache({
 const loadMore = async () => {
   const keyWords = query.keyWords.trim();
   if (!keyWords) return;
-  if (loadingMore.value || finished.value) return;
+  if (loadingMore.value || finished.value || loadError.value) return;
   if (pageNo.value >= pageTotal.value && pageNo.value > 0) {
     finished.value = true;
     return;
@@ -211,6 +215,8 @@ const loadMore = async () => {
     pageTotal.value = r?.pageTotal ?? pageNo.value;
     total.value = r?.totalCount ?? list.value.length;
     finished.value = pageNo.value >= pageTotal.value;
+  } catch {
+    loadError.value = '搜索结果加载失败，请重试';
   } finally {
     loadingMore.value = false;
     loading.value = false;
@@ -218,6 +224,7 @@ const loadMore = async () => {
 };
 
 const resetAndLoad = () => {
+  loadError.value = '';
   pageNo.value = 0;
   pageTotal.value = 1;
   finished.value = false;
@@ -225,6 +232,11 @@ const resetAndLoad = () => {
   total.value = 0;
   window.scrollTo(0, 0);
   loadMore();
+};
+
+const retryLoad = () => {
+  loadError.value = '';
+  void loadMore();
 };
 
 const onSortChange = () => {

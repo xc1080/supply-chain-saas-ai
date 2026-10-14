@@ -102,6 +102,7 @@
             <template #default="scope">
                <el-switch
                   v-model="scope.row.status"
+                  :aria-label="'启用任务 ' + scope.row.jobName"
                   active-value="0"
                   inactive-value="1"
                   @change="handleStatusChange(scope.row)"
@@ -111,19 +112,19 @@
          <el-table-column label="操作" align="center" width="200" class-name="small-padding fixed-width">
             <template #default="scope">
                <el-tooltip content="修改" placement="top">
-                  <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['monitor:job:edit']"></el-button>
+                  <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['monitor:job:edit']" aria-label="修改"></el-button>
                </el-tooltip>
                <el-tooltip content="删除" placement="top">
-                  <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['monitor:job:remove']"></el-button>
+                  <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['monitor:job:remove']" aria-label="删除"></el-button>
                </el-tooltip>
                <el-tooltip content="执行一次" placement="top">
-                  <el-button link type="primary" icon="CaretRight" @click="handleRun(scope.row)" v-hasPermi="['monitor:job:changeStatus']"></el-button>
+                  <el-button link type="primary" icon="CaretRight" @click="handleRun(scope.row)" v-hasPermi="['monitor:job:changeStatus']" aria-label="执行一次"></el-button>
                </el-tooltip>
                <el-tooltip content="任务详细" placement="top">
-                  <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['monitor:job:query']"></el-button>
+                  <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['monitor:job:query']" aria-label="任务详细"></el-button>
                </el-tooltip>
                <el-tooltip content="调度日志" placement="top">
-                  <el-button link type="primary" icon="Operation" @click="handleJobLog(scope.row)" v-hasPermi="['monitor:job:query']"></el-button>
+                  <el-button link type="primary" icon="Operation" @click="handleJobLog(scope.row)" v-hasPermi="['monitor:job:query']" aria-label="调度日志"></el-button>
                </el-tooltip>
             </template>
          </el-table-column>
@@ -141,12 +142,12 @@
       <el-dialog :title="title" v-model="open" width="820px" append-to-body>
          <el-form ref="jobRef" :model="form" :rules="rules" label-width="120px">
             <el-row>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="任务名称" prop="jobName">
                      <el-input v-model="form.jobName" placeholder="请输入任务名称" />
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="任务分组" prop="jobGroup">
                      <el-select v-model="form.jobGroup" placeholder="请选择">
                         <el-option
@@ -201,7 +202,7 @@
                      </el-radio-group>
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="执行策略" prop="misfirePolicy">
                      <el-radio-group v-model="form.misfirePolicy">
                         <el-radio-button value="1">立即执行</el-radio-button>
@@ -210,7 +211,7 @@
                      </el-radio-group>
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="是否并发" prop="concurrent">
                      <el-radio-group v-model="form.concurrent">
                         <el-radio-button value="0">允许</el-radio-button>
@@ -236,36 +237,36 @@
       <el-dialog title="任务详细" v-model="openView" width="700px" append-to-body>
          <el-form :model="form" label-width="120px">
             <el-row>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="任务编号：">{{ form.jobId }}</el-form-item>
                   <el-form-item label="任务名称：">{{ form.jobName }}</el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="任务分组：">{{ jobGroupFormat(form) }}</el-form-item>
                   <el-form-item label="创建时间：">{{ form.createTime }}</el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="cron表达式：">{{ form.cronExpression }}</el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="下次执行时间：">{{ parseTime(form.nextValidTime) }}</el-form-item>
                </el-col>
                <el-col :span="24">
                   <el-form-item label="调用目标方法：">{{ form.invokeTarget }}</el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="任务状态：">
                      <div v-if="form.status == 0">正常</div>
                      <div v-else-if="form.status == 1">暂停</div>
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="是否并发：">
                      <div v-if="form.concurrent == 0">允许</div>
                      <div v-else-if="form.concurrent == 1">禁止</div>
                   </el-form-item>
                </el-col>
-               <el-col :span="12">
+               <el-col :span="12" :xs="24">
                   <el-form-item label="执行策略：">
                      <div v-if="form.misfirePolicy == 0">默认策略</div>
                      <div v-else-if="form.misfirePolicy == 1">立即执行</div>

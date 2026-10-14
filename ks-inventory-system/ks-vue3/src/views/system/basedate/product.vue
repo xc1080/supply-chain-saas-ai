@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <!--货品类型-->
       <el-col :span="4" :xs="24">
@@ -36,7 +36,7 @@
           label-width="90px"
         >
           <el-form-item label="货品编号" prop="productCode">
-            <el-input
+            <el-input aria-label="货品编号"
               v-model="queryParams.productCode"
               placeholder="请输入货品编号"
               clearable
@@ -45,7 +45,7 @@
             />
           </el-form-item>
           <el-form-item label="货品名称" prop="productName">
-            <el-input
+            <el-input aria-label="货品名称"
               v-model="queryParams.productName"
               placeholder="请输入货品名称"
               clearable
@@ -53,44 +53,8 @@
               @keyup.enter="handleQuery"
             />
           </el-form-item>
-          <el-form-item label="商品规格" prop="productSpecifications">
-            <el-input
-              v-model="queryParams.productSpecifications"
-              placeholder="请输入商品规格"
-              clearable
-              style="width: 180px"
-              @keyup.enter="handleQuery"
-            />
-          </el-form-item>
-          <el-form-item label="计量单位" prop="measureUnit">
-            <el-input
-              v-model="queryParams.measureUnit"
-              placeholder="请输入计量单位"
-              clearable
-              style="width: 180px"
-              @keyup.enter="handleQuery"
-            />
-          </el-form-item>
-          <el-form-item label="货品条码" prop="productBarcode">
-            <el-input
-              v-model="queryParams.productBarcode"
-              placeholder="请输入货品条码"
-              clearable
-              style="width: 180px"
-              @keyup.enter="handleQuery"
-            />
-          </el-form-item>
-          <el-form-item label="默认仓库" prop="defaultWarehouse">
-            <el-input
-              v-model="queryParams.defaultWarehouse"
-              placeholder="请输入默认仓库"
-              clearable
-              style="width: 180px"
-              @keyup.enter="handleQuery"
-            />
-          </el-form-item>
           <el-form-item label="状态" prop="status">
-            <el-select
+            <el-select aria-label="状态"
               v-model="queryParams.status"
               placeholder="状态"
               clearable
@@ -104,21 +68,62 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="创建时间" style="width: 308px">
-            <el-date-picker
-              v-model="dateRange"
-              value-format="YYYY-MM-DD"
-              type="daterange"
-              range-separator="-"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-            ></el-date-picker>
-          </el-form-item>
+          <details class="erp-query-disclosure">
+            <summary>更多筛选</summary>
+            <div class="erp-extra-filters">
+              <el-form-item label="商品规格" prop="productSpecifications">
+                <el-input aria-label="商品规格"
+                  v-model="queryParams.productSpecifications"
+                  placeholder="请输入商品规格"
+                  clearable
+                  style="width: 180px"
+                  @keyup.enter="handleQuery"
+                />
+              </el-form-item>
+              <el-form-item label="计量单位" prop="measureUnit">
+                <el-input aria-label="计量单位"
+                  v-model="queryParams.measureUnit"
+                  placeholder="请输入计量单位"
+                  clearable
+                  style="width: 180px"
+                  @keyup.enter="handleQuery"
+                />
+              </el-form-item>
+              <el-form-item label="货品条码" prop="productBarcode">
+                <el-input aria-label="货品条码"
+                  v-model="queryParams.productBarcode"
+                  placeholder="请输入货品条码"
+                  clearable
+                  style="width: 180px"
+                  @keyup.enter="handleQuery"
+                />
+              </el-form-item>
+              <el-form-item label="默认仓库" prop="defaultWarehouse">
+                <el-input aria-label="默认仓库"
+                  v-model="queryParams.defaultWarehouse"
+                  placeholder="请输入默认仓库"
+                  clearable
+                  style="width: 180px"
+                  @keyup.enter="handleQuery"
+                />
+              </el-form-item>
+              <el-form-item label="创建时间" style="width: 308px">
+                <el-date-picker aria-label="创建时间"
+                  v-model="dateRange"
+                  value-format="YYYY-MM-DD"
+                  type="daterange"
+                  range-separator="-"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                ></el-date-picker>
+              </el-form-item>
+            </div>
+          </details>
           <el-form-item>
             <el-button type="primary" icon="Search" @click="handleQuery"
               >搜索</el-button
             >
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-form>
 
@@ -167,7 +172,7 @@
           </el-col>
           <el-col :span="1.5">
             <el-button
-              type="warning"
+              type="default"
               plain
               icon="Download"
               @click="handleExport"
@@ -440,12 +445,12 @@
     </el-row>
 
     <!-- 添加或修改货品资料配置对话框 -->
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog class="erp-dialog" :title="title" v-model="open" width="min(600px, calc(100vw - 24px))" append-to-body>
       <el-form :model="form" :rules="rules" ref="productRef" label-width="80px">
         <el-row>
           <el-col :span="12">
             <el-form-item label="货品编号" prop="productCode">
-              <el-input
+              <el-input aria-label="货品编号"
                 v-model="form.productCode"
                 placeholder="请输入货品编号"
                 maxlength="30"
@@ -454,7 +459,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="货品名称" prop="productName">
-              <el-input
+              <el-input aria-label="货品名称"
                 v-model="form.productName"
                 placeholder="请输入货品名称"
                 maxlength="30"
@@ -465,7 +470,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="货品类型" prop="productType">
-              <el-tree-select
+              <el-tree-select aria-label="货品类型"
                 v-model="form.productType"
                 :data="typeOptions"
                 :props="{ value: 'id', label: 'label', children: 'children' }"
@@ -478,7 +483,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="货品规格" prop="productSpecifications">
-              <el-input
+              <el-input aria-label="货品规格"
                 v-model="form.productSpecifications"
                 placeholder="请输入货品规格"
                 maxlength="30"
@@ -489,7 +494,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="计量单位" prop="measureUnit">
-              <el-input
+              <el-input aria-label="计量单位"
                 v-model="form.measureUnit"
                 placeholder="请输入计量单位"
                 maxlength="30"
@@ -498,7 +503,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="货品条码" prop="productBarcode">
-              <el-input
+              <el-input aria-label="货品条码"
                 v-model="form.productBarcode"
                 placeholder="请输入货品条码"
                 maxlength="30"
@@ -509,7 +514,7 @@
         <el-row>
           <el-col :span="24">
             <el-form-item label="产地" prop="producer">
-              <el-input
+              <el-input aria-label="产地"
                 v-model="form.producer"
                 placeholder="请输入产地"
                 maxlength="30"
@@ -520,7 +525,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="成本价" prop="costPrice">
-              <el-input
+              <el-input aria-label="成本价"
                 v-model="form.costPrice"
                 placeholder="请输入成本价"
                 maxlength="30"
@@ -529,7 +534,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="参考售价" prop="univalence">
-              <el-input
+              <el-input aria-label="参考售价"
                 v-model="form.univalence"
                 placeholder="请输入参考售价"
                 maxlength="30"
@@ -540,7 +545,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="销售折扣" prop="discount">
-              <el-input
+              <el-input aria-label="销售折扣"
                 v-model="form.discount"
                 placeholder="请输入销售折扣"
                 maxlength="30"
@@ -549,7 +554,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="库存数量" prop="costPrice">
-              <el-input
+              <el-input aria-label="库存数量"
                 v-model="form.inventoryQty"
                 placeholder="系统自动计算"
                 disabled
@@ -560,7 +565,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="库存上限" prop="upperLimit">
-              <el-input
+              <el-input aria-label="库存上限"
                 v-model="form.upperLimit"
                 placeholder="请输入库存上限"
                 maxlength="30"
@@ -569,7 +574,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="库存下限" prop="lowerLimit">
-              <el-input
+              <el-input aria-label="库存下限"
                 v-model="form.lowerLimit"
                 placeholder="请输入库存下限"
                 maxlength="30"
@@ -580,7 +585,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="默认仓库" prop="defaultWarehouse">
-              <el-input
+              <el-input aria-label="默认仓库"
                 v-model="form.defaultWarehouse"
                 placeholder="请输入默认仓库"
                 maxlength="30"
@@ -589,7 +594,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="状态">
-              <el-radio-group v-model="form.status">
+              <el-radio-group aria-label="状态" v-model="form.status">
                 <el-radio
                   v-for="dict in sys_normal_disable"
                   :key="dict.value"
@@ -603,7 +608,7 @@
         <el-row>
           <el-col :span="24">
             <el-form-item label="备注">
-              <el-input
+              <el-input aria-label="备注"
                 v-model="form.notes"
                 type="textarea"
                 placeholder="请输入内容"
@@ -614,17 +619,17 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
+          <el-button type="primary" @click="submitForm">保存</el-button>
+          <el-button @click="cancel">取消</el-button>
         </div>
       </template>
     </el-dialog>
 
     <!-- 货品导入对话框 -->
-    <el-dialog
+    <el-dialog class="erp-dialog"
       :title="upload.title"
       v-model="upload.open"
-      width="400px"
+      width="min(400px, calc(100vw - 24px))"
       append-to-body
     >
       <el-upload
@@ -646,7 +651,7 @@
             <div class="el-upload__tip">
               <el-checkbox
                 v-model="upload.updateSupport"
-              />是否更新已经存在的货品数据
+              >更新已有货品数据</el-checkbox>
             </div>
             <span>仅允许导入xls、xlsx格式文件。</span>
             <el-link
@@ -661,8 +666,8 @@
       </el-upload>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitFileForm">确 定</el-button>
-          <el-button @click="upload.open = false">取 消</el-button>
+          <el-button type="primary" @click="submitFileForm">开始导入</el-button>
+          <el-button @click="upload.open = false">取消</el-button>
         </div>
       </template>
     </el-dialog>
@@ -990,3 +995,5 @@ getList();
 .product-table :deep(.product-actions .el-button) { width: 30px; min-width: 30px; height: 32px; min-height: 32px; margin: 0; padding: 6px; }
 .product-table :deep(.product-actions .el-button:focus-visible) { outline: 2px solid var(--sc-primary); outline-offset: 2px; }
 </style>
+
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

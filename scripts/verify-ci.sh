@@ -66,6 +66,7 @@ export FUSION_REDIS_URL="redis://127.0.0.1:$verification_redis_port/8"
 (
     cd ks-inventory-system/ks-vue3
     npm ci
+    npm run test:business
     VITE_APP_TITLE='铠思进销存系统' VITE_APP_ENV=production VITE_APP_BASE_API=/prod-api VITE_BUILD_COMPRESS=gzip npm run build:prod
 ) > logs/engineering-ci/admin-build.log 2>&1
 (

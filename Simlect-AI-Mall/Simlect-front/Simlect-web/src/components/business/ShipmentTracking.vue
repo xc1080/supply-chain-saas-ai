@@ -1,7 +1,8 @@
 <template>
   <div class="shipment-track">
     <div class="track-heading"><strong>{{ shipment.carrier || shipment.carrierCode || '物流' }} · {{ shipment.trackingNo }}</strong><el-button text size="small" :loading="loading" @click="load">刷新轨迹</el-button></div>
-    <p>{{ shipment.createdAt }} · 出库单 {{ shipment.receiptId }} <el-tag size="small" type="info">模拟物流</el-tag></p>
+    <p>{{ shipment.createdAt }} <el-tag size="small" type="info">模拟物流</el-tag></p>
+    <details v-if="shipment.receiptId"><summary>出库记录</summary><p>{{ shipment.receiptId }}</p></details>
     <p v-for="line in shipment.items || []" :key="line.productId">{{ items.find(item => String(item.productId) === String(line.productId))?.productName || line.productId }} × {{ line.quantity }}</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-timeline v-if="tracking?.events?.length"><el-timeline-item v-for="event in tracking.events" :key="event.eventId" :timestamp="event.occurredAt"><strong>{{ event.statusLabel || event.status }}</strong><span v-if="event.location"> · {{ event.location }}</span><p>{{ event.description }}</p></el-timeline-item></el-timeline>
@@ -24,4 +25,5 @@ watch(() => props.shipment.shipmentId, () => { tracking.value = null; void load(
 </script>
 <style scoped>
 .shipment-track{padding:12px 0;border-bottom:1px solid #eceef1}.shipment-track:last-child{border-bottom:0}.track-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}.shipment-track p{font-size:12px;color:#667085;margin:7px 0}.shipment-track .el-timeline{padding-left:15px;margin-top:20px}
+.track-heading strong{min-width:0;overflow-wrap:anywhere;font-size:14px;line-height:1.6}.track-heading .el-button{flex-shrink:0}.shipment-track details{font-size:12px;color:#6b7f86;overflow-wrap:anywhere}.shipment-track summary{width:fit-content;cursor:pointer;padding:4px 0}
 </style>

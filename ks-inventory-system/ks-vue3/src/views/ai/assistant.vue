@@ -28,7 +28,7 @@
               <svg viewBox="0 0 32 32" fill="none"><path d="m16 4 11 6.5v12L16 29 5 22.5v-12L16 4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m5 10.5 11 6 11-6M16 16.5V29M10.5 7.2l11 6.3v5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
             </div>
             <h3>从客户需求开始选品</h3>
-            <p>描述要用在哪里、预算多少、有哪些设备，或者直接问库存与业务规则。</p>
+            <p>告诉我使用场景、预算和已有设备。</p>
 
           </div>
 
@@ -124,8 +124,8 @@
         <section class="selection-guide">
           <h2 id="selection-heading">快捷提问</h2>
           <div class="suggested-prompts">
-            <button v-for="(question, index) in questions" :key="question" type="button" :disabled="loading || !shopId" @click="sendMessage(question)">
-              <span class="prompt-topic">{{ questionTopics[index] }}</span><span class="prompt-question">{{ question }}</span>
+            <button v-for="question in questions" :key="question" type="button" :disabled="loading || !shopId" @click="sendMessage(question)">
+              <span class="prompt-question">{{ question }}</span>
             </button>
           </div>
         </section>
@@ -147,7 +147,6 @@ import { getCommerceShop, listCommerceShops, setCommerceShop } from '@/api/comme
 import { getProductImage, handleProductImageError } from '@/utils/productMedia'
 
 const questions = ['卧室 300 元以内的智能灯怎么选？', '我有 Zigbee 网关，适合选哪些传感器？', '缺货能直接出库吗？']
-const questionTopics = ['按预算选品', '查设备兼容', '问业务规则']
 const priceFormatter = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 const numberFormatter = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 3 })
 const draft = ref('')
@@ -306,16 +305,17 @@ async function sendMessage(suggestedQuestion) {
 </script>
 
 <style scoped>
-.assistant-page { max-width: 1480px; margin: 0 auto; padding: 28px 30px 32px; color: var(--sc-text); font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif; }
-.assistant-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 25px; }
-.assistant-heading h1 { margin: 0 0 8px; color: var(--sc-text); font-size: 26px; line-height: 1.4; font-weight: 650; letter-spacing: -.5px; text-wrap: balance; }
+.assistant-page { max-width: 1480px; margin: 0 auto; padding: 22px 30px 24px; color: var(--sc-text); font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif; }
+.assistant-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+.assistant-heading h1 { margin: 0; color: var(--sc-text); font-size: 24px; line-height: 1.4; font-weight: 650; letter-spacing: -.5px; text-wrap: balance; }
+.assistant-heading :deep(.el-select) { width: 240px; max-width: 100%; flex-shrink: 0; }
 .assistant-heading p { margin: 0; color: var(--sc-muted); font-size: 14px; line-height: 1.7; }
 .query-scope { display: flex; flex-shrink: 0; gap: 0; color: var(--sc-muted); font-size: 12px; }
 .query-scope span { padding: 2px 14px; border-left: 1px solid var(--sc-border); }
 .query-scope span:first-child { border-left: 0; }
 .assistant-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 278px; align-items: start; gap: 24px; }
 .chat-panel { min-width: 0; overflow: hidden; border: 1px solid var(--sc-border); border-radius: 14px; background: var(--sc-surface); box-shadow: var(--sc-shadow); }
-.chat-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 12px 24px; border-bottom: 1px solid var(--sc-border); }
+.chat-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 8px 20px; border-bottom: 1px solid var(--sc-border); }
 .chat-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .chat-title > svg { width: 21px; height: 21px; flex-shrink: 0; color: var(--sc-primary); }
 .chat-title h2 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.5; }
@@ -323,14 +323,14 @@ async function sendMessage(suggestedQuestion) {
 .new-conversation svg { width: 16px; height: 16px; }
 .new-conversation:hover:not(:disabled) { color: var(--sc-primary); border-color: var(--sc-border); background: var(--sc-primary-soft); }
 .new-conversation:disabled { opacity: .5; cursor: not-allowed; }
-.conversation { position: relative; height: clamp(360px, calc(100dvh - 390px), 660px); overflow-y: auto; overscroll-behavior: contain; padding: 26px 28px; scrollbar-width: thin; scrollbar-color: var(--sc-border) transparent; }
+.conversation { position: relative; height: clamp(180px, calc(100dvh - 440px), 660px); overflow-y: auto; overscroll-behavior: contain; padding: 22px 24px; scrollbar-width: thin; scrollbar-color: var(--sc-border) transparent; }
 .welcome { max-width: 540px; margin: 0 auto; padding: 20px 2px 12px; }
 .welcome-mark { display: grid; place-items: center; width: 46px; height: 46px; color: var(--sc-primary); background: var(--sc-primary-soft); border-radius: 12px; margin-bottom: 20px; }
 .welcome-mark svg { width: 29px; height: 29px; }
 .welcome h3 { margin: 0 0 9px; font-size: 21px; font-weight: 600; letter-spacing: -.3px; line-height: 1.5; text-wrap: balance; }
 .welcome > p { margin: 0 0 24px; color: var(--sc-muted); font-size: 14px; line-height: 1.8; max-width: 440px; }
 .suggested-prompts { display: grid; gap: 10px; }
-.suggested-prompts button { display: grid; grid-template-columns: 80px minmax(0, 1fr) 18px; align-items: center; gap: 12px; width: 100%; padding: 14px 15px; border: 1px solid var(--sc-border); border-radius: 9px; background: var(--sc-surface); color: var(--sc-text); font: inherit; text-align: left; cursor: pointer; transition: border-color .16s, background-color .16s, color .16s; }
+.suggested-prompts button { display: block; width: 100%; padding: 12px 14px; border: 1px solid var(--sc-border); border-radius: 9px; background: var(--sc-surface); color: var(--sc-text); font: inherit; text-align: left; cursor: pointer; transition: border-color .16s, background-color .16s, color .16s; }
 .suggested-prompts button:hover:not(:disabled) { border-color: var(--sc-primary); background: var(--sc-primary-soft); }
 .suggested-prompts button:disabled { cursor: wait; opacity: .6; }
 .prompt-topic { font-size: 12px; color: var(--sc-muted); }
@@ -383,14 +383,14 @@ async function sendMessage(suggestedQuestion) {
 .pending-message { display: flex; align-items: center; gap: 9px; color: var(--sc-muted); font-size: 13px; line-height: 1.7; }
 .loading-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: var(--sc-primary); animation: pulse 1.2s infinite; }
 @keyframes pulse { 50% { opacity: .3; } }
-.composer { padding: 19px 24px 20px; border-top: 1px solid var(--sc-border); background: var(--sc-surface); }
+.composer { padding: 14px 20px 16px; border-top: 1px solid var(--sc-border); background: var(--sc-surface); }
 .composer-label { display: inline-block; margin-bottom: 10px; color: var(--sc-text); font-size: 12px; font-weight: 500; line-height: 1.5; }
-.composer :deep(.el-textarea__inner) { padding: 12px 14px 24px; border-radius: 9px; background: var(--sc-surface-soft); color: var(--sc-text); font-family: inherit; font-size: 13px; line-height: 1.7; box-shadow: 0 0 0 1px var(--sc-border) inset; }
+.composer :deep(.el-textarea__inner) { padding: 10px 12px 20px; border-radius: 9px; background: var(--sc-surface-soft); color: var(--sc-text); font-family: inherit; font-size: 14px; line-height: 1.6; box-shadow: 0 0 0 1px var(--sc-border) inset; }
 .composer :deep(.el-textarea__inner::placeholder) { color: var(--sc-muted); }
 .composer :deep(.el-textarea__inner:focus) { box-shadow: 0 0 0 1px var(--sc-primary) inset; }
 .composer :deep(.el-input__count) { background: transparent; color: var(--sc-muted); font-size: 10px; }
 .composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
-.composer-footer > span { color: var(--sc-muted); font-size: 11px; line-height: 1.5; }
+.composer-footer > span { color: var(--sc-muted); font-size: 12px; line-height: 1.5; }
 .composer-footer :deep(.el-button) { min-height: 38px; padding: 8px 19px; border-radius: 8px; font-family: inherit; }
 .error-alert { margin-bottom: 14px; padding: 10px 12px; border-left: 3px solid var(--sc-warning); border-radius: 4px; color: var(--sc-text); background: var(--sc-surface-soft); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
 .selection-context { min-width: 0; padding: 0; margin: 0; background: transparent; border-radius: 0; font: inherit; line-height: normal; }
@@ -413,7 +413,8 @@ async function sendMessage(suggestedQuestion) {
 @media (max-width: 600px) {
   .assistant-page { padding: 20px 14px 25px; }
   .assistant-heading { align-items: flex-start; flex-direction: column; gap: 12px; margin-bottom: 18px; }
-  .assistant-heading h1 { font-size: 23px; }
+  .assistant-heading h1 { font-size: 22px; }
+  .assistant-heading :deep(.el-select) { width: 100%; }
   .assistant-heading p { font-size: 12px; }
   .query-scope { font-size: 11px; }
   .query-scope span { padding: 0 12px; }
@@ -437,7 +438,7 @@ async function sendMessage(suggestedQuestion) {
   .product-image { width: calc(100% + 32px); margin: -16px -16px 14px; }
   .composer { padding: 14px 16px 16px; }
   .composer-label { margin-bottom: 8px; }
-  .composer-footer > span { max-width: 120px; font-size: 10px; }
+  .composer-footer > span { display: none; }
   .composer-footer :deep(.el-button) { padding: 8px 14px; }
   .selection-context { grid-template-columns: minmax(0, 1fr); }
   .selection-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; margin-top: 12px; }

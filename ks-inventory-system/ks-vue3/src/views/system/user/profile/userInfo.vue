@@ -4,10 +4,10 @@
          <el-input v-model="form.nickName" maxlength="30" />
       </el-form-item>
       <el-form-item label="手机号码" prop="phonenumber">
-         <el-input v-model="form.phonenumber" maxlength="11" />
+         <el-input v-model="form.phonenumber" type="tel" autocomplete="tel" maxlength="11" />
       </el-form-item>
       <el-form-item label="邮箱" prop="email">
-         <el-input v-model="form.email" maxlength="50" />
+         <el-input v-model="form.email" type="email" autocomplete="email" maxlength="50" />
       </el-form-item>
       <el-form-item label="性别">
          <el-radio-group v-model="form.sex">
@@ -17,7 +17,7 @@
       </el-form-item>
       <el-form-item>
       <el-button type="primary" @click="submit">保存</el-button>
-      <el-button type="danger" @click="close">关闭</el-button>
+      <el-button @click="close">关闭</el-button>
       </el-form-item>
    </el-form>
 </template>

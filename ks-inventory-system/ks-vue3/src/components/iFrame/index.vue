@@ -1,15 +1,17 @@
 <template>
   <div v-loading="loading" :style="'height:' + height">
-    <iframe 
-      :src="url" 
-      frameborder="no" 
-      style="width: 100%; height: 100%" 
+    <iframe
+      :src="url"
+      :title="title"
+      frameborder="no"
+      style="width: 100%; height: 100%"
       scrolling="auto" />
   </div>
 </template>
 
 <script setup>
 const props = defineProps({
+  title: { type: String, default: "嵌入页面" },
   src: {
     type: String,
     required: true

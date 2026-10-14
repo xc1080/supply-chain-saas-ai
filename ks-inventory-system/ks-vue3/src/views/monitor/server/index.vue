@@ -1,7 +1,10 @@
 <template>
   <div class="app-container">
+    <el-alert v-if="loadError" title="服务器监控数据暂时不可用" type="error" :closable="false" show-icon class="mb20">
+      <el-button link type="primary" @click="getList">重新加载</el-button>
+    </el-alert>
     <el-row>
-      <el-col :span="12" class="card-box">
+      <el-col :span="12" :xs="24" class="card-box">
         <el-card>
           <template #header><Cpu style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">CPU</span></template>
           <div class="el-table el-table--enable-row-hover el-table--medium">
@@ -35,7 +38,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="12" class="card-box">
+      <el-col :span="12" :xs="24" class="card-box">
         <el-card>
           <template #header><Tickets style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">内存</span></template>
           <div class="el-table el-table--enable-row-hover el-table--medium">
@@ -173,15 +176,27 @@
 import { getServer } from '@/api/monitor/server'
 
 const server = ref([]);
+const loadError = ref(false);
 const { proxy } = getCurrentInstance();
 
 function getList() {
+  loadError.value = false;
   proxy.$modal.loading("正在加载服务监控数据，请稍候！");
-  getServer().then(response => {
+  return getServer().then(response => {
     server.value = response.data;
+  }).catch(() => {
+    loadError.value = true;
+  }).finally(() => {
     proxy.$modal.closeLoading();
   });
 }
 
 getList();
 </script>
+
+<style lang="scss" scoped>
+.app-container > .el-row { row-gap: 6px; }
+.el-table:has(> table) { overflow-x: auto; }
+.el-table > table .cell { overflow-wrap: anywhere; }
+@media (max-width: 767px) { .el-table > table:has(td:nth-child(4)), .el-table > table:has(th:nth-child(4)) { min-width: 620px; } }
+</style>

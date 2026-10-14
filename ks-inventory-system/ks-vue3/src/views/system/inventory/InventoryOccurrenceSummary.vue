@@ -1,6 +1,6 @@
 <template>
   <!-- 库存发生汇总 -->
-  <div class="app-container">
+  <div class="app-container erp-page">
     <el-row :gutter="20">
       <el-col :span="24" :xs="24">
         <el-form
@@ -10,18 +10,8 @@
           :model="queryParams"
           label-width="100px"
         >
-          <el-form-item label="发生时间" style="width: 388px">
-            <el-date-picker
-              v-model="dateRange"
-              value-format="YYYY-MM-DD"
-              type="daterange"
-              range-separator="-"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-            ></el-date-picker>
-          </el-form-item>
           <el-form-item label="货品编号" prop="productCode">
-            <el-input
+            <el-input aria-label="货品编号"
               v-model="queryParams.productCode"
               placeholder="请输入货品编号"
               clearable
@@ -30,7 +20,7 @@
             />
           </el-form-item>
           <el-form-item label="货品名称" prop="productName">
-            <el-input
+            <el-input aria-label="货品名称"
               v-model="queryParams.productName"
               placeholder="请输入货品名称"
               clearable
@@ -38,32 +28,11 @@
               @keyup.enter="handleQuery"
             />
           </el-form-item>
-          <el-form-item label="货品类型" prop="productType">
-            <el-tree-select
-              class="form-item"
-              v-model="form.productType"
-              :data="typeOptions"
-              :props="{ value: 'id', label: 'label', children: 'children' }"
-              value-key="id"
-              placeholder="请选择货品类型"
-              clearable
-              check-strictly
-            />
-          </el-form-item>
-          <el-form-item label="商品规格" prop="productSpecifications">
-            <el-input
-              v-model="queryParams.productSpecifications"
-              placeholder="请输入商品规格"
-              clearable
-              class="form-item"
-              @keyup.enter="handleQuery"
-            />
-          </el-form-item>
           <el-form-item label="仓库" prop="warehousingId">
-            <el-select
+            <el-select aria-label="仓库"
               class="form-item"
               v-model="queryParams.warehousingId"
-              placeholder="请选择"
+              placeholder="选择仓库"
               filterable
               clearable
             >
@@ -75,6 +44,16 @@
               ></el-option>
             </el-select>
           </el-form-item>
+          <el-form-item label="发生时间" style="width: 388px">
+                <el-date-picker aria-label="发生时间"
+                  v-model="dateRange"
+                  value-format="YYYY-MM-DD"
+                  type="daterange"
+                  range-separator="-"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                ></el-date-picker>
+              </el-form-item>
           <el-form-item>
             <el-button
               type="primary"
@@ -83,13 +62,13 @@
               v-hasPermi="['inventory:inventoryOccurrenceSummary:list']"
               >查询</el-button
             >
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            <el-button plain icon="Refresh" @click="resetQuery">重置</el-button>
           </el-form-item>
         </el-form>
         <el-row :gutter="10" class="mb8">
           <!-- <el-col :span="1.5">
             <el-button
-              type="danger"
+              type="default"
               plain
               icon="Download"
               @click="handleDetailExport"
@@ -117,7 +96,7 @@
             width="60"
           />
           <el-table-column label="仓库" align="center" prop="warehousingName" />
-          <el-table-column
+          <el-table-column min-width="160"
             label="货品编号"
             align="center"
             prop="product.productCode"
@@ -128,52 +107,52 @@
             prop="product.productName" min-width="230">
             <template #default="scope"><ProductIdentity :product="scope.row" /></template>
           </el-table-column>
-          <el-table-column
+          <el-table-column min-width="130"
             label="货品类型"
             align="center"
             prop="type.productTypeName"
           />
-          <el-table-column
+          <el-table-column min-width="140"
             label="规格"
             align="center"
             prop="product.productSpecifications"
           />
-          <el-table-column
+          <el-table-column min-width="80"
             label="单位"
             align="center"
             prop="product.measureUnit"
           />
           <el-table-column label="期初结存" align="center">
-            <el-table-column
+            <el-table-column min-width="110"
               label="数量"
-              align="center"
+              align="right"
               prop="obplanQuantity"
             />
-            <el-table-column label="金额" align="center" prop="obmoney" />
+            <el-table-column min-width="110" label="金额" align="right" prop="obmoney" />
           </el-table-column>
           <el-table-column label="本期入库" align="center">
-            <el-table-column
+            <el-table-column min-width="110"
               label="数量"
-              align="center"
+              align="right"
               prop="eiplanQuantity"
             />
-            <el-table-column label="金额" align="center" prop="eimoney" />
+            <el-table-column min-width="110" label="金额" align="right" prop="eimoney" />
           </el-table-column>
           <el-table-column label="本期出库" align="center">
-            <el-table-column
+            <el-table-column min-width="110"
               label="数量"
-              align="center"
+              align="right"
               prop="erplanQuantity"
             />
-            <el-table-column label="金额" align="center" prop="ermoney" />
+            <el-table-column min-width="110" label="金额" align="right" prop="ermoney" />
           </el-table-column>
           <el-table-column label="期末结存" align="center">
-            <el-table-column
+            <el-table-column min-width="110"
               label="数量"
-              align="center"
+              align="right"
               prop="cbplanQuantity"
             />
-            <el-table-column label="金额" align="center" prop="cbmoney" />
+            <el-table-column min-width="110" label="金额" align="right" prop="cbmoney" />
           </el-table-column>
         </el-table>
         <!-- 分页组件 -->
@@ -251,7 +230,6 @@ function handleQuery() {
 }
 /** 重置按钮操作 */
 function resetQuery() {
-  typeOptions.value = undefined;
   dateRange.value = [];
   proxy.resetForm("queryRef");
   handleQuery();
@@ -287,3 +265,4 @@ Options();
   width: 200px;
 }
 </style>
+<style scoped lang="scss" src="@/components/ERPWorkspace/erp-page.scss"></style>

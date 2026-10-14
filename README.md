@@ -69,6 +69,7 @@ mvn -f ks-inventory-system/pom.xml test
 python fusion-agent/run_tests.py
 python -m unittest discover -s scripts -p 'test_*.py' -v
 npm --prefix ks-inventory-system/ks-vue3 ci
+npm --prefix ks-inventory-system/ks-vue3 run test:business
 npm --prefix ks-inventory-system/ks-vue3 run build:prod
 npm --prefix Simlect-AI-Mall/Simlect-front/Simlect-web ci
 npm --prefix Simlect-AI-Mall/Simlect-front/Simlect-web run test:sku

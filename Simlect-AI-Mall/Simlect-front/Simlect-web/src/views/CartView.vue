@@ -30,6 +30,7 @@
         <!-- [zh] 开始标签 `<el-checkbox>` -->
         <el-checkbox
           class="item-check"
+          :aria-label="`选择${row.productName}`"
           :model-value="selectedIds.has(row.cartId)"
           :disabled="!row.productOnSale"
           @change="onItemCheckChange(row.cartId, $event)"
@@ -37,7 +38,7 @@
         <!-- [zh] 开始标签 `<RouterLink>` -->
         <RouterLink :to="`/product/${row.productId}`" class="item-cover-col">
           <!-- [zh] 开始标签 `<ProductImage>` -->
-          <ProductImage :source="row.productCover" class="item-cover-img" />
+              <ProductImage :source="row.productCover" :alt="row.productName" class="item-cover-img" />
         <!-- [zh] 闭合标签 `</RouterLink>` -->
         </RouterLink>
         <!-- [zh] 开始标签 `<div>` -->
@@ -147,7 +148,6 @@
         <!-- [zh] 开始标签 `<span>` -->
         <span class="recommend-title">为你推荐</span>
         <!-- [zh] 开始标签 `<span>` -->
-        <span class="recommend-sub">猜你喜欢 · 更多好物</span>
       <!-- [zh] 闭合标签 `</header>` -->
       </header>
       <!-- [zh] 开始标签 `<div>` -->

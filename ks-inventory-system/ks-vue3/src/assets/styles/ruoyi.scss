@@ -78,9 +78,9 @@
 	.el-table__header-wrapper, .el-table__fixed-header-wrapper {
 		th {
 			word-break: break-word;
-			background-color: #f8f8f9 !important;
-			color: #515a6e;
-			height: 40px !important;
+			background-color: var(--sc-surface-soft);
+			color: var(--sc-muted);
+			min-height: 40px;
 			font-size: 13px;
 		}
 	}
@@ -94,8 +94,8 @@
 /** 表单布局 **/
 .form-header {
     font-size:15px;
-	color:#6379bb;
-	border-bottom:1px solid #ddd;
+	color:var(--sc-text);
+	border-bottom:1px solid var(--sc-border);
 	margin:8px 10px 25px 10px;
 	padding-bottom:5px
 }
@@ -103,24 +103,24 @@
 /** 表格布局 **/
 .pagination-container {
 	// position: relative;
-	height: 25px;
+	min-height: 40px;
 	margin-bottom: 10px;
 	margin-top: 15px;
-	padding: 10px 20px !important;
+	padding: 12px 0;
 }
 
 /* tree border */
 .tree-border {
     margin-top: 5px;
-    border: 1px solid #e5e6e7;
-    background: #FFFFFF none;
+    border: 1px solid var(--sc-border);
+    background: var(--sc-surface);
     border-radius:4px;
     width: 100%;
 }
 
 .pagination-container .el-pagination {
-	right: 0;
-	position: absolute;
+	position: static;
+	justify-content: flex-end;
 }
 
 @media ( max-width : 768px) {
@@ -141,7 +141,7 @@
 /** 表格更多操作下拉样式 */
 .el-table .el-dropdown-link {
 	cursor: pointer;
-	color: #409EFF;
+	color: var(--sc-primary);
 	margin-left: 10px;
 }
 
@@ -167,8 +167,8 @@
 }
 
 .list-group-item {
-	border-bottom: 1px solid #e7eaec;
-	border-top: 1px solid #e7eaec;
+	border-bottom: 1px solid var(--sc-border);
+	border-top: 1px solid var(--sc-border);
 	margin-bottom: -1px;
 	padding: 11px 0px;
 	font-size: 13px;
@@ -179,12 +179,12 @@
 }
 
 .el-card__header {
-	padding: 14px 15px 7px !important;
+	padding: 14px 16px;
 	min-height: 40px;
 }
 
 .el-card__body {
-	padding: 15px 20px 20px 20px !important;
+	padding: 16px;
 }
 
 .card-box {
@@ -216,7 +216,7 @@
 
 /* text color */
 .text-navy {
-	color: #1ab394;
+	color: var(--sc-primary);
 }
 
 .text-primary {
@@ -224,23 +224,23 @@
 }
 
 .text-success {
-	color: #1c84c6;
+	color: var(--sc-success);
 }
 
 .text-info {
-	color: #23c6c8;
+	color: var(--sc-muted);
 }
 
 .text-warning {
-	color: #f8ac59;
+	color: var(--sc-warning);
 }
 
 .text-danger {
-	color: #ed5565;
+	color: var(--sc-danger);
 }
 
 .text-muted {
-	color: #888888;
+	color: var(--sc-muted);
 }
 
 /* image */

@@ -8,6 +8,7 @@
         v-if="pcAgentPanel.visible"
         class="pc-agent-float-root ignore"
         role="dialog"
+        aria-modal="true"
         aria-label="智能客服"
         @click.self="pcAgentPanel.close()"
       >
@@ -102,9 +103,9 @@ watch(
   /* [zh] 样式规则 `width: min(420px, calc(100vw - 48px));` */
   width: min(420px, calc(100vw - 48px));
   /* [zh] 样式规则 `height: min(680px, calc(100vh - 80px));` */
-  height: min(680px, calc(100vh - 80px));
+  height: min(680px, calc(100dvh - 48px));
   /* [zh] 样式规则 `min-height: 520px;` */
-  min-height: 520px;
+  min-height: 0;
   /* [zh] 样式规则 `max-width: 420px;` */
   max-width: 420px;
   /* [zh] 样式规则 `display: flex;` */

@@ -50,7 +50,7 @@
       <!-- [zh] 闭合标签 `</svg>` -->
       </svg>
       <!-- [zh] 开始标签 `<span>` -->
-      <span>达到运营配置的连续签到周期后，将自动发放优惠券奖励。</span>
+      <span>连续签到达标后自动发放优惠券。</span>
     <!-- [zh] 闭合标签 `</section>` -->
     </section>
 
@@ -59,11 +59,11 @@
       <!-- [zh] 开始标签 `<header>` -->
       <header class="calendar-head">
         <!-- [zh] 开始标签 `<button>` -->
-        <button type="button" class="nav-btn" @click="prevMonth">‹</button>
+        <button type="button" class="nav-btn" aria-label="上个月" @click="prevMonth">‹</button>
         <!-- [zh] 开始标签 `<h3>` -->
         <h3>{{ currentYear }}年{{ currentMonth + 1 }}月</h3>
         <!-- [zh] 开始标签 `<button>` -->
-        <button type="button" class="nav-btn" @click="nextMonth">›</button>
+        <button type="button" class="nav-btn" aria-label="下个月" @click="nextMonth">›</button>
       <!-- [zh] 闭合标签 `</header>` -->
       </header>
 
