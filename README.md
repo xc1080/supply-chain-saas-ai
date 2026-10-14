@@ -1,96 +1,121 @@
-# supply-chain-saas-ai
+# Supply Chain SaaS AI
 
-智能家居供应链 SaaS 学习工程：Java 单体负责业务事实，Python 提供商城适配与受约束的 AI Agent，两个 Vue 前端分别服务商家和消费者。
+**面向智能家居场景的供应链管理与 AI 商城。**
 
-本轮实际执行的测试、订单验收和验证边界见 [工程验收记录](工程验收记录.md)。
+整合商家进销存、消费者购物和 AI 助手，覆盖采购、库存、下单、发货、售后与结算。业务后端采用 Java 单体架构，Python 提供商城 API 适配、商品检索和 Agent 服务，两个 Vue 3 前端分别面向商家与消费者。
 
-本仓库的部署入口以本文件为准。`ks-inventory-system`、`Simlect-AI-Mall` 保留上游介绍和参考代码，不能将两份上游 README 当作当前系统的独立启动说明。
+项目用于学习和实践供应链业务、SaaS 多租户设计及 AI 工具调用。支付和物流使用模拟渠道，商品资料与演示交易数据用于功能验证。
 
-## 当前业务权威
+[功能特性](#功能特性) · [界面预览](#界面预览) · [技术架构](#技术架构) · [开始使用](#开始使用) · [工程验收](#工程验收)
 
-| 组件 | 职责 | 本机已有学习环境 |
-|---|---|---|
-| `ks-inventory-system/ruoyi-admin` | 商品/SKU、采购、ERP库存、仓库分配、订单、支付操作、发货、售后、成本与费用；MySQL 为事实来源 | `127.0.0.1:8035` |
-| `fusion-agent` | C端 API 适配、共享会话、检索、Agent规划/工具/审批任务；业务写入经过 Java 权限和事务检查 | `127.0.0.1:7050`，第二租户 `7051` |
-| `ks-inventory-system/ks-vue3` | 商家控制台 | `127.0.0.1:5173` |
-| `Simlect-AI-Mall/Simlect-front/Simlect-web` | 消费者商城，当前使用 `demo` 构建模式连接融合后的 API | `127.0.0.1:6001` |
-| MySQL / Redis | ERP与交易账本 / 共享会话及准入控制 | `3306` / `6379` |
+## 功能特性
 
-`Simlect-AI-Mall/Simlect-backend` 的原 Java 微服务和原 Agent 是保留的上游参考，当前融合部署不依赖它们，也不需要启动另一套订单或库存服务。
+| 模块 | 主要功能 |
+| --- | --- |
+| 商家工作台 | 库存关注、单据待办、采购与销售查询、商品缩略图、来源单据追溯 |
+| 商品与 SKU | 商品上架、规格管理、SKU 映射、价格与库存查询 |
+| 采购与仓储 | 采购订单、分批入库、退供、仓库调拨、多仓订单分配、在途与供货变更 |
+| 消费者商城 | 商品浏览与搜索、购物车、下单、支付沙箱、订单查询、活动与秒杀 |
+| 订单与售后 | 订单占用、超时释放、部分发货、退货退款、寄回凭证、质检与返库 |
+| 成本与结算 | 优惠及运费分摊、成本流水、退款政策、费用审批与支付、经营结果核对 |
+| AI 应用 | 关键词与向量检索、RAG 问答、商品选型、经营与备货规划、工具调用及审批任务 |
+| SaaS 与权限 | 租户业务库隔离、店铺角色与能力校验、共享会话、操作与执行记录 |
 
-库存统一通过 ERP 业务单据、订单占用及库存流水解释，不能直接修改余额绕过单据。Java 校验租户、店铺与角色；Agent 的工具注册和模型输出不能代替这些检查。
+### AI 如何参与业务
 
-## 金额与结算规则
+消费者可以通过自然语言查找商品、了解设备协议和配套条件；商家可以查询库存、供货及订单事实，形成备货建议和采购任务。
 
-- 金额以分计算，优惠和运费先分摊再生成订单快照；修改当前商品价格或店铺政策不修改历史订单。
-- V17 新增 `shippingRefundPolicy`：新订单默认 `UNSHIPPED_ONLY`，未发货退款退其分摊运费，已发货退货只退优惠后货款；商家可选择 `PROPORTIONAL` 按件退分摊运费。已有金额快照保留原 `PROPORTIONAL` 规则。质量问题、全退退运费等其他规则尚未实现。
-- `accountingStatus=COMPLETE` 表示订单经营核算具备完整依据；已批准费用按权责发生制计入结果。`expensePaymentStatus` 独立区分未支付、部分支付、已付清、无费用和待审核，不能由经营结果推断资金已结清。
-- 新经营结果使用 `resultStatus=ACCOUNTED`；历史快照里的 `CLOSED` 保留原样，不代表已经查证费用付清。
-- `allItemsRefunded` 与 `fullAmountRefunded` 分开表达；全部商品退完但保留运费时，不应显示全额退款。
-- 支付与费用支付 Provider 为 `LOCAL_SANDBOX`，物流为模拟 Provider。验收证明业务联动，不能替代正式渠道的回调、资金账单和物流接入验收。
+Agent 负责选择工具、检索资料和组织方案。价格、库存、租户权限及单据约束由 Java 业务服务校验，采购执行等写操作遵循业务审批流程。未配置模型时使用规则或检索降级，界面会区分运行方式。
 
-## 可重复的真实 MySQL 验收
+## 界面预览
 
-需要 JDK 17（含 `javac`）、Maven 3.9、Python 3.12/3.13、MySQL 8 客户端与服务、Redis，以及可安装 `fusion-agent/requirements-lock.txt` 和 `requirements.txt` 的 Python 环境。前端另需要 Node.js 24 与 npm。
+### 商家工作台
 
-已有本机学习环境使用以下入口，不需要停止现有业务服务：
+库存关注与单据待办集中展示，可从工作台进入采购、销售、库存和商城订单。
 
-```powershell
-powershell -File scripts/verify-local.ps1
+![商家工作台：库存关注、单据待办和业务入口](docs/images/admin-dashboard.png)
+
+### 消费者商城
+
+提供商品分类、搜索、活动入口与智能客服，商品展示与商家端共用业务库存。
+
+![消费者商城：商品分类、商品列表与智能客服入口](docs/images/storefront.png)
+
+### 登录工作空间
+
+![商家登录工作空间](docs/images/admin-login.png)
+
+## 技术架构
+
+| 层次 | 技术 | 职责 |
+| --- | --- | --- |
+| 业务服务 | Java、Spring Boot、Spring Security、MyBatis | 商品、采购、库存、订单、履约、售后与结算 |
+| AI 与商城适配 | Python、FastAPI、LangGraph | 消费者 API、检索、Agent 规划和工具调用 |
+| 商家前端 | Vue 3、Vite、Element Plus | 供应链管理与商家工作台 |
+| 消费者前端 | Vue 3、TypeScript、Vite、Element Plus | 商品浏览、购物车、订单与 AI 客服 |
+| 数据与缓存 | MySQL、Redis、SQLite | 业务单据与流水、会话及准入控制、Agent 运行记录 |
+
+MySQL 保存业务单据、库存和交易账本。商城与 ERP 共用库存入口，业务写入统一经过 Java 服务；Python 不直接修改业务库存。
+
+### 项目结构
+
+```text
+supply-chain-saas-ai/
+├── ks-inventory-system/
+│   ├── ruoyi-admin/                 # Java 单体启动入口
+│   ├── ruoyi-system/                # 供应链与商城业务
+│   └── ks-vue3/                     # 商家工作台
+├── fusion-agent/                    # AI Agent 与消费者 API 适配
+├── Simlect-AI-Mall/
+│   └── Simlect-front/Simlect-web/    # 消费者商城
+├── scripts/                         # CI、迁移与业务验收
+└── docs/                            # 工程说明和界面截图
 ```
 
-需要同时验收混合负载时使用 `powershell -File scripts/verify-local.ps1 -MixedLoad`，或在 Python 入口追加 `--mixed-load`。该阶段只使用本次创建的私有数据库与应用，设置虚构商家的处理能力为每天 1000 件，执行 1000 个独立会话、目标 60 浏览请求/秒、120 秒内 200 笔订单；不会调大现有商家的处理能力。容量检查在创建访客和采购入库之前执行，锁内业务校验仍是最终裁决。
+保留的 `Simlect-AI-Mall/Simlect-backend` 是上游参考代码，当前部署使用上述 Java 单体与 `fusion-agent`。根目录的运行说明对应这套融合后的系统。
 
-跨平台入口：
+## 开始使用
+
+### 环境要求
+
+- JDK 17、Maven 3.9
+- Python 3.12 或 3.13
+- Node.js 24、npm
+- MySQL 8、Redis
 
 ```bash
-python scripts/verify_engineering.py --help
-python scripts/verify_engineering.py --mysql-host 127.0.0.1 --mysql-port 13306 --redis-url redis://127.0.0.1:16379/0 --output logs/engineering-acceptance
+git clone https://github.com/xc1080/supply-chain-saas-ai.git
+cd supply-chain-saas-ai
 ```
 
-管理员连接密码通过 `VERIFY_MYSQL_PASSWORD` 或私有 `--mysql-defaults` 文件提供，不写入仓库。没有现成基础设施时，可用 `scripts/compose.engineering.yml` 建立独立的 MySQL/Redis；该 Compose 只提供验收基础设施，应用进程由验收脚本启动。先设置一次性验收密码，再执行：
+### 本地运行
 
-```bash
-docker compose -p supply-chain-verification -f scripts/compose.engineering.yml up -d --wait
-```
+配置数据库、Redis、服务账号和模型参数后，构建 Java 与两个前端，再启动业务服务和 Agent。Windows 环境已有分服务启动脚本及 `start-fusion-demo.ps1`。
 
-脚本在独立源码副本中打包，生成新的数据库名、凭证与 SQLite 文件，并使用独立端口。正常结束或失败时仅结束本次启动的进程；数据库与凭证在报告所指的私有目录中保留，便于调查。JSON/日志报告与私有凭证目录分开，不上传私有目录。
+完整步骤见 [本地运行说明](本地运行.md)，配置与部署边界见 [工程运行与验收](docs/engineering.md)。启动脚本依赖本机私有配置，仓库不包含数据库密码、模型密钥或现成数据库。
 
-验收包括全新 ERP 建库与 V1–最新迁移、归档 V11 程序启动后升级、重复启动、DDL 后失败与显式重试、checksum 变更拦截，以及采购、优惠订单、支付、部分发货、寄回凭证、质检返库、退款、费用审批/分次支付、经营快照和只读 Agent 联调。另验证支付成功但响应丢失、应用重启、共享会话恢复、支付查询重试和未付款订单超时释放。
+| 服务 | 默认本地地址 |
+| --- | --- |
+| 商家工作台 | `http://127.0.0.1:5173` |
+| 消费者商城 | `http://127.0.0.1:6001` |
+| Java 业务服务 | `http://127.0.0.1:8035` |
+| Python Agent / 商城 API | `http://127.0.0.1:7050` |
 
-升级入口默认 `--historical-ref f8095f63760a`，需要该 Git 历史。脚本通过 `git archive` 导出并构建旧程序，实际运行到 V11，再启动当前程序；遗留业务数据为合成验收数据。迁移 checksum 按文件原始字节计算，因此旧源码只在确认 SQL 内容一致后，在私有构建副本中对齐当前平台的换行。报告保存旧提交、旧产物 SHA 和每份资源的对齐记录；该测试证明同平台升级，不代替跨平台换行兼容验证。
+## 工程验收
 
-结果在指定目录的 `engineering-result.json` 与每个场景的 `*-closing-business.json`；混合负载另有 `isolated-mixed-load.json`。必须检查 `passed`、`httpSmokeExecuted`、`latestMigration`、失败项及构建 SHA；`--migrations-only` 不能证明交易联调通过。报告目录需新建或为空，重复执行使用新的目录。
+仓库提供 Java / Python 回归、前端构建及独立 MySQL 业务验收。验收覆盖全新建库、旧版升级、重复启动，以及采购、支付、部分发货、退货返库、费用结算和故障恢复。
 
-## 测试与构建门禁
+- [GitHub Actions](https://github.com/xc1080/supply-chain-saas-ai/actions/workflows/engineering.yml)
+- [工程验收记录](工程验收记录.md)
+- [验收命令、金额规则与部署说明](docs/engineering.md)
 
-```bash
-mvn -f ks-inventory-system/pom.xml test
-python fusion-agent/run_tests.py
-python -m unittest discover -s scripts -p 'test_*.py' -v
-npm --prefix ks-inventory-system/ks-vue3 ci
-npm --prefix ks-inventory-system/ks-vue3 run test:business
-npm --prefix ks-inventory-system/ks-vue3 run build:prod
-npm --prefix Simlect-AI-Mall/Simlect-front/Simlect-web ci
-npm --prefix Simlect-AI-Mall/Simlect-front/Simlect-web run test:sku
-node --test Simlect-AI-Mall/Simlect-front/Simlect-web/scripts/refund-policy.test.mjs
-npm --prefix Simlect-AI-Mall/Simlect-front/Simlect-web run build:demo
-```
+支付及费用支付为 `LOCAL_SANDBOX`，物流为模拟 Provider。真实渠道接入与模型效果需单独验证；容量结果应结合测试机器与流量模型判断。
 
-Python 回归需要 Redis；`run_tests.py` 使用独立 SQLite、随机 Redis 命名空间和清空的模型密钥。AI 规则评测为 `fusion-agent/eval_ai_business.py`；`--live-model` 会调用已配置的真实模型，离线通过不能当作真实模型能力评测。
+## 项目来源与参考
 
-GitHub 自动验证定义在 `.github/workflows/engineering.yml`。文件存在不代表运行成功；以该提交的 Actions 结果与上传证据为准。本机执行结果同样不能冒充 GitHub Actions 已通过。
+- [ks-inventory-system](https://gitee.com/KrityCat/ks-inventory-system)：进销存与后台管理基础。
+- [Simlect-AI-Mall](https://github.com/Audreator/Simlect-AI-Mall)：商城界面与 AI 应用参考。
+- [RuoYi-Vue-Pro](https://github.com/YunaiV/ruoyi-vue-pro)：采购、SKU、订单等业务设计参考。
+- [启航 ERP](https://github.com/zeasin/qihang-erp-open)：渠道 SKU、订单与业务工具设计参考。
 
-当前两个前端构建入口为 `ks-inventory-system/ks-vue3`（商家端 `build:prod`）和 `Simlect-AI-Mall/Simlect-front/Simlect-web`（消费者端 `build:demo`）；两者的 `package-lock.json` 都需提交，CI 使用 `npm ci`。保留的 `Simlect-front/Simlect-admin` 是旧入口，不参与这套验证。
-
-Java 日志由 `logback-spring.xml` 初始化，默认写入 `${user.home}/.supply-chain-saas/logs`；可通过 `logging.file.path`、`LOGGING_FILE_PATH` 或 `--logging.file.path=...` 指定目录。隔离验收为各场景指定私有日志路径；当前程序使用 jar 内配置并记录该资源的 SHA256，仅归档 V11 使用当前外置兼容配置，避免旧程序的硬编码路径依赖。
-
-AI SQLite telemetry 为尽力记录，锁库等待最多 50 ms；记录失败不改变工具或 provider 的原始结果，也不输出原始异常或内容。Redis 准入、额度预留与 token 结算继续失败关闭，业务执行记录和权限核验仍是必需状态。
-
-## 使用现有学习环境
-
-保留的 Windows 启动入口是 `start-fusion-demo.ps1`，依赖本机私有 `runtime/` 配置和已构建产物；它不是全新机器的安装程序。详细端口、启动和检查说明见 [本地运行](本地运行.md)。全新环境首先使用上述隔离验收入口，避免复制其他人的私有数据与密钥。
-
-`runtime/`、`.env`、日志、数据库、模型凭证、`target/` 和 `dist/` 不入 Git。没有配置模型时允许明确的规则/检索降级，不能将降级回答标为真实大模型调用。
-
-容量测试入口为 `fusion-agent/smoke_mixed_load.py`，测试报告必须与硬件、流量模型和源码版本一起解读。1000个会话、60浏览请求/秒的测试，不等于1000个同时下单请求，也不能外推十万人秒杀容量。
+各上游项目保留原有源码说明和许可证。使用、分发或进一步开发时，请查看对应目录的许可文件。
